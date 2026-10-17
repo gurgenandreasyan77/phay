@@ -3,9 +3,18 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
-import type { AdminDataColumnDto, AdminDataTableDto, DataColumnType, DataTableSection } from "@/lib/adminApi";
+import type { AdminDataColumnDto, AdminDataTableDto, ColumnRole, DataColumnType, DataTableSection } from "@/lib/adminApi";
 import { Button, Card, FieldLabel, Input, Select, Textarea } from "../ui";
-import { COLUMN_TYPE_LABELS, COLUMN_TYPES, tablePath, tablesPath, validationErrors } from "./shared";
+import {
+  COLUMN_ROLES,
+  COLUMN_TYPE_LABELS,
+  COLUMN_TYPES,
+  ROLE_ORDER,
+  roleLabels,
+  tablePath,
+  tablesPath,
+  validationErrors,
+} from "./shared";
 
 type ColumnDraft = {
   /** Local id for React keys; the saved key (if any) is in `key`. */
@@ -16,30 +25,11 @@ type ColumnDraft = {
   required: boolean;
   /** Options of a "select" column, one per line. */
   options: string;
+  /** What the column means for analytics; null for the business's own column. */
+  role: ColumnRole | null;
 };
 
 let nextUid = 1;
-
-const QUANTITY_LABELS = /քանակ|հատ|qty|quantity|pcs|count|кол-?во|количество|шт/iu;
-
-/** Which columns say when a row happened and what it's worth (uids of drafts). */
-type Metrics = { date: number | null; amount: number | null; quantity: number | null };
-
-const fits = {
-  date: (c: ColumnDraft) => c.type === "date" || c.type === "datetime",
-  amount: (c: ColumnDraft) => c.type === "money" || c.type === "number",
-  quantity: (c: ColumnDraft) => c.type === "number",
-};
-
-/** The same guess the API makes for a table nobody chose for. */
-function guessMetrics(columns: ColumnDraft[]): Metrics {
-  const amount = columns.find((c) => c.type === "money")?.uid ?? null;
-  return {
-    date: (columns.find((c) => c.type === "datetime") ?? columns.find((c) => c.type === "date"))?.uid ?? null,
-    amount,
-    quantity: amount ? (columns.find((c) => c.type === "number" && QUANTITY_LABELS.test(c.label))?.uid ?? null) : null,
-  };
-}
 
 function toDraft(column?: AdminDataColumnDto): ColumnDraft {
   return {
@@ -49,26 +39,57 @@ function toDraft(column?: AdminDataColumnDto): ColumnDraft {
     type: column?.type ?? "text",
     required: column?.required ?? false,
     options: (column?.options ?? []).join("\n"),
+    role: column?.role ?? null,
   };
 }
 
+/** A new column of a ready-made kind: its Armenian name, type and options. */
+function roleDraft(role: ColumnRole, section: DataTableSection): ColumnDraft {
+  const info = COLUMN_ROLES[role];
+  return toDraft({
+    label: roleLabels(role, section).hy,
+    type: info.types[0],
+    required: false,
+    options: info.options ?? [],
+    role,
+  });
+}
+
 /** A starting point per section, so a new table isn't a blank page. */
-const STARTER_COLUMNS: Record<DataTableSection, AdminDataColumnDto[]> = {
-  orders: [
-    { label: "Հաճախորդ", type: "text", required: true, options: [] },
-    { label: "Հեռախոս", type: "text", required: false, options: [] },
-    { label: "Ծառայություն", type: "text", required: false, options: [] },
-    { label: "Ամսաթիվ և ժամ", type: "datetime", required: false, options: [] },
-    { label: "Գումար", type: "money", required: false, options: [] },
-  ],
-  sales: [
-    { label: "Ապրանք", type: "text", required: true, options: [] },
-    { label: "Քանակ", type: "number", required: false, options: [] },
-    { label: "Գին", type: "money", required: false, options: [] },
-    { label: "Ամսաթիվ", type: "date", required: false, options: [] },
-    { label: "Վճարման եղանակ", type: "select", required: false, options: ["Կանխիկ", "Քարտ", "Փոխանցում"] },
-  ],
+const STARTER_ROLES: Record<DataTableSection, ColumnRole[]> = {
+  orders: ["customer", "phone", "item", "date", "amount"],
+  sales: ["item", "quantity", "unit_price", "date", "payment"],
 };
+
+function starterColumns(section: DataTableSection): ColumnDraft[] {
+  return STARTER_ROLES[section].map((role) => {
+    const draft = roleDraft(role, section);
+    if (role === "customer" || (section === "sales" && role === "item")) draft.required = true;
+    if (section === "sales" && role === "date") draft.type = "date";
+    return draft;
+  });
+}
+
+/** A name the user didn't type: empty or one of the ready-made names. */
+function isStockLabel(label: string, section: DataTableSection): boolean {
+  const value = label.trim().toLowerCase();
+  return (
+    value === "" ||
+    ROLE_ORDER.some((role) => Object.values(roleLabels(role, section)).some((l) => l.toLowerCase() === value))
+  );
+}
+
+/** How a row's money is counted, as the API does: the total, else price × quantity. */
+function amountRule(columns: ColumnDraft[]): string | null {
+  const byRole = (role: ColumnRole) => columns.find((c) => c.role === role && c.label.trim() !== "");
+  const total = byRole("amount");
+  const price = byRole("unit_price");
+  const quantity = byRole("quantity");
+  if (total && price) return `«${total.label}», իսկ եթե դատարկ է՝ «${price.label}» × «${quantity?.label ?? "1"}»`;
+  if (total) return `«${total.label}»`;
+  if (price) return quantity ? `«${price.label}» × «${quantity.label}»` : `«${price.label}» (քանակը՝ 1)`;
+  return null;
+}
 
 /** Create a table (no `table`) or change its name and columns. */
 export function TableDesigner({
@@ -87,16 +108,10 @@ export function TableDesigner({
   const router = useRouter();
   const [name, setName] = useState(table?.name ?? initial?.name ?? "");
   const [description, setDescription] = useState(table?.description ?? "");
-  const [columns, setColumns] = useState<ColumnDraft[]>(() =>
-    (table?.columns ?? initial?.columns ?? STARTER_COLUMNS[section]).map(toDraft),
-  );
-  const [metrics, setMetrics] = useState<Metrics>(() => {
-    if (!table) return guessMetrics(columns);
-    const uid = (key: string | null) => columns.find((c) => key !== null && c.key === key)?.uid ?? null;
-    return { date: uid(table.dateColumn), amount: uid(table.amountColumn), quantity: uid(table.quantityColumn) };
+  const [columns, setColumns] = useState<ColumnDraft[]>(() => {
+    const given = table?.columns ?? initial?.columns;
+    return given ? given.map(toDraft) : starterColumns(section);
   });
-  // A choice that no longer fits (column removed or retyped) reads as none.
-  const chosen = (field: keyof Metrics) => columns.find((c) => c.uid === metrics[field] && fits[field](c)) ?? null;
   const [pending, setPending] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failed, setFailed] = useState(false);
@@ -104,6 +119,26 @@ export function TableDesigner({
   function update(uid: number, patch: Partial<ColumnDraft>) {
     setColumns((cols) => cols.map((c) => (c.uid === uid ? { ...c, ...patch } : c)));
   }
+
+  /** A column's meaning changed: its type, name and options follow unless the user set their own. */
+  function setRole(column: ColumnDraft, role: ColumnRole | null) {
+    if (role === null) {
+      update(column.uid, { role });
+      return;
+    }
+    const info = COLUMN_ROLES[role];
+    update(column.uid, {
+      role,
+      type: info.types.includes(column.type) ? column.type : info.types[0],
+      label: isStockLabel(column.label, section) ? roleLabels(role, section).hy : column.label,
+      options: column.options.trim() === "" ? (info.options ?? []).join("\n") : column.options,
+    });
+  }
+
+  const usedRoles = new Set(columns.map((c) => c.role).filter((r): r is ColumnRole => r !== null));
+  const freeRoles = ROLE_ORDER.filter((role) => !usedRoles.has(role));
+  const rule = amountRule(columns);
+  const hasDate = columns.some((c) => c.role === "date");
 
   function move(index: number, delta: number) {
     setColumns((cols) => {
@@ -130,14 +165,8 @@ export function TableDesigner({
           type: c.type,
           required: c.required,
           options: c.type === "select" ? c.options.split("\n").map((o) => o.trim()).filter(Boolean) : [],
+          role: c.role,
         })),
-        // A column not saved yet has no key: the API finds it by its label.
-        ...Object.fromEntries(
-          (["date", "amount", "quantity"] as const).map((field) => {
-            const column = chosen(field);
-            return [`${field}_column`, column ? (column.key ?? column.label) : null];
-          }),
-        ),
       };
 
       const response = await fetch(table ? `/api/admin/data-tables/${table.id}` : "/api/admin/data-tables", {
@@ -206,15 +235,33 @@ export function TableDesigner({
         <div>
           <h2 className="text-base font-semibold text-ink">Սյունակներ</h2>
           <p className="mt-1 max-w-2xl text-sm text-ink-muted">
-            Ավելացրեք այն դաշտերը, որոնք կան ձեր բիզնեսում։ Անունը կարելի է փոխել հետո՝ տվյալները չեն կորչի։ Ֆայլից
-            ներմուծելիս ֆայլի սյունակները կհամընկնեն այս անուններով։
+            Ավելացրեք այն դաշտերը, որոնք կան ձեր բիզնեսում։ «Ինչ է այս սյունակը» ընտրությամբ վերլուծությունը և AI-ը
+            հասկանում են սյունակի իմաստը՝ ինչ անուն էլ որ տաք (օր.՝ «Գին», «Цена» կամ «gin»)։ Անունը կարելի է փոխել
+            հետո՝ տվյալները չեն կորչի։
           </p>
         </div>
         {errors.columns ? <p className="text-sm text-danger">{errors.columns}</p> : null}
 
         {columns.map((column, index) => (
           <Card key={column.uid} className="space-y-3 p-4">
-            <div className="grid gap-3 sm:grid-cols-[1fr_220px_auto] sm:items-end">
+            <div className="grid gap-3 sm:grid-cols-[220px_1fr_200px_auto] sm:items-end">
+              <label className="space-y-1.5">
+                <FieldLabel>Ինչ է այս սյունակը</FieldLabel>
+                <Select
+                  value={column.role ?? ""}
+                  onChange={(e) => setRole(column, e.target.value === "" ? null : (e.target.value as ColumnRole))}
+                >
+                  <option value="">Իմ սյունակը</option>
+                  {ROLE_ORDER.map((role) => {
+                    const labels = roleLabels(role, section);
+                    return (
+                      <option key={role} value={role} disabled={role !== column.role && usedRoles.has(role)}>
+                        {labels.hy} · {labels.ru} · {labels.en}
+                      </option>
+                    );
+                  })}
+                </Select>
+              </label>
               <label className="space-y-1.5">
                 <FieldLabel>Անուն</FieldLabel>
                 <Input value={column.label} onChange={(e) => update(column.uid, { label: e.target.value })} />
@@ -225,7 +272,7 @@ export function TableDesigner({
                   value={column.type}
                   onChange={(e) => update(column.uid, { type: e.target.value as DataColumnType })}
                 >
-                  {COLUMN_TYPES.map((type) => (
+                  {(column.role ? COLUMN_ROLES[column.role].types : COLUMN_TYPES).map((type) => (
                     <option key={type} value={type}>
                       {COLUMN_TYPE_LABELS[type]}
                     </option>
@@ -265,6 +312,8 @@ export function TableDesigner({
               </div>
             </div>
 
+            {column.role ? <p className="text-xs text-ink-faint">{COLUMN_ROLES[column.role].hint}</p> : null}
+
             {column.type === "select" ? (
               <label className="block space-y-1.5">
                 <FieldLabel>Տարբերակներ (յուրաքանչյուրը նոր տողում)</FieldLabel>
@@ -276,7 +325,12 @@ export function TableDesigner({
               </label>
             ) : null}
 
-            {[errors[`columns.${index}.label`], errors[`columns.${index}.type`], errors[`columns.${index}.options`]]
+            {[
+              errors[`columns.${index}.role`],
+              errors[`columns.${index}.label`],
+              errors[`columns.${index}.type`],
+              errors[`columns.${index}.options`],
+            ]
               .filter(Boolean)
               .map((message) => (
                 <p key={message} className="text-xs text-danger">
@@ -286,50 +340,43 @@ export function TableDesigner({
           </Card>
         ))}
 
-        <Button variant="secondary" onClick={() => setColumns((cols) => [...cols, toDraft()])}>
-          + Ավելացնել սյունակ
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          {freeRoles.length > 0 ? (
+            <Select
+              className="w-72"
+              value=""
+              aria-label="Ավելացնել պատրաստի սյունակ"
+              onChange={(e) => {
+                const role = e.target.value as ColumnRole;
+                if (role) setColumns((cols) => [...cols, roleDraft(role, section)]);
+              }}
+            >
+              <option value="">+ Ավելացնել պատրաստի սյունակ…</option>
+              {freeRoles.map((role) => {
+                const labels = roleLabels(role, section);
+                return (
+                  <option key={role} value={role}>
+                    {labels.hy} · {labels.ru} · {labels.en}
+                  </option>
+                );
+              })}
+            </Select>
+          ) : null}
+          <Button variant="secondary" onClick={() => setColumns((cols) => [...cols, toDraft()])}>
+            + Իմ սյունակը
+          </Button>
+        </div>
       </div>
 
-      <Card className="space-y-4">
-        <div>
-          <h2 className="text-base font-semibold text-ink">Վերլուծության համար</h2>
-          <p className="mt-1 max-w-2xl text-sm text-ink-muted">
-            Ըստ այս սյունակների են հաշվվում օրերի և ամիսների թվերը վերլուծությունում և AI օգնականում։ Ամսաթիվը պարտադիր է
-            յուրաքանչյուր տողում։
-          </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {(
-            [
-              ["date", section === "orders" ? "Պատվերի ամսաթիվը" : "Վաճառքի ամսաթիվը", "Ամսաթիվ կամ Ամսաթիվ և ժամ տեսակի"],
-              ["amount", "Գումարը", "Գումար կամ Թիվ տեսակի"],
-              ["quantity", "Քանակը (ըստ ցանկության)", "Գումարը կբազմապատկվի քանակով"],
-            ] as const
-          ).map(([field, label, hint]) => (
-            <label key={field} className="space-y-1.5">
-              <FieldLabel>{label}</FieldLabel>
-              <Select
-                value={chosen(field)?.uid ?? ""}
-                onChange={(e) => setMetrics((m) => ({ ...m, [field]: e.target.value === "" ? null : Number(e.target.value) }))}
-              >
-                <option value="">—</option>
-                {columns
-                  .filter((c) => fits[field](c) && c.label.trim() !== "" && (field !== "quantity" || c.uid !== chosen("amount")?.uid))
-                  .map((c) => (
-                    <option key={c.uid} value={c.uid}>
-                      {c.label}
-                    </option>
-                  ))}
-              </Select>
-              <p className="text-xs text-ink-faint">{hint}</p>
-            </label>
-          ))}
-        </div>
-        {!chosen("date") ? (
+      <Card className="space-y-2">
+        <h2 className="text-base font-semibold text-ink">Ինչպես է հաշվվում վերլուծությունը</h2>
+        <p className="text-sm text-ink-muted">
+          Տողի գումարը՝ {rule ?? "չի հաշվվում․ ընտրեք «Գումար» կամ «Գին» սյունակ"}։ Քանակը կարող է լինել կոտորակային
+          (0,5 կգ × 3000 ֏ = 1500 ֏), իսկ քանակները գումարվում են ըստ չափման միավորի։
+        </p>
+        {!hasDate ? (
           <p className="text-sm text-warning">
-            Առանց ամսաթվի սյունակի տողերը չեն երևա օրերի և ամիսների վերլուծությունում։ Ավելացրեք «Ամսաթիվ» կամ «Ամսաթիվ և
-            ժամ» սյունակ։
+            Առանց «Ամսաթիվ» սյունակի տողերը չեն երևա օրերի և ամիսների վերլուծությունում։
           </p>
         ) : null}
       </Card>

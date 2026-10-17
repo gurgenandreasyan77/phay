@@ -68,7 +68,7 @@ enum ColumnRole: string
             self::UnitPrice => 'գին|արժեք|price|cost|rate|цена|стоимост|прайс|^gin|\bgin\b|gine|arjeq',
             self::Amount => 'գումար|ընդամենը|հասույթ|եկամուտ|վճարված|total|amount|sum|revenue|paid|сумма|итог|выручк|оплачено|gumar|yndamen',
             self::Quantity => 'քանակ|^հատ|qty|quantity|pcs|count|кол-?во|количеств|^шт|вес|weight|քաշ|qanak|kanak|qanaky',
-            self::Unit => 'միավոր|չափ|unit|uom|measure|единиц|ед\.?\s*изм|mia?vor',
+            self::Unit => 'միավոր|չափ|unit|uom|measure|единиц|ед\.?\s*изм|^ед\.?$|mia?vor',
             self::Payment => 'վճարման|վճարում|payment|pay\b|оплат|расчет|vcharum',
             self::Channel => 'աղբյուր|ալիք|կայք|source|channel|utm|канал|источник|откуда|axbyur|aghbyur',
             self::Status => 'կարգավիճակ|վիճակ|status|state|статус|состояние|kargavichak',

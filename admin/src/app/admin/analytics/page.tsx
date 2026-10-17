@@ -9,7 +9,7 @@ import {
   type AnalyticsTotalsDto,
   type TableAnalyticsDto,
 } from "@/lib/adminApi";
-import { formatMoment, tablePath, tablesPath } from "../_components/tables/shared";
+import { formatMoment, formatNumber, tablePath, tablesPath } from "../_components/tables/shared";
 import { LEAD_STATUS_LABELS, LEAD_STATUSES } from "../_components/leadStatus";
 import {
   buttonClasses,
@@ -362,8 +362,14 @@ function SectionFigures({ summary }: { summary: TableAnalyticsDto }) {
         ) : null}
         <Kpi label={section === "orders" ? "Պատվերներ" : "Վաճառքներ"} value={String(rows.current)} current={rows.current} previous={rows.previous} />
         {amount ? <Kpi label={`Միջինը մեկ ${unit}ում`} value={money(amount.average)} current={null} previous={null} /> : null}
-        {summary.numbers.slice(0, amount ? 1 : 3).map((n) => (
-          <Kpi key={n.label} label={`${n.label} (ընդամենը)`} value={new Intl.NumberFormat("hy-AM").format(n.sum)} current={null} previous={null} />
+        {summary.numbers.slice(0, amount ? 2 : 3).map((n) => (
+          <Kpi
+            key={`${n.label}|${n.unit ?? ""}`}
+            label={`${n.label}${n.unit ? ` (${n.unit})` : ""}, ընդամենը`}
+            value={formatNumber(n.sum)}
+            current={null}
+            previous={null}
+          />
         ))}
       </div>
 
