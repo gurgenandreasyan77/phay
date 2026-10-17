@@ -86,7 +86,11 @@ services:
     build:
       context: ./servio-front
       target: dev
-    command: npm run dev -- --hostname 0.0.0.0
+    # node_modules lives in a named volume (so the host's own node_modules,
+    # possibly built for another OS, is never used). Docker normally fills a
+    # new volume from the image, but if it ever comes up empty, install
+    # instead of crash-looping with "next: not found".
+    command: sh -c "[ -x node_modules/.bin/next ] || npm ci --no-audit --no-fund; exec npm run dev -- --hostname 0.0.0.0"
     restart: unless-stopped
     volumes:
       - ./servio-front:/app
@@ -131,7 +135,8 @@ services:
     build:
       context: ./servio-admin
       target: dev
-    command: npm run dev -- --hostname 0.0.0.0
+    # Same node_modules safeguard as the frontend service above.
+    command: sh -c "[ -x node_modules/.bin/next ] || npm ci --no-audit --no-fund; exec npm run dev -- --hostname 0.0.0.0"
     restart: unless-stopped
     volumes:
       - ./servio-admin:/app
