@@ -111,27 +111,47 @@ export type AnalyticsDto = {
 
 export type AssistantStatusDto = { configured: boolean; used: number; limit: number };
 
+/** A person's role inside one business (see the API's BusinessRole). */
+export type BusinessRole = "owner" | "admin" | "moderator";
+
+/** Sections a business role opens: orders (+ dashboard), catalog, settings, insights (analytics + AI). */
+export type BusinessPermission = "orders" | "catalog" | "settings" | "insights";
+
+/** Servio's own people: full rights, or onboarding only (no modules, no team). */
+export type PlatformRole = "super_admin" | "moderator";
+
 export type AdminTenantDto = {
   id: number;
   name: string;
   slug: string;
   defaultLocale: string;
   status: "active" | "suspended";
-  /** The signed-in user's role in this business; absent for a super admin who isn't a member. */
-  role?: "owner" | "editor";
+  /** The signed-in user's role in this business; absent for platform staff who aren't members. */
+  role?: BusinessRole;
   sitesCount?: number;
   /** Logins that can sign in to this business. */
   usersCount?: number;
   createdAt: string | null;
 };
 
-/** A login of a business, created by hand by the platform administrator. */
+/** A login of a business, created by hand by platform staff. */
 export type AdminTenantUserDto = {
   id: number;
   name: string;
+  /** The login: what the person types on the sign-in page. */
   email: string;
-  role?: "owner" | "editor";
+  role?: BusinessRole;
   isSuperAdmin: boolean;
+  platformRole?: PlatformRole | null;
+  createdAt: string | null;
+};
+
+/** A member of Servio's platform team. */
+export type AdminPlatformUserDto = {
+  id: number;
+  name: string;
+  email: string;
+  role: PlatformRole;
   createdAt: string | null;
 };
 
@@ -140,6 +160,12 @@ export type AdminUserDto = {
   name: string;
   email: string;
   isSuperAdmin: boolean;
+  /** Null for a business's own people. */
+  platformRole: PlatformRole | null;
+  /** Role in the current business (platform staff act as its owner). */
+  businessRole: BusinessRole | null;
+  /** What that role opens in the current business. */
+  permissions: BusinessPermission[];
   /** The business the admin panel is working on right now (null if the API didn't say). */
   currentTenant: AdminTenantDto | null;
   /** Businesses the user can switch to (all of them for a super admin). */
@@ -493,10 +519,28 @@ export async function getMe(): Promise<AdminUserDto | null> {
   const result = await adminApiFetch<Partial<AdminUserDto>>("/admin/me");
   const me = result.data;
   if (!me) return null;
-  // An API that predates businesses (e.g. a backend not restarted after an
-  // update) has no currentTenant/tenants — fall back instead of crashing the
-  // whole admin layout.
-  return { ...me, currentTenant: me.currentTenant ?? null, tenants: me.tenants ?? [] } as AdminUserDto;
+  return withMeDefaults(me);
+}
+
+/**
+ * Fills fields an older API (e.g. a backend not restarted after an update)
+ * doesn't send yet, instead of crashing the whole admin layout. Without
+ * roles, everyone keeps what they had before: every business section.
+ */
+export function withMeDefaults(me: Partial<AdminUserDto>): AdminUserDto {
+  return {
+    ...me,
+    currentTenant: me.currentTenant ?? null,
+    tenants: me.tenants ?? [],
+    platformRole: me.platformRole ?? (me.isSuperAdmin ? "super_admin" : null),
+    businessRole: me.businessRole ?? null,
+    permissions: me.permissions ?? ["orders", "catalog", "settings", "insights"],
+  } as AdminUserDto;
+}
+
+export async function getPlatformUsersAdmin(): Promise<AdminPlatformUserDto[]> {
+  const result = await adminApiFetch<AdminPlatformUserDto[]>("/admin/platform-users");
+  return result.data ?? [];
 }
 
 export async function getTenantsAdmin(): Promise<AdminTenantDto[]> {

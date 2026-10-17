@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/adminAuth";
+import { requirePermission } from "@/lib/adminAuth";
 import { getSiteSettingsAdmin } from "@/lib/adminApi";
 import { AddressForm } from "./AddressForm";
 import { ContactChannelsManager } from "./ContactChannelsManager";
@@ -7,7 +7,7 @@ import { PageHeader, SectionCard } from "../_components/ui";
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
-  await requireAdmin();
+  await requirePermission("settings");
   const settings = await getSiteSettingsAdmin();
 
   return (

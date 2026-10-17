@@ -12,9 +12,12 @@ const LOCALE_LABELS: Record<string, string> = { hy: "Հայերեն", ru: "Ру�
 export function BusinessesManager({
   tenants,
   currentTenantId,
+  isSuperAdmin,
 }: {
   tenants: AdminTenantDto[];
   currentTenantId: number | null;
+  /** Modules and platform staff accounts are the super admin's; a platform moderator onboards only. */
+  isSuperAdmin: boolean;
 }) {
   const router = useRouter();
   const [switchingId, setSwitchingId] = useState<number | null>(null);
@@ -86,13 +89,15 @@ export function BusinessesManager({
                     >
                       Մուտքեր
                     </Button>
-                    <Button
-                      size="sm"
-                      variant={panel?.tenantId === tenant.id && panel.kind === "modules" ? "primary" : "secondary"}
-                      onClick={() => togglePanel(tenant.id, "modules")}
-                    >
-                      Մոդուլներ
-                    </Button>
+                    {isSuperAdmin ? (
+                      <Button
+                        size="sm"
+                        variant={panel?.tenantId === tenant.id && panel.kind === "modules" ? "primary" : "secondary"}
+                        onClick={() => togglePanel(tenant.id, "modules")}
+                      >
+                        Մոդուլներ
+                      </Button>
+                    ) : null}
                     <Button
                       size="sm"
                       variant="secondary"
@@ -111,9 +116,14 @@ export function BusinessesManager({
       </TableWrap>
 
       {panelTenant && panel?.kind === "logins" ? (
-        <TenantLoginsPanel key={panelTenant.id} tenant={panelTenant} onClose={() => setPanel(null)} />
+        <TenantLoginsPanel
+          key={panelTenant.id}
+          tenant={panelTenant}
+          isSuperAdmin={isSuperAdmin}
+          onClose={() => setPanel(null)}
+        />
       ) : null}
-      {panelTenant && panel?.kind === "modules" ? (
+      {panelTenant && panel?.kind === "modules" && isSuperAdmin ? (
         <TenantModulesPanel key={panelTenant.id} tenant={panelTenant} onClose={() => setPanel(null)} />
       ) : null}
 

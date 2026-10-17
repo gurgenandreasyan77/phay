@@ -1,5 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import type { FeatureFlags } from "@/lib/api";
+import type { AdminUserDto, BusinessPermission } from "@/lib/adminApi";
+import { can, isPlatformStaff, isSuperAdmin } from "@/lib/roles";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -25,6 +27,7 @@ import {
   Upload,
   Building2,
   Globe,
+  UsersRound,
 } from "lucide-react";
 
 export type NavItem = {
@@ -36,6 +39,10 @@ export type NavItem = {
   soon?: boolean;
   /** Hidden entirely (not just disabled) while this feature flag is off. */
   requiresFeature?: keyof FeatureFlags;
+  /** Hidden for business roles without this permission (see lib/roles). */
+  requires?: BusinessPermission;
+  /** Platform level: only the super admin. */
+  superAdminOnly?: boolean;
 };
 
 export type NavGroup = {
@@ -52,26 +59,26 @@ export const BUSINESS_NAV_GROUPS: NavGroup[] = [
   {
     label: "Հիմնական",
     items: [
-      { href: "/admin", label: "Վահանակ", icon: LayoutDashboard },
-      { href: "/admin/orders", label: "Պատվերներ", icon: ClipboardList },
+      { href: "/admin", label: "Վահանակ", icon: LayoutDashboard, requires: "orders" },
+      { href: "/admin/orders", label: "Պատվերներ", icon: ClipboardList, requires: "orders" },
       { href: "/admin/sales", label: "Վաճառքներ", icon: Upload, soon: true },
-      { href: "/admin/analytics", label: "Վերլուծություն", icon: TrendingUp },
-      { href: "/admin/assistant", label: "AI օգնական", icon: Sparkles },
+      { href: "/admin/analytics", label: "Վերլուծություն", icon: TrendingUp, requires: "insights" },
+      { href: "/admin/assistant", label: "AI օգնական", icon: Sparkles, requires: "insights" },
       { href: "/admin/clients", label: "Հաճախորդներ", icon: Users, soon: true },
     ],
   },
   {
     label: "Կատալոգ",
-    items: [{ href: "/admin/services", label: "Ծառայություններ", icon: Wrench }],
+    items: [{ href: "/admin/services", label: "Ծառայություններ", icon: Wrench, requires: "catalog" }],
   },
   {
     label: "Մոդուլներ",
     items: [
-      { href: "/admin/dry-cleaning", label: "Քիմմաքրում", icon: Sofa, requiresFeature: "dryCleaning" },
-      { href: "/admin/auto-care", label: "Ավտոխնամք", icon: Car, requiresFeature: "autoCare" },
-      { href: "/admin/products", label: "Խանութ", icon: ShoppingBag, requiresFeature: "market" },
-      { href: "/admin/market/categories", label: "Կատեգորիաներ", icon: FolderTree, requiresFeature: "market" },
-      { href: "/admin/market/tasks", label: "Խնդիրներ (SEO)", icon: FileSearch, requiresFeature: "market" },
+      { href: "/admin/dry-cleaning", label: "Քիմմաքրում", icon: Sofa, requiresFeature: "dryCleaning", requires: "catalog" },
+      { href: "/admin/auto-care", label: "Ավտոխնամք", icon: Car, requiresFeature: "autoCare", requires: "catalog" },
+      { href: "/admin/products", label: "Խանութ", icon: ShoppingBag, requiresFeature: "market", requires: "catalog" },
+      { href: "/admin/market/categories", label: "Կատեգորիաներ", icon: FolderTree, requiresFeature: "market", requires: "catalog" },
+      { href: "/admin/market/tasks", label: "Խնդիրներ (SEO)", icon: FileSearch, requiresFeature: "market", requires: "catalog" },
     ],
   },
   {
@@ -96,18 +103,19 @@ export const BUSINESS_NAV_GROUPS: NavGroup[] = [
       { href: "/admin/documents", label: "Փաստաթղթեր", icon: FileText, soon: true },
       { href: "/admin/automations", label: "Ավտոմատացումներ", icon: Workflow, soon: true },
       { href: "/admin/audit-log", label: "Գործողությունների մատյան", icon: History, soon: true },
-      { href: "/admin/settings", label: "Կարգավորումներ", icon: Settings },
+      { href: "/admin/settings", label: "Կարգավորումներ", icon: Settings, requires: "settings" },
     ],
   },
 ];
 
-/** The platform level: super admin only (the API answers 403 to an owner too). */
+/** The platform level: platform staff only (the API answers 403 to a business's people too). */
 export const PLATFORM_NAV_GROUPS: NavGroup[] = [
   {
     label: "Պլատֆորմ",
     items: [
       { href: "/admin/platform", label: "Բիզնեսներ", icon: Building2 },
       { href: "/admin/platform/sites", label: "Կայքեր", icon: Globe },
+      { href: "/admin/platform/team", label: "Պլատֆորմի թիմ", icon: UsersRound, superAdminOnly: true },
     ],
   },
 ];
@@ -120,20 +128,34 @@ export function isPlatformPath(pathname: string): boolean {
 
 export const ALL_NAV_ITEMS: NavItem[] = [...BUSINESS_NAV_GROUPS, ...PLATFORM_NAV_GROUPS].flatMap((group) => group.items);
 
+type NavUser = Pick<AdminUserDto, "platformRole" | "permissions"> | null;
+
 /**
  * The menu for this page: the platform level on /admin/platform/*, the
- * business admin elsewhere. Drops modules the business has off; a business
- * owner also doesn't see the "soon" placeholders, only what works today.
+ * business admin elsewhere. Drops modules the business has off and sections
+ * the user's role doesn't open; a business's own people also don't see the
+ * "soon" placeholders, only what works today.
  */
-export function visibleNavGroups(features: FeatureFlags, isSuperAdmin: boolean, pathname: string): NavGroup[] {
-  if (isSuperAdmin && isPlatformPath(pathname)) return PLATFORM_NAV_GROUPS;
+export function visibleNavGroups(features: FeatureFlags, me: NavUser, pathname: string): NavGroup[] {
+  const staff = isPlatformStaff(me);
 
-  return BUSINESS_NAV_GROUPS.map((group) => ({
-    ...group,
-    items: group.items.filter(
-      (item) => (!item.requiresFeature || features[item.requiresFeature]) && (!item.soon || isSuperAdmin),
-    ),
-  })).filter((group) => group.items.length > 0);
+  const groups =
+    staff && isPlatformPath(pathname)
+      ? PLATFORM_NAV_GROUPS.map((group) => ({
+          ...group,
+          items: group.items.filter((item) => !item.superAdminOnly || isSuperAdmin(me)),
+        }))
+      : BUSINESS_NAV_GROUPS.map((group) => ({
+          ...group,
+          items: group.items.filter(
+            (item) =>
+              (!item.requiresFeature || features[item.requiresFeature]) &&
+              (!item.requires || can(me, item.requires)) &&
+              (!item.soon || staff),
+          ),
+        }));
+
+  return groups.filter((group) => group.items.length > 0);
 }
 
 /** Longest-prefix match so /admin/products/new still highlights "Խանութ". */
