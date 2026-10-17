@@ -107,6 +107,8 @@ export type AnalyticsDto = {
   sources: { source: string; orders: number; completed: number }[];
   statuses: Record<LeadStatus, number>;
   openOrders: number;
+  /** Site orders ever: none means there's no site block to show. */
+  everOrders: number;
 };
 
 /** A business's own table (orders, sales): see the API's DataTableController. */
@@ -122,6 +124,7 @@ export type ColumnRole =
   | "unit"
   | "unit_price"
   | "amount"
+  | "cost"
   | "payment"
   | "channel"
   | "status"
@@ -210,14 +213,35 @@ export type AdminDataImportPreviewDto = AdminDataImportDto & {
 };
 
 /** Figures of all tables of a section together (see the API's TableAnalytics). */
+export type TableMetricDto = {
+  key: "revenue" | "profit" | "margin" | "count" | "perDay" | "perMonth" | "averageCheck" | "quantity" | "averageQuantity" | "unitPrice";
+  label: string;
+  format: "money" | "count" | "number" | "percent";
+  value: number | null;
+  previous: number | null;
+  unit?: string | null;
+  note?: string | null;
+};
+
 export type TableAnalyticsDto = {
   section: DataTableSection;
   period: { days: AnalyticsPeriod; from: string; to: string };
   rows: { total: number; withoutDate: number; current: number; previous: number };
   amount: { current: number; previous: number; average: number | null } | null;
   series: { date: string; rows: number; amount: number }[];
+  /** The figures this business's columns allow (no price column, no revenue...). */
+  metrics: TableMetricDto[];
+  /** Best, weakest (finished) and average day or month, by money or by count. */
+  peaks: {
+    by: "amount" | "rows";
+    bucket: "day" | "month";
+    best: { date: string; rows: number; amount: number };
+    worst: { date: string; rows: number; amount: number } | null;
+    average: number | null;
+    buckets: number;
+  } | null;
   breakdowns: { label: string; distinct: number; values: { value: string; rows: number; amount: number | null }[] }[];
-  /** Sums of number columns; quantities per unit (kg, pieces...). */
+  /** Sums of the business's own number columns (quantities are in metrics). */
   numbers: { label: string; unit: string | null; sum: number; filled: number }[];
   tables: {
     id: number;

@@ -71,6 +71,11 @@ export const COLUMN_ROLES: Record<ColumnRole, RoleInfo> = {
     types: ["money", "number"],
     hint: "Տողի ամբողջ գումարը",
   },
+  cost: {
+    labels: { hy: "Ինքնարժեք", ru: "Себестоимость", en: "Unit cost" },
+    types: ["money", "number"],
+    hint: "Մեկ միավորի ինքնարժեքը․ շահույթ = գումար − ինքնարժեք × քանակ",
+  },
   payment: {
     labels: { hy: "Վճարման եղանակ", ru: "Способ оплаты", en: "Payment method" },
     types: ["select", "text"],

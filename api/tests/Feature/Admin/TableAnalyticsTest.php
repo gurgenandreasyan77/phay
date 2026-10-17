@@ -96,7 +96,25 @@ class TableAnalyticsTest extends TestCase
             [['value' => 'Մոմ', 'rows' => 2, 'amount' => 9500], ['value' => 'Օճառ', 'rows' => 1, 'amount' => 3000]],
             $summary['breakdowns'][0]['values'],
         );
-        $this->assertSame([['label' => 'Քանակ', 'unit' => null, 'sum' => 5, 'filled' => 3]], $summary['numbers']);
+        // Quantities are in the metrics, not among the table's own number columns.
+        $this->assertSame([], $summary['numbers']);
+
+        // The figures the columns allow: money, how many, quantities.
+        $this->assertSame(
+            ['revenue', 'count', 'perDay', 'averageCheck', 'quantity', 'averageQuantity', 'unitPrice'],
+            array_column($summary['metrics'], 'key'),
+        );
+        $metric = fn (string $key) => collect($summary['metrics'])->firstWhere('key', $key);
+        $this->assertSame([12500, 1000], [$metric('revenue')['value'], $metric('revenue')['previous']]);
+        // 3 rows in 30 days; the previous period only from the first row (10.09), 8 days.
+        $this->assertSame([0.1, 0.13], [$metric('perDay')['value'], $metric('perDay')['previous']]);
+        $this->assertSame([4166.67, 1000], [$metric('averageCheck')['value'], $metric('averageCheck')['previous']]);
+        $this->assertSame([5, 1.67, 2500], [$metric('quantity')['value'], $metric('averageQuantity')['value'], $metric('unitPrice')['value']]);
+
+        // The best day by money; the weakest is a finished day.
+        $this->assertSame('amount', $summary['peaks']['by']);
+        $this->assertSame(['date' => '2026-10-17', 'rows' => 1, 'amount' => 5000], $summary['peaks']['best']);
+        $this->assertSame(0, $summary['peaks']['worst']['amount']);
 
         $this->assertSame(['Instagram', '17.10'], array_column($summary['tables'], 'name'));
         $this->assertSame('Գին × Քանակ', $summary['tables'][0]['amountColumn']);
@@ -162,11 +180,74 @@ class TableAnalyticsTest extends TestCase
 
         $sales = $this->getJson('/api/v1/admin/analytics/tables?period=7')->assertOk()->json('data.0');
         $this->assertSame(11100, collect($sales['tables'])->firstWhere('name', 'Կշռով')['amount']);
-        // Kilograms and pieces are not added together.
-        $this->assertSame(
-            [['label' => 'Քանակ', 'unit' => 'կգ', 'sum' => 0.8, 'filled' => 2], ['label' => 'Քանակ', 'unit' => 'հատ', 'sum' => 2, 'filled' => 1]],
-            collect($sales['numbers'])->where('unit', '!==', null)->values()->all(),
-        );
+        // Kilograms and pieces are not added together: sold, per sale, price of one.
+        $byUnit = fn (string $unit) => collect($sales['metrics'])->where('unit', $unit)->mapWithKeys(fn ($m) => [$m['key'] => $m['value']])->all();
+        $this->assertSame(['quantity' => 0.8, 'averageQuantity' => 0.4, 'unitPrice' => 2625], $byUnit('կգ'));
+        $this->assertSame(['quantity' => 2, 'averageQuantity' => 2, 'unitPrice' => 4500], $byUnit('հատ'));
+        $this->assertSame('1 կգ-ի միջին գինը', collect($sales['metrics'])->firstWhere(fn ($m) => $m['key'] === 'unitPrice' && $m['unit'] === 'կգ')['label']);
+    }
+
+    public function test_a_service_business_gets_orders_a_day_and_its_months_not_money_or_kilograms(): void
+    {
+        Feature::for($this->shop)->deactivate('sales');
+        Feature::for($this->shop)->activate('orders');
+        $table = $this->postJson('/api/v1/admin/data-tables', [
+            'section' => 'orders',
+            'name' => 'Զանգեր',
+            'columns' => [
+                ['label' => 'Ծառայություն', 'type' => 'text', 'role' => 'item'],
+                ['label' => 'Ամսաթիվ', 'type' => 'date', 'role' => 'date'],
+            ],
+        ])->assertCreated()->json('data');
+        // Started in June: 3 orders in June, 1 in August, 2 in October.
+        $this->rows($table, [
+            ['Լվացք', '2026-06-03'], ['Լվացք', '2026-06-10'], ['Մաքրում', '2026-06-20'],
+            ['Մաքրում', '2026-08-05'],
+            ['Լվացք', '2026-10-01'], ['Լվացք', '2026-10-15'],
+        ]);
+
+        $year = $this->getJson('/api/v1/admin/analytics/tables?period=365')->assertOk()->json('data.0');
+
+        $this->assertSame('orders', $year['section']);
+        $this->assertNull($year['amount']);
+        $this->assertSame(['count', 'perDay', 'perMonth'], array_column($year['metrics'], 'key'));
+        $this->assertSame('Պատվերներ ամսական', $year['metrics'][2]['label']);
+        // 6 orders since 03.06, 137 days: 0.04 a day, 1.33 a month.
+        $this->assertEquals([0.04, 1.33], [$year['metrics'][1]['value'], $year['metrics'][2]['value']]);
+
+        // Months by how many orders, from June: the best is June, the weakest a finished month without orders.
+        $this->assertSame('rows', $year['peaks']['by']);
+        $this->assertSame('2026-06', $year['peaks']['best']['date']);
+        $this->assertSame(['date' => '2026-07', 'rows' => 0, 'amount' => 0], $year['peaks']['worst']);
+        // June to September: 4 orders in 4 finished months.
+        $this->assertSame(1, $year['peaks']['average']);
+        $this->assertSame(5, $year['peaks']['buckets']);
+    }
+
+    public function test_a_unit_cost_adds_profit_and_margin(): void
+    {
+        $table = $this->postJson('/api/v1/admin/data-tables', [
+            'section' => 'sales',
+            'name' => 'Մրգեր',
+            'columns' => [
+                ['label' => 'Ապրանք', 'type' => 'text', 'role' => 'item'],
+                ['label' => 'Կգ', 'type' => 'number', 'role' => 'quantity'],
+                ['label' => 'Գին', 'type' => 'money', 'role' => 'unit_price'],
+                ['label' => 'Ինքնարժեք', 'type' => 'money', 'role' => 'cost'],
+                ['label' => 'Ամսաթիվ', 'type' => 'date', 'role' => 'date'],
+            ],
+        ])->assertCreated()->json('data');
+        $this->rows($table, [
+            ['Խնձոր', 2, 800, 500, '2026-10-17'],  // 1600 − 1000
+            ['Տանձ', '0.5', 1200, null, '2026-10-17'], // no cost: not in profit, nor the Instagram table's row
+        ]);
+
+        $sales = $this->getJson('/api/v1/admin/analytics/tables?period=7')->assertOk()->json('data.0');
+        $profit = collect($sales['metrics'])->firstWhere('key', 'profit');
+
+        $this->assertSame(600, $profit['value']);
+        $this->assertSame('Հաշվված է 3 տողից 1-ի համար, որոնց ինքնարժեքը լրացված է։', $profit['note']);
+        $this->assertSame(37.5, collect($sales['metrics'])->firstWhere('key', 'margin')['value']);
     }
 
     public function test_a_role_is_on_one_column_of_a_type_it_allows(): void
@@ -238,6 +319,8 @@ class TableAnalyticsTest extends TestCase
         $this->assertStringContainsString('"name": "Instagram"', $client->system);
         $this->assertStringContainsString('"amountColumn": "Գին × Քանակ"', $client->system);
         $this->assertStringContainsString('"Ապրանք": "Մոմ"', $client->system);
+        $this->assertStringContainsString('"label": "Միջին չեկ"', $client->system);
+        $this->assertStringContainsString('"peaks"', $client->system);
         $this->assertStringNotContainsString('37491111111', $client->system);
         // A shop without the orders module gets no (empty) site orders section.
         $this->assertStringNotContainsString('"siteOrders"', $client->system);

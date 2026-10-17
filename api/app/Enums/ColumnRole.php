@@ -22,6 +22,7 @@ enum ColumnRole: string
     case Unit = 'unit';
     case UnitPrice = 'unit_price';
     case Amount = 'amount';
+    case Cost = 'cost';
     case Payment = 'payment';
     case Channel = 'channel';
     case Status = 'status';
@@ -45,6 +46,7 @@ enum ColumnRole: string
             self::Unit => ['hy' => 'Չափման միավոր', 'ru' => 'Единица', 'en' => 'Unit'],
             self::UnitPrice => ['hy' => 'Գին', 'ru' => 'Цена', 'en' => 'Price'],
             self::Amount => ['hy' => 'Գումար', 'ru' => 'Сумма', 'en' => 'Total'],
+            self::Cost => ['hy' => 'Ինքնարժեք', 'ru' => 'Себестоимость', 'en' => 'Unit cost'],
             self::Payment => ['hy' => 'Վճարման եղանակ', 'ru' => 'Способ оплаты', 'en' => 'Payment method'],
             self::Channel => ['hy' => 'Աղբյուր', 'ru' => 'Канал', 'en' => 'Channel'],
             self::Status => ['hy' => 'Կարգավիճակ', 'ru' => 'Статус', 'en' => 'Status'],
@@ -65,6 +67,7 @@ enum ColumnRole: string
     {
         return match ($this) {
             self::Date => 'ամսաթիվ|ամսաթ|օր$|ժամ|date|time|day|when|created|дата|время|день|amsativ|jam',
+            self::Cost => 'ինքնարժեք|себестоим|закуп|purchase|cost\\s*price|unit\\s*cost|inqnarjeq',
             self::UnitPrice => 'գին|արժեք|price|cost|rate|цена|стоимост|прайс|^gin|\bgin\b|gine|arjeq',
             self::Amount => 'գումար|ընդամենը|հասույթ|եկամուտ|վճարված|total|amount|sum|revenue|paid|сумма|итог|выручк|оплачено|gumar|yndamen',
             self::Quantity => 'քանակ|^հատ|qty|quantity|pcs|count|кол-?во|количеств|^шт|вес|weight|քաշ|qanak|kanak|qanaky',
@@ -85,7 +88,7 @@ enum ColumnRole: string
     {
         $header = mb_strtolower(trim($header));
 
-        foreach ([self::Date, self::Amount, self::UnitPrice, self::Quantity, self::Unit, self::Payment, self::Channel, self::Status, self::Phone, self::Address, self::Item, self::Customer, self::Note] as $role) {
+        foreach ([self::Date, self::Cost, self::Amount, self::UnitPrice, self::Quantity, self::Unit, self::Payment, self::Channel, self::Status, self::Phone, self::Address, self::Item, self::Customer, self::Note] as $role) {
             if (preg_match('/'.$role->pattern().'/iu', $header)) {
                 return $role;
             }
@@ -100,7 +103,7 @@ enum ColumnRole: string
         return match ($this) {
             self::Date => [DataColumnType::DateTime, DataColumnType::Date],
             self::Quantity => [DataColumnType::Number],
-            self::UnitPrice, self::Amount => [DataColumnType::Money, DataColumnType::Number],
+            self::UnitPrice, self::Amount, self::Cost => [DataColumnType::Money, DataColumnType::Number],
             self::Unit, self::Payment, self::Channel, self::Status => [DataColumnType::Select, DataColumnType::Text],
             self::Item, self::Customer, self::Phone, self::Address, self::Note => [DataColumnType::Text, DataColumnType::Select],
         };
