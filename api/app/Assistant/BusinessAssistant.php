@@ -2,11 +2,15 @@
 
 namespace App\Assistant;
 
+use App\DataTables\TableAnalytics;
+use App\Features\FeatureFlag;
 use App\Models\AssistantUsage;
+use App\Models\DataTable;
 use App\Models\Lead;
 use App\Models\Service;
 use App\Services\BusinessAnalytics;
 use App\Tenancy\TenantContext;
+use Laravel\Pennant\Feature;
 
 /**
  * Answers a business owner's questions about their own sales. Every request
@@ -18,6 +22,7 @@ class BusinessAssistant
     public function __construct(
         private readonly AssistantClient $client,
         private readonly BusinessAnalytics $analytics,
+        private readonly TableAnalytics $tableAnalytics,
         private readonly TenantContext $tenants,
     ) {}
 
@@ -63,18 +68,27 @@ class BusinessAssistant
     public function systemPrompt(): string
     {
         $tenant = $this->tenants->current();
-        $data = json_encode([
+        $siteOrders = Feature::active(FeatureFlag::Orders->value);
+        $data = json_encode(array_filter([
             'business' => [
                 'name' => $tenant->name,
                 'currency' => $tenant->currency ?: 'AMD',
                 'timezone' => $tenant->timezone,
                 'today' => now($tenant->timezone ?: config('app.timezone'))->toDateString(),
+                'sells' => array_values(array_filter([
+                    $siteOrders ? 'services (orders)' : null,
+                    Feature::active(FeatureFlag::Sales->value) ? 'goods (sales)' : null,
+                ])),
             ],
             'services' => $this->services(),
-            'last30Days' => $this->analytics->summary(30),
-            'last365Days' => $this->analytics->summary(365),
-            'recentOrders' => $this->recentOrders(),
-        ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            // Orders that came from the site (only for a business with the orders module).
+            'siteOrders' => $siteOrders ? [
+                'last30Days' => $this->analytics->summary(30),
+                'last365Days' => $this->analytics->summary(365),
+                'recentOrders' => $this->recentOrders(),
+            ] : null,
+            'ownTables' => $this->ownTables(),
+        ], fn ($value) => $value !== null && $value !== []), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
         return <<<PROMPT
         You are the business assistant inside the admin panel of "{$tenant->name}", a small business in Armenia. The person writing to you is its owner or manager. Your job is to help them understand their sales and decide what to do next to get more orders and more revenue.
@@ -83,7 +97,10 @@ class BusinessAssistant
 
         Give practical advice a small team can act on this week: pricing, which services to promote, follow-up on open orders, which channels bring orders, seasonality. Prefer two or three concrete steps over a long list.
 
-        How the data works: an order counts on the day it was created; revenue counts on the day an order was completed, from its final price. "conversion" is the share of the period's orders that are already completed. "source" is where the order came from (website, manual entry, or a UTM source). Amounts are in {$tenant->currency}; write Armenian dram as "դր.".
+        How the data works:
+        - siteOrders: orders that came from the business's website or were added by hand on the orders screen. An order counts on the day it was created; revenue counts on the day an order was completed, from its final price. "conversion" is the share of the period's orders that are already completed. "source" is where the order came from (website, manual entry, or a UTM source).
+        - ownTables: tables the business designed itself (its own columns) and filled by hand or from files, e.g. sales from Instagram or a shop. "section" says whether a table holds orders or sales. Each has its columns, figures for the last 30 and 365 days by its date column ("dateColumn"; without one, figures cover all rows), "amount" (the money a row is worth: price × quantity when both exist, see "amountColumn"), sums of number columns, the most frequent values of other columns ("breakdowns", with the amount they bring), and the latest rows. Contact details of buyers are left out on purpose.
+        Amounts are in {$tenant->currency}; write Armenian dram as "դր.".
 
         Reply in the language of the user's latest message (Armenian, Russian or English). Write natural, fluent text, as a native speaker would, with short paragraphs and simple lists. Do not use tables or headings unless asked.
 
@@ -91,6 +108,27 @@ class BusinessAssistant
         {$data}
         </business_data>
         PROMPT;
+    }
+
+    /**
+     * The business's own tables: figures and the latest rows of each.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function ownTables(): array
+    {
+        return $this->tableAnalytics->tables()
+            ->take(10)
+            ->map(fn (DataTable $table) => [
+                'name' => $table->name,
+                'section' => $table->section->value,
+                'description' => $table->description,
+                'last30Days' => collect($this->tableAnalytics->summary($table, 30))->except(['table', 'series'])->all(),
+                'last365Days' => collect($this->tableAnalytics->summary($table, 365))->only(['period', 'rows', 'amount', 'numbers', 'series', 'breakdowns'])->all(),
+                'latestRows' => $this->tableAnalytics->recentRows($table),
+            ])
+            ->values()
+            ->all();
     }
 
     /**

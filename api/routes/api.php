@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\V1\Admin\ServicePackageController as AdminServicePa
 use App\Http\Controllers\Api\V1\Admin\ServiceVideoController as AdminServiceVideoController;
 use App\Http\Controllers\Api\V1\Admin\SettingsController as AdminSettingsController;
 use App\Http\Controllers\Api\V1\Admin\SiteController as AdminSiteController;
+use App\Http\Controllers\Api\V1\Admin\TableAnalyticsController as AdminTableAnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\TaskPageController as AdminTaskPageController;
 use App\Http\Controllers\Api\V1\Admin\TenantController as AdminTenantController;
 use App\Http\Controllers\Api\V1\Admin\TenantFeatureController as AdminTenantFeatureController;
@@ -154,6 +155,7 @@ Route::prefix('v1')->group(function () {
 
             Route::middleware('business.can:insights')->group(function () {
                 Route::get('/analytics', AdminAnalyticsController::class);
+                Route::get('/analytics/tables', AdminTableAnalyticsController::class);
                 Route::get('/assistant', [AdminAssistantController::class, 'show']);
                 Route::post('/assistant', [AdminAssistantController::class, 'store'])->middleware('throttle:assistant');
             });
