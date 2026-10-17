@@ -13,20 +13,14 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
- * Businesses on the platform. Creating one is super-admin only for now:
- * the first clients are onboarded by hand (see stage-1 plan).
+ * Businesses on the platform (super admin only, see routes): the first
+ * clients are onboarded by hand (see stage-1 plan).
  */
 class TenantController extends Controller
 {
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(): AnonymousResourceCollection
     {
-        $user = $request->user();
-
-        $tenants = $user->is_super_admin
-            ? Tenant::query()->withCount('sites')->orderBy('id')->get()
-            : $user->tenants()->withCount('sites')->orderBy('tenants.id')->get();
-
-        return TenantResource::collection($tenants);
+        return TenantResource::collection(Tenant::query()->withCount(['sites', 'users'])->orderBy('id')->get());
     }
 
     public function store(Request $request): JsonResponse
@@ -51,6 +45,6 @@ class TenantController extends Controller
             'status' => Tenant::STATUS_ACTIVE,
         ]);
 
-        return (new TenantResource($tenant->loadCount('sites')))->response()->setStatusCode(201);
+        return (new TenantResource($tenant->loadCount(['sites', 'users'])))->response()->setStatusCode(201);
     }
 }

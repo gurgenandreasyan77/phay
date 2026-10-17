@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\Admin\SettingsController as AdminSettingsControl
 use App\Http\Controllers\Api\V1\Admin\SiteController as AdminSiteController;
 use App\Http\Controllers\Api\V1\Admin\TaskPageController as AdminTaskPageController;
 use App\Http\Controllers\Api\V1\Admin\TenantController as AdminTenantController;
+use App\Http\Controllers\Api\V1\Admin\TenantUserController as AdminTenantUserController;
 use App\Http\Controllers\Api\V1\Admin\UploadController as AdminUploadController;
 use App\Http\Controllers\Api\V1\CalculatorSettingController;
 use App\Http\Controllers\Api\V1\LeadController;
@@ -78,12 +79,22 @@ Route::prefix('v1')->group(function () {
             Route::post('/logout', [AdminAuthController::class, 'logout']);
             Route::get('/me', [AdminAuthController::class, 'me']);
             Route::post('/switch-tenant', [AdminAuthController::class, 'switchTenant']);
-            Route::get('/tenants', [AdminTenantController::class, 'index']);
-            Route::post('/tenants', [AdminTenantController::class, 'store']);
-            Route::get('/sites', [AdminSiteController::class, 'index']);
-            Route::post('/sites', [AdminSiteController::class, 'store']);
-            Route::patch('/sites/{site}', [AdminSiteController::class, 'update']);
-            Route::post('/sites/{site}/rotate-key', [AdminSiteController::class, 'rotateKey']);
+
+            // Platform screens: a business owner gets 403 here.
+            Route::middleware('super.admin')->group(function () {
+                Route::get('/tenants', [AdminTenantController::class, 'index']);
+                Route::post('/tenants', [AdminTenantController::class, 'store']);
+                Route::get('/tenants/{tenant}/users', [AdminTenantUserController::class, 'index']);
+                Route::post('/tenants/{tenant}/users', [AdminTenantUserController::class, 'store']);
+                Route::patch('/tenants/{tenant}/users/{user}', [AdminTenantUserController::class, 'update']);
+                Route::delete('/tenants/{tenant}/users/{user}', [AdminTenantUserController::class, 'destroy']);
+                Route::get('/sites', [AdminSiteController::class, 'index']);
+                Route::post('/sites', [AdminSiteController::class, 'store']);
+                Route::patch('/sites/{site}', [AdminSiteController::class, 'update']);
+                Route::post('/sites/{site}/rotate-key', [AdminSiteController::class, 'rotateKey']);
+                Route::patch('/feature-flags/{key}', [AdminFeatureFlagController::class, 'update']);
+            });
+
             Route::get('/dashboard', AdminDashboardController::class);
             Route::get('/leads', [AdminLeadController::class, 'index']);
             Route::post('/leads', [AdminLeadController::class, 'store']);
@@ -92,7 +103,6 @@ Route::prefix('v1')->group(function () {
             Route::get('/settings', [AdminSettingsController::class, 'show']);
             Route::put('/settings', [AdminSettingsController::class, 'update']);
             Route::get('/feature-flags', [AdminFeatureFlagController::class, 'index']);
-            Route::patch('/feature-flags/{key}', [AdminFeatureFlagController::class, 'update']);
             Route::post('/contact-channels', [AdminContactChannelController::class, 'store']);
             Route::patch('/contact-channels/{contactChannel}', [AdminContactChannelController::class, 'update']);
             Route::delete('/contact-channels/{contactChannel}', [AdminContactChannelController::class, 'destroy']);

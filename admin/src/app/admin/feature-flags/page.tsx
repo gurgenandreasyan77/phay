@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/adminAuth";
 import { getFeatureFlagsAdmin } from "@/lib/adminApi";
 import { FeatureFlagsManager } from "./FeatureFlagsManager";
@@ -7,6 +8,8 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminFeatureFlagsPage() {
   const admin = await requireAdmin();
+  // Platform screen: a business owner can't switch modules (the API says 403 too).
+  if (!admin.isSuperAdmin) notFound();
   const flags = await getFeatureFlagsAdmin();
 
   return (

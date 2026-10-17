@@ -93,6 +93,18 @@ export type AdminTenantDto = {
   /** The signed-in user's role in this business; absent for a super admin who isn't a member. */
   role?: "owner" | "editor";
   sitesCount?: number;
+  /** Logins that can sign in to this business. */
+  usersCount?: number;
+  createdAt: string | null;
+};
+
+/** A login of a business, created by hand by the platform administrator. */
+export type AdminTenantUserDto = {
+  id: number;
+  name: string;
+  email: string;
+  role?: "owner" | "editor";
+  isSuperAdmin: boolean;
   createdAt: string | null;
 };
 

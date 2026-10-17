@@ -308,6 +308,21 @@ In the admin (as a super admin): **Բիզնեսներ** creates a business,
 rotate, allowed origins, on/off), and the business switcher in the top bar
 changes which business the admin works on.
 
+**Business owners.** On **Բիզնեսներ**, the **Մուտքեր** button of a business
+creates its logins (name, email, password; the password is shown once to hand
+over). Such an owner signs in to the same admin panel and sees only their
+business and its basic sections (dashboard, orders, services, settings). The
+platform screens (businesses, sites, feature flags, the business switcher) are
+super-admin only, and the API answers 403 to an owner there. A new business
+starts with optional modules (Auto Care, Market) off; turn them on for it in
+Feature Flags after switching to it. A suspended business locks its owners out.
+
+If your own login isn't a super admin (no **Պլատֆորմ** group in the menu):
+
+```bash
+make artisan cmd="platform:super-admin you@example.com"
+```
+
 To connect servio-front (or a copy of it for another business), put the key
 in its env: `NEXT_PUBLIC_SITE_KEY=site_pk_...` (root `.env` for Docker; a
 production build needs it at build time, like every `NEXT_PUBLIC_*`). It is

@@ -19,6 +19,7 @@ class TenantResource extends JsonResource
             // isn't a member.
             'role' => $this->whenPivotLoaded('tenant_user', fn () => $this->pivot->role),
             'sitesCount' => $this->whenCounted('sites'),
+            'usersCount' => $this->whenCounted('users'),
             'createdAt' => $this->created_at?->toIso8601String(),
         ];
     }

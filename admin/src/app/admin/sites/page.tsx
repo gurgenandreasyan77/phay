@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/adminAuth";
 import { getSitesAdmin } from "@/lib/adminApi";
 import { SitesManager } from "./SitesManager";
@@ -7,6 +8,8 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminSitesPage() {
   const admin = await requireAdmin();
+  // Platform screen: a business owner doesn't manage site keys (the API says 403 too).
+  if (!admin.isSuperAdmin) notFound();
   const sites = await getSitesAdmin();
 
   return (

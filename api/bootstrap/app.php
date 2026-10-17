@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\RequireFeature;
 use App\Http\Middleware\ResolveAdminTenant;
 use App\Http\Middleware\ResolveSiteTenant;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'feature' => RequireFeature::class,
             'tenant.site' => ResolveSiteTenant::class,
             'tenant.admin' => ResolveAdminTenant::class,
+            'super.admin' => EnsureSuperAdmin::class,
         ]);
 
         // Route model binding ({lead}, {post:slug}...) must already see the
