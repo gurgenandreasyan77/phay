@@ -1,11 +1,14 @@
 <?php
 
-use App\Http\Middleware\RequireGlobalFeature;
+use App\Http\Middleware\RequireFeature;
+use App\Http\Middleware\ResolveAdminTenant;
+use App\Http\Middleware\ResolveSiteTenant;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -20,8 +23,17 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
-            'feature.global' => RequireGlobalFeature::class,
+            'feature' => RequireFeature::class,
+            'tenant.site' => ResolveSiteTenant::class,
+            'tenant.admin' => ResolveAdminTenant::class,
         ]);
+
+        // Route model binding ({lead}, {post:slug}...) must already see the
+        // request's tenant, otherwise it would look rows up in the default
+        // one. Priority puts both right before SubstituteBindings (and so
+        // after authentication, which the admin one needs).
+        $middleware->prependToPriorityList(SubstituteBindings::class, ResolveSiteTenant::class);
+        $middleware->prependToPriorityList(SubstituteBindings::class, ResolveAdminTenant::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -3,10 +3,13 @@
 namespace App\Models;
 
 use App\Enums\ContactChannelType;
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 
 class ContactChannel extends Model
 {
+    use BelongsToTenant;
+
     protected $fillable = [
         'type',
         'value',

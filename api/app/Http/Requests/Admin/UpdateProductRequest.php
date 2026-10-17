@@ -6,6 +6,7 @@ use App\Enums\AvailabilityStatus;
 use App\Enums\CompositionType;
 use App\Enums\ProductStatus;
 use App\Enums\SeoRobots;
+use App\Tenancy\TenantRule;
 use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -22,10 +23,10 @@ class UpdateProductRequest extends FormRequest
         $product = $this->route('product');
 
         return [
-            'slug' => ['sometimes', 'string', 'max:255', Rule::unique('products', 'slug')->ignore($product)],
-            'slug_hy' => ['sometimes', 'string', 'max:255', Rule::unique('products', 'slug_hy')->ignore($product)],
-            'slug_ru' => ['sometimes', 'string', 'max:255', Rule::unique('products', 'slug_ru')->ignore($product)],
-            'slug_en' => ['sometimes', 'string', 'max:255', Rule::unique('products', 'slug_en')->ignore($product)],
+            'slug' => ['sometimes', 'string', 'max:255', TenantRule::unique('products', 'slug')->ignore($product)],
+            'slug_hy' => ['sometimes', 'string', 'max:255', TenantRule::unique('products', 'slug_hy')->ignore($product)],
+            'slug_ru' => ['sometimes', 'string', 'max:255', TenantRule::unique('products', 'slug_ru')->ignore($product)],
+            'slug_en' => ['sometimes', 'string', 'max:255', TenantRule::unique('products', 'slug_en')->ignore($product)],
             'status' => ['sometimes', Rule::enum(ProductStatus::class)],
 
             'name' => ['sometimes', 'array'],
@@ -96,14 +97,14 @@ class UpdateProductRequest extends FormRequest
             'secondary_keywords.*' => ['string', 'max:255'],
 
             'category_ids' => ['sometimes', 'array'],
-            'category_ids.*' => ['integer', 'exists:product_categories,id'],
-            'primary_category_id' => ['sometimes', 'nullable', 'integer', 'exists:product_categories,id'],
+            'category_ids.*' => ['integer', TenantRule::exists('product_categories', 'id')],
+            'primary_category_id' => ['sometimes', 'nullable', 'integer', TenantRule::exists('product_categories', 'id')],
             'service_ids' => ['sometimes', 'array'],
-            'service_ids.*' => ['integer', 'exists:services,id'],
+            'service_ids.*' => ['integer', TenantRule::exists('services', 'id')],
             'related_product_ids' => ['sometimes', 'array'],
-            'related_product_ids.*' => ['integer', 'exists:products,id'],
+            'related_product_ids.*' => ['integer', TenantRule::exists('products', 'id')],
             'accessory_product_ids' => ['sometimes', 'array'],
-            'accessory_product_ids.*' => ['integer', 'exists:products,id'],
+            'accessory_product_ids.*' => ['integer', TenantRule::exists('products', 'id')],
 
             'images' => ['sometimes', 'array'],
             'images.*.path' => ['required_with:images', 'string', 'max:255'],

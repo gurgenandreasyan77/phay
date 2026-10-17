@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Tenancy\TenantRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreServiceCategoryRequest extends FormRequest
@@ -14,7 +15,7 @@ class StoreServiceCategoryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'slug' => ['required', 'string', 'max:255', 'unique:service_categories,slug'],
+            'slug' => ['required', 'string', 'max:255', TenantRule::unique('service_categories', 'slug')],
             'icon' => ['nullable', 'string', 'max:100'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'name' => ['required', 'array'],

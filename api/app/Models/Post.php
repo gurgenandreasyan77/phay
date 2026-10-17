@@ -4,13 +4,14 @@ namespace App\Models;
 
 use App\Enums\PostCategory;
 use App\Enums\PostStatus;
+use App\Models\Concerns\BelongsToTenant;
 use App\Models\Concerns\HasTranslations;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Post extends Model
 {
-    use HasTranslations;
+    use BelongsToTenant, HasTranslations;
 
     protected $fillable = [
         'slug',

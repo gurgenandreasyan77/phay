@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Tenancy\TenantRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class UpdateServiceCategoryRequest extends FormRequest
 {
@@ -17,7 +17,7 @@ class UpdateServiceCategoryRequest extends FormRequest
         $categoryId = $this->route('serviceCategory')?->id;
 
         return [
-            'slug' => ['sometimes', 'string', 'max:255', Rule::unique('service_categories', 'slug')->ignore($categoryId)],
+            'slug' => ['sometimes', 'string', 'max:255', TenantRule::unique('service_categories', 'slug')->ignore($categoryId)],
             'icon' => ['nullable', 'string', 'max:100'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'name' => ['sometimes', 'array'],

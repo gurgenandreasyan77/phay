@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Features\FeatureFlag;
 use App\Models\User;
+use App\Tenancy\TenantContext;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -19,7 +20,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // One tenant per request, command or queued job ("scoped" resets
+        // between Octane requests and queue jobs).
+        $this->app->scoped(TenantContext::class);
     }
 
     /**
@@ -43,6 +46,10 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute((int) config('services.admin_login.rate_limit_per_minute'))
                 ->by($request->ip());
         });
+
+        // Feature flags belong to a business: Feature::active('market')
+        // answers for the current tenant, not for the signed-in user.
+        Feature::resolveScopeUsing(fn () => app(TenantContext::class)->current());
 
         foreach (FeatureFlag::cases() as $flag) {
             Feature::define($flag->value, fn () => $flag->default());

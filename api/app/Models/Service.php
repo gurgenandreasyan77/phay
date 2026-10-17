@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\PriceType;
 use App\Enums\SeoRobots;
 use App\Enums\ServiceStatus;
+use App\Models\Concerns\BelongsToTenant;
 use App\Models\Concerns\HasTranslations;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Service extends Model
 {
-    use HasTranslations;
+    use BelongsToTenant, HasTranslations;
 
     protected $fillable = [
         'category_id',

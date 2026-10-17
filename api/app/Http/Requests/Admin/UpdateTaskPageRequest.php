@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\PageStatus;
+use App\Tenancy\TenantRule;
 use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -19,9 +20,9 @@ class UpdateTaskPageRequest extends FormRequest
         $page = $this->route('taskPage');
 
         return [
-            'slug_hy' => ['sometimes', 'string', 'max:255', Rule::unique('market_task_pages', 'slug_hy')->ignore($page)],
-            'slug_ru' => ['sometimes', 'string', 'max:255', Rule::unique('market_task_pages', 'slug_ru')->ignore($page)],
-            'slug_en' => ['sometimes', 'string', 'max:255', Rule::unique('market_task_pages', 'slug_en')->ignore($page)],
+            'slug_hy' => ['sometimes', 'string', 'max:255', TenantRule::unique('market_task_pages', 'slug_hy')->ignore($page)],
+            'slug_ru' => ['sometimes', 'string', 'max:255', TenantRule::unique('market_task_pages', 'slug_ru')->ignore($page)],
+            'slug_en' => ['sometimes', 'string', 'max:255', TenantRule::unique('market_task_pages', 'slug_en')->ignore($page)],
             'status' => ['sometimes', Rule::enum(PageStatus::class)],
             'sort_order' => ['sometimes', 'integer', 'min:0'],
 
@@ -35,9 +36,9 @@ class UpdateTaskPageRequest extends FormRequest
             'seo_title' => ['sometimes', 'nullable', 'array'],
             'seo_description' => ['sometimes', 'nullable', 'array'],
 
-            'related_service_id' => ['sometimes', 'nullable', 'integer', 'exists:services,id'],
+            'related_service_id' => ['sometimes', 'nullable', 'integer', TenantRule::exists('services', 'id')],
             'product_ids' => ['sometimes', 'array'],
-            'product_ids.*' => ['integer', 'exists:products,id'],
+            'product_ids.*' => ['integer', TenantRule::exists('products', 'id')],
         ];
     }
 

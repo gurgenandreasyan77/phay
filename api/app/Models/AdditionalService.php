@@ -4,12 +4,13 @@ namespace App\Models;
 
 use App\Enums\AdditionalServiceCategory;
 use App\Enums\PriceUnit;
+use App\Models\Concerns\BelongsToTenant;
 use App\Models\Concerns\HasTranslations;
 use Illuminate\Database\Eloquent\Model;
 
 class AdditionalService extends Model
 {
-    use HasTranslations;
+    use BelongsToTenant, HasTranslations;
 
     protected $fillable = [
         'slug',

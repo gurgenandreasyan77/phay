@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 
 class CalculatorSetting extends Model
 {
+    use BelongsToTenant;
+
     protected $fillable = [
         'cleaning_rates',
         'room_rates',
@@ -30,13 +33,13 @@ class CalculatorSetting extends Model
         'dry_cleaning_rates' => 'array',
     ];
 
-    // Calculator rates are site-wide, not per-record — callers always want
-    // this one row. Defaults here mirror the original hardcoded placeholder
-    // rates from src/config/pricing.ts, so the very first read (before the
-    // seeder runs) doesn't produce a broken calculator.
+    // Calculator rates are per business, not per record — callers always want
+    // the current business's one row. Defaults here mirror the original
+    // hardcoded placeholder rates from src/config/pricing.ts, so the very
+    // first read (before the seeder runs) doesn't produce a broken calculator.
     public static function current(): self
     {
-        return static::query()->firstOrCreate(['id' => 1], [
+        return static::query()->firstOrCreate([], [
             'cleaning_rates' => [
                 'apartment' => ['regular' => 350, 'general' => 600, 'postConstruction' => 950],
                 'house' => ['regular' => 400, 'general' => 700, 'postConstruction' => 1050],

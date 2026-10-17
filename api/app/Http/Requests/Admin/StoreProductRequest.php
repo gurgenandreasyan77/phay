@@ -7,6 +7,7 @@ use App\Enums\CompositionType;
 use App\Enums\ProductStatus;
 use App\Enums\SeoRobots;
 use App\Rules\RequiredForPublishedProduct;
+use App\Tenancy\TenantRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -26,9 +27,9 @@ class StoreProductRequest extends FormRequest
             // from slug_en/slug_hy — see Admin\ProductController@store — and
             // kept only so existing lead correlation by product slug (see
             // LeadService) doesn't need a migration of its own.
-            'slug_hy' => ['required', 'string', 'max:255', 'unique:products,slug_hy'],
-            'slug_ru' => ['required', 'string', 'max:255', 'unique:products,slug_ru'],
-            'slug_en' => ['required', 'string', 'max:255', 'unique:products,slug_en'],
+            'slug_hy' => ['required', 'string', 'max:255', TenantRule::unique('products', 'slug_hy')],
+            'slug_ru' => ['required', 'string', 'max:255', TenantRule::unique('products', 'slug_ru')],
+            'slug_en' => ['required', 'string', 'max:255', TenantRule::unique('products', 'slug_en')],
             'status' => ['required', Rule::enum(ProductStatus::class)],
 
             'name' => ['required', 'array'],
@@ -108,14 +109,14 @@ class StoreProductRequest extends FormRequest
             'secondary_keywords.*' => ['string', 'max:255'],
 
             'category_ids' => ['nullable', 'array'],
-            'category_ids.*' => ['integer', 'exists:product_categories,id'],
-            'primary_category_id' => ['nullable', 'integer', 'exists:product_categories,id'],
+            'category_ids.*' => ['integer', TenantRule::exists('product_categories', 'id')],
+            'primary_category_id' => ['nullable', 'integer', TenantRule::exists('product_categories', 'id')],
             'service_ids' => ['nullable', 'array'],
-            'service_ids.*' => ['integer', 'exists:services,id'],
+            'service_ids.*' => ['integer', TenantRule::exists('services', 'id')],
             'related_product_ids' => ['nullable', 'array'],
-            'related_product_ids.*' => ['integer', 'exists:products,id'],
+            'related_product_ids.*' => ['integer', TenantRule::exists('products', 'id')],
             'accessory_product_ids' => ['nullable', 'array'],
-            'accessory_product_ids.*' => ['integer', 'exists:products,id'],
+            'accessory_product_ids.*' => ['integer', TenantRule::exists('products', 'id')],
 
             'images' => ['nullable', 'array'],
             'images.*.path' => ['required_with:images', 'string', 'max:255'],

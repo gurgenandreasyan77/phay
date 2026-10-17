@@ -20,7 +20,7 @@ class ServiceCategoryController extends Controller
                     ->orderBy('sort_order');
             }])
             ->when(
-                ! Feature::globally()->active(FeatureFlag::AutoCare->value),
+                ! Feature::active(FeatureFlag::AutoCare->value),
                 fn ($query) => $query->where('slug', '!=', FeatureFlag::AutoCare->value)
             )
             ->orderBy('sort_order')

@@ -2,7 +2,9 @@
 
 namespace Database\Factories;
 
+use App\Models\Tenant;
 use App\Models\User;
+use App\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -31,6 +33,35 @@ class UserFactory extends Factory
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
         ];
+    }
+
+    /**
+     * By default a user is an owner of the current (normally the default)
+     * business, which is what every admin test before multi-tenancy assumed.
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (User $user) {
+            $user->tenants()->attach(app(TenantContext::class)->id(), ['role' => 'owner']);
+        });
+    }
+
+    /**
+     * Member of the given business only.
+     */
+    public function forTenant(Tenant $tenant, string $role = 'owner'): static
+    {
+        return $this->afterCreating(function (User $user) use ($tenant, $role) {
+            $user->tenants()->sync([$tenant->getKey() => ['role' => $role]]);
+        });
+    }
+
+    /**
+     * Not a member of any business.
+     */
+    public function withoutTenant(): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->tenants()->detach());
     }
 
     /**

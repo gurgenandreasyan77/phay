@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use App\Models\Concerns\HasTranslations;
 use Illuminate\Database\Eloquent\Model;
 
 class SiteSetting extends Model
 {
-    use HasTranslations;
+    use BelongsToTenant, HasTranslations;
 
     protected $fillable = [
         'address',
@@ -17,10 +18,10 @@ class SiteSetting extends Model
         'address' => 'array',
     ];
 
-    // Contact info is site-wide, not per-record — callers always want this
-    // one row rather than querying by id.
+    // Contact info is per business, not per record — callers always want
+    // the current business's one row (BelongsToTenant scopes and fills it).
     public static function current(): self
     {
-        return static::query()->firstOrCreate(['id' => 1]);
+        return static::query()->firstOrCreate();
     }
 }

@@ -20,7 +20,7 @@ class ServiceController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $categorySlug = $request->query('category');
-        $autoCareActive = Feature::globally()->active(FeatureFlag::AutoCare->value);
+        $autoCareActive = Feature::active(FeatureFlag::AutoCare->value);
 
         // The category slug happens to equal the flag key ("auto-care") —
         // the two concepts are deliberately the same identifier here.
@@ -52,7 +52,7 @@ class ServiceController extends Controller
      */
     public function show(Request $request, string $slug): JsonResponse
     {
-        $autoCareActive = Feature::globally()->active(FeatureFlag::AutoCare->value);
+        $autoCareActive = Feature::active(FeatureFlag::AutoCare->value);
 
         $service = Service::query()
             ->whereIn('status', array_map(fn ($s) => $s->value, ServiceStatus::publicallyVisible()))

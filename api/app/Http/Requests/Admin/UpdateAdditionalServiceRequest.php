@@ -4,6 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use App\Enums\AdditionalServiceCategory;
 use App\Enums\PriceUnit;
+use App\Tenancy\TenantRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -17,7 +18,7 @@ class UpdateAdditionalServiceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'slug' => ['sometimes', 'string', 'max:255', Rule::unique('additional_services', 'slug')->ignore($this->route('additionalService'))],
+            'slug' => ['sometimes', 'string', 'max:255', TenantRule::unique('additional_services', 'slug')->ignore($this->route('additionalService'))],
             'category' => ['sometimes', Rule::enum(AdditionalServiceCategory::class)],
             'name' => ['sometimes', 'array'],
             'name.hy' => ['required_with:name', 'string', 'max:255'],

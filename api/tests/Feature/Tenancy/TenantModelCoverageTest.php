@@ -1,0 +1,41 @@
+<?php
+
+namespace Tests\Feature\Tenancy;
+
+use App\Models\Concerns\BelongsToTenant;
+use App\Models\Site;
+use App\Models\Tenant;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
+use Tests\TestCase;
+
+/**
+ * The most common multi-tenancy bug is a model that forgets the tenant
+ * scope. This fails as soon as a new model is added without it.
+ */
+class TenantModelCoverageTest extends TestCase
+{
+    use RefreshDatabase;
+
+    // Platform-level models: they are not owned by one business.
+    private const PLATFORM_MODELS = [User::class, Tenant::class, Site::class];
+
+    public function test_every_content_model_is_scoped_to_a_tenant(): void
+    {
+        $models = collect(glob(app_path('Models/*.php')))
+            ->map(fn (string $path) => 'App\\Models\\'.basename($path, '.php'))
+            ->filter(fn (string $class) => is_subclass_of($class, Model::class))
+            ->reject(fn (string $class) => in_array($class, self::PLATFORM_MODELS, true));
+
+        $this->assertNotEmpty($models);
+
+        foreach ($models as $class) {
+            $this->assertContains(BelongsToTenant::class, class_uses_recursive($class), "{$class} must use BelongsToTenant.");
+
+            $table = (new $class)->getTable();
+            $this->assertTrue(Schema::hasColumn($table, 'tenant_id'), "{$table} must have a tenant_id column.");
+        }
+    }
+}

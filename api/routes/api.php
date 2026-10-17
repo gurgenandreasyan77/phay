@@ -36,38 +36,43 @@ use Illuminate\Support\Facades\Route;
 Route::get('/health', HealthController::class);
 
 Route::prefix('v1')->group(function () {
-    Route::get('/categories', [ServiceCategoryController::class, 'index']);
-    Route::get('/services', [ServiceController::class, 'index']);
-    Route::get('/services/{slug}', [ServiceController::class, 'show']);
-    Route::get('/service-packages', [ServicePackageController::class, 'index']);
-    Route::get('/service-packages/{slug}', [ServicePackageController::class, 'show']);
-    Route::get('/service-gallery', [ServiceGalleryItemController::class, 'index']);
-    Route::get('/service-videos', [ServiceVideoController::class, 'index']);
-    Route::get('/additional-services', [AdditionalServiceController::class, 'index']);
+    // Public API: the X-Site-Key header decides which business's content is
+    // served (no header: the default business).
+    Route::middleware('tenant.site')->group(function () {
+        Route::get('/categories', [ServiceCategoryController::class, 'index']);
+        Route::get('/services', [ServiceController::class, 'index']);
+        Route::get('/services/{slug}', [ServiceController::class, 'show']);
+        Route::get('/service-packages', [ServicePackageController::class, 'index']);
+        Route::get('/service-packages/{slug}', [ServicePackageController::class, 'show']);
+        Route::get('/service-gallery', [ServiceGalleryItemController::class, 'index']);
+        Route::get('/service-videos', [ServiceVideoController::class, 'index']);
+        Route::get('/additional-services', [AdditionalServiceController::class, 'index']);
 
-    // Products, their categories and SEO task pages are exclusively the
-    // "Market" section — unlike auto-care (a ServiceCategory shared with
-    // other categories' endpoints), these routes serve nothing else, so the
-    // whole group can be gated directly.
-    Route::middleware('feature.global:market')->group(function () {
-        Route::get('/products', [ProductController::class, 'index']);
-        Route::get('/products/{categorySlug}/{productSlug}', [ProductController::class, 'show']);
-        Route::get('/product-categories', [ProductCategoryController::class, 'index']);
-        Route::get('/product-categories/{slug}', [ProductCategoryController::class, 'show']);
-        Route::get('/task-pages', [TaskPageController::class, 'index']);
-        Route::get('/task-pages/{slug}', [TaskPageController::class, 'show']);
+        // Products, their categories and SEO task pages are exclusively the
+        // "Market" section — unlike auto-care (a ServiceCategory shared with
+        // other categories' endpoints), these routes serve nothing else, so the
+        // whole group can be gated directly.
+        Route::middleware('feature:market')->group(function () {
+            Route::get('/products', [ProductController::class, 'index']);
+            Route::get('/products/{categorySlug}/{productSlug}', [ProductController::class, 'show']);
+            Route::get('/product-categories', [ProductCategoryController::class, 'index']);
+            Route::get('/product-categories/{slug}', [ProductCategoryController::class, 'show']);
+            Route::get('/task-pages', [TaskPageController::class, 'index']);
+            Route::get('/task-pages/{slug}', [TaskPageController::class, 'show']);
+        });
+
+        Route::get('/calculator-settings', [CalculatorSettingController::class, 'show']);
+        Route::get('/posts', [PostController::class, 'index']);
+        Route::get('/posts/{post:slug}', [PostController::class, 'show']);
+        Route::get('/settings', [SettingsController::class, 'show']);
+        Route::post('/leads', [LeadController::class, 'store'])->middleware('throttle:leads');
     });
-
-    Route::get('/calculator-settings', [CalculatorSettingController::class, 'show']);
-    Route::get('/posts', [PostController::class, 'index']);
-    Route::get('/posts/{post:slug}', [PostController::class, 'show']);
-    Route::get('/settings', [SettingsController::class, 'show']);
-    Route::post('/leads', [LeadController::class, 'store'])->middleware('throttle:leads');
 
     Route::prefix('admin')->group(function () {
         Route::post('/login', [AdminAuthController::class, 'login'])->middleware('throttle:admin-login');
 
-        Route::middleware('auth:sanctum')->group(function () {
+        // Admin API: the signed-in user's current business.
+        Route::middleware(['auth:sanctum', 'tenant.admin'])->group(function () {
             Route::post('/logout', [AdminAuthController::class, 'logout']);
             Route::get('/me', [AdminAuthController::class, 'me']);
             Route::get('/dashboard', AdminDashboardController::class);

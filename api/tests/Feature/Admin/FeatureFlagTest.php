@@ -31,7 +31,7 @@ class FeatureFlagTest extends TestCase
         $this->patchJson('/api/v1/admin/feature-flags/auto-care', ['active' => false])
             ->assertForbidden();
 
-        $this->assertTrue(Feature::globally()->active(FeatureFlag::AutoCare->value));
+        $this->assertTrue(Feature::active(FeatureFlag::AutoCare->value));
     }
 
     public function test_unauthenticated_requests_are_rejected(): void
@@ -49,7 +49,7 @@ class FeatureFlagTest extends TestCase
             ->assertOk();
 
         $response->assertJsonPath('data.active', false);
-        $this->assertFalse(Feature::globally()->active(FeatureFlag::AutoCare->value));
+        $this->assertFalse(Feature::active(FeatureFlag::AutoCare->value));
 
         $this->assertDatabaseHas('feature_flag_logs', [
             'feature' => 'auto-care',
@@ -63,13 +63,13 @@ class FeatureFlagTest extends TestCase
     {
         Sanctum::actingAs(User::factory()->create(['is_super_admin' => true]));
 
-        Feature::globally()->deactivate(FeatureFlag::AutoCare->value);
+        Feature::deactivate(FeatureFlag::AutoCare->value);
 
         $response = $this->patchJson('/api/v1/admin/feature-flags/auto-care', ['active' => true])
             ->assertOk();
 
         $response->assertJsonPath('data.active', true);
-        $this->assertTrue(Feature::globally()->active(FeatureFlag::AutoCare->value));
+        $this->assertTrue(Feature::active(FeatureFlag::AutoCare->value));
     }
 
     public function test_toggling_the_same_value_does_not_create_a_duplicate_log_entry(): void
