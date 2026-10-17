@@ -186,10 +186,14 @@ class BusinessOwnerAccessTest extends TestCase
         $this->assertTrue(Feature::for(Tenant::default())->active('market'));
 
         Sanctum::actingAs($this->createOwnerLogin($shop));
+        // Orders and sales come first; only orders is on.
         $this->getJson('/api/v1/admin/feature-flags')
             ->assertOk()
-            ->assertJsonPath('data.0.active', false)
-            ->assertJsonPath('data.1.active', false);
+            ->assertJsonPath('data.0.key', 'orders')
+            ->assertJsonPath('data.0.active', true)
+            ->assertJsonPath('data.1.active', false)
+            ->assertJsonPath('data.2.active', false)
+            ->assertJsonPath('data.3.active', false);
     }
 
     public function test_a_super_admin_turns_a_module_on_for_one_business_from_the_platform(): void
@@ -199,8 +203,8 @@ class BusinessOwnerAccessTest extends TestCase
 
         $this->getJson("/api/v1/admin/tenants/{$shop->id}/features")
             ->assertOk()
-            ->assertJsonPath('data.1.key', 'market')
-            ->assertJsonPath('data.1.active', false);
+            ->assertJsonPath('data.3.key', 'market')
+            ->assertJsonPath('data.3.active', false);
 
         $this->patchJson("/api/v1/admin/tenants/{$shop->id}/features/market", ['active' => true])
             ->assertOk()
