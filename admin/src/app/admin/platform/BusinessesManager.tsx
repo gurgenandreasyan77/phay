@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminTenantDto } from "@/lib/adminApi";
 import { TenantLoginsPanel } from "./TenantLoginsPanel";
+import { TenantModulesPanel } from "./TenantModulesPanel";
 import { Badge, Button, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "../_components/ui";
 
 const LOCALE_LABELS: Record<string, string> = { hy: "Հայերեն", ru: "Русский", en: "English" };
@@ -17,8 +18,13 @@ export function BusinessesManager({
 }) {
   const router = useRouter();
   const [switchingId, setSwitchingId] = useState<number | null>(null);
-  const [loginsTenantId, setLoginsTenantId] = useState<number | null>(null);
-  const loginsTenant = tenants.find((tenant) => tenant.id === loginsTenantId) ?? null;
+  // One panel under the table at a time: a business's logins or its modules.
+  const [panel, setPanel] = useState<{ tenantId: number; kind: "logins" | "modules" } | null>(null);
+  const panelTenant = tenants.find((tenant) => tenant.id === panel?.tenantId) ?? null;
+
+  function togglePanel(tenantId: number, kind: "logins" | "modules") {
+    setPanel((open) => (open?.tenantId === tenantId && open.kind === kind ? null : { tenantId, kind }));
+  }
 
   async function switchTo(tenant: AdminTenantDto, then: string) {
     setSwitchingId(tenant.id);
@@ -75,25 +81,26 @@ export function BusinessesManager({
                   <span className="inline-flex items-center justify-end gap-2">
                     <Button
                       size="sm"
-                      variant={tenant.id === loginsTenantId ? "primary" : "secondary"}
-                      onClick={() => setLoginsTenantId(tenant.id === loginsTenantId ? null : tenant.id)}
+                      variant={panel?.tenantId === tenant.id && panel.kind === "logins" ? "primary" : "secondary"}
+                      onClick={() => togglePanel(tenant.id, "logins")}
                     >
                       Մուտքեր
                     </Button>
-                    {isCurrent ? (
-                      <Button size="sm" variant="secondary" onClick={() => router.push("/admin/sites")}>
-                        Կայքեր
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={switchingId !== null}
-                        onClick={() => switchTo(tenant, "/admin")}
-                      >
-                        Անցնել այս բիզնեսին
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      variant={panel?.tenantId === tenant.id && panel.kind === "modules" ? "primary" : "secondary"}
+                      onClick={() => togglePanel(tenant.id, "modules")}
+                    >
+                      Մոդուլներ
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={switchingId !== null}
+                      onClick={() => (isCurrent ? router.push("/admin") : switchTo(tenant, "/admin"))}
+                    >
+                      Մտնել
+                    </Button>
                   </span>
                 </Td>
               </Tr>
@@ -103,9 +110,14 @@ export function BusinessesManager({
         </tbody>
       </TableWrap>
 
-      {loginsTenant ? <TenantLoginsPanel tenant={loginsTenant} onClose={() => setLoginsTenantId(null)} /> : null}
+      {panelTenant && panel?.kind === "logins" ? (
+        <TenantLoginsPanel key={panelTenant.id} tenant={panelTenant} onClose={() => setPanel(null)} />
+      ) : null}
+      {panelTenant && panel?.kind === "modules" ? (
+        <TenantModulesPanel key={panelTenant.id} tenant={panelTenant} onClose={() => setPanel(null)} />
+      ) : null}
 
-      <NewBusinessForm onCreated={(tenant) => switchTo(tenant, "/admin/sites")} />
+      <NewBusinessForm onCreated={(tenant) => router.push(`/admin/platform/sites?tenant=${tenant.id}`)} />
     </div>
   );
 }
@@ -187,7 +199,7 @@ function NewBusinessForm({ onCreated }: { onCreated: (tenant: AdminTenantDto) =>
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-success/30 bg-success-light px-4 py-3 text-sm text-ink">
           <span>«{created.name}» բիզնեսը ստեղծված է։ Հաջորդ քայլը՝ միացնել նրա կայքը և ստանալ բանալին։</span>
           <Button size="sm" onClick={() => onCreated(created)}>
-            Անցնել և միացնել կայք
+            Միացնել կայք
           </Button>
         </div>
       ) : null}

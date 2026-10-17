@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Bell, ChevronDown, LogOut, Menu, Search } from "lucide-react";
 import type { AdminUserDto } from "@/lib/adminApi";
-import { findActiveNavItem } from "./nav";
+import { findActiveNavItem, isPlatformPath } from "./nav";
 import { TenantSwitcher } from "./TenantSwitcher";
 import { cn } from "./ui";
 
@@ -80,7 +80,10 @@ export function Topbar({ onOpenMobileNav, me }: { onOpenMobileNav: () => void; m
       </nav>
 
       <div className="ml-auto flex items-center gap-1">
-        {me?.currentTenant ? <TenantSwitcher current={me.currentTenant} tenants={me.tenants} /> : null}
+        {/* On the platform level a business is entered from its row instead. */}
+        {me?.currentTenant && !(me.isSuperAdmin && isPlatformPath(pathname)) ? (
+          <TenantSwitcher current={me.currentTenant} tenants={me.tenants} />
+        ) : null}
         <button
           type="button"
           disabled

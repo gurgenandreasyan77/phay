@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "rm -rf .next/types && tsc --noEmit"
+    "typecheck": "rm -rf .next/types .next/dev/types/validator.ts && tsc --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

@@ -33,7 +33,7 @@ export function AdminShell({
   return (
     <div className="min-h-screen bg-background lg:pl-64">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block">
-        <Sidebar features={features} isSuperAdmin={isSuperAdmin} />
+        <Sidebar features={features} isSuperAdmin={isSuperAdmin} businessName={me?.currentTenant?.name} />
       </aside>
 
       {mobileNavOpen ? (
@@ -45,7 +45,12 @@ export function AdminShell({
             onClick={() => setMobileNavOpen(false)}
           />
           <aside className="absolute inset-y-0 left-0 w-64 shadow-md">
-            <Sidebar features={features} isSuperAdmin={isSuperAdmin} onNavigate={() => setMobileNavOpen(false)} />
+            <Sidebar
+              features={features}
+              isSuperAdmin={isSuperAdmin}
+              businessName={me?.currentTenant?.name}
+              onNavigate={() => setMobileNavOpen(false)}
+            />
           </aside>
         </div>
       ) : null}

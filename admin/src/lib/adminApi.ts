@@ -126,6 +126,8 @@ export type AdminSiteDto = {
   publicKey: string;
   allowedOrigins: string[];
   isActive: boolean;
+  /** The business the site belongs to. */
+  tenant?: { id: number; name: string };
   createdAt: string | null;
 };
 
@@ -446,6 +448,12 @@ export async function getTenantsAdmin(): Promise<AdminTenantDto[]> {
 
 export async function getSitesAdmin(): Promise<AdminSiteDto[]> {
   const result = await adminApiFetch<AdminSiteDto[]>("/admin/sites");
+  return result.data ?? [];
+}
+
+/** Optional modules of any business (platform level, super admin only). */
+export async function getTenantFeaturesAdmin(tenantId: number): Promise<AdminFeatureFlagDto[]> {
+  const result = await adminApiFetch<AdminFeatureFlagDto[]>(`/admin/tenants/${tenantId}/features`);
   return result.data ?? [];
 }
 

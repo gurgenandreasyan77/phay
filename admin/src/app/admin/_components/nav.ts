@@ -15,12 +15,13 @@ import {
   CreditCard,
   Receipt,
   FileText,
-  BarChart3,
   Workflow,
   ShieldCheck,
   History,
   Settings,
-  ToggleLeft,
+  TrendingUp,
+  Sparkles,
+  Upload,
   Building2,
   Globe,
 } from "lucide-react";
@@ -34,9 +35,6 @@ export type NavItem = {
   soon?: boolean;
   /** Hidden entirely (not just disabled) while this feature flag is off. */
   requiresFeature?: keyof FeatureFlags;
-  /** Platform-level screens only a super admin can use (the API answers 403
-   *  to a business owner too — hiding the item is just for a clean menu). */
-  superAdminOnly?: boolean;
 };
 
 export type NavGroup = {
@@ -44,19 +42,30 @@ export type NavGroup = {
   items: NavItem[];
 };
 
-export const NAV_GROUPS: NavGroup[] = [
+/**
+ * The admin of one business: what its owner always sees, and what a super
+ * admin sees after entering a business. Modules appear only when that
+ * business has them turned on.
+ */
+export const BUSINESS_NAV_GROUPS: NavGroup[] = [
   {
     label: "Հիմնական",
     items: [
       { href: "/admin", label: "Վահանակ", icon: LayoutDashboard },
       { href: "/admin/orders", label: "Պատվերներ", icon: ClipboardList },
+      { href: "/admin/sales", label: "Վաճառքներ", icon: Upload, soon: true },
+      { href: "/admin/analytics", label: "Վերլուծություն", icon: TrendingUp, soon: true },
+      { href: "/admin/assistant", label: "AI օգնական", icon: Sparkles, soon: true },
       { href: "/admin/clients", label: "Հաճախորդներ", icon: Users, soon: true },
     ],
   },
   {
     label: "Կատալոգ",
+    items: [{ href: "/admin/services", label: "Ծառայություններ", icon: Wrench }],
+  },
+  {
+    label: "Մոդուլներ",
     items: [
-      { href: "/admin/services", label: "Ծառայություններ", icon: Wrench },
       { href: "/admin/auto-care", label: "Ավտոխնամք", icon: Car, requiresFeature: "autoCare" },
       { href: "/admin/products", label: "Խանութ", icon: ShoppingBag, requiresFeature: "market" },
       { href: "/admin/market/categories", label: "Կատեգորիաներ", icon: FolderTree, requiresFeature: "market" },
@@ -80,42 +89,47 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Պլատֆորմ",
-    items: [
-      { href: "/admin/businesses", label: "Բիզնեսներ", icon: Building2, superAdminOnly: true },
-      { href: "/admin/sites", label: "Կայքեր", icon: Globe, superAdminOnly: true },
-    ],
-  },
-  {
     label: "Այլ",
     items: [
       { href: "/admin/documents", label: "Փաստաթղթեր", icon: FileText, soon: true },
-      { href: "/admin/analytics", label: "Վերլուծություն", icon: BarChart3, soon: true },
       { href: "/admin/automations", label: "Ավտոմատացումներ", icon: Workflow, soon: true },
       { href: "/admin/audit-log", label: "Գործողությունների մատյան", icon: History, soon: true },
       { href: "/admin/settings", label: "Կարգավորումներ", icon: Settings },
-      // Deliberately never gated by requiresFeature — otherwise disabling a
-      // flag could hide the only place that can turn it back on.
-      { href: "/admin/feature-flags", label: "Feature Flags", icon: ToggleLeft, superAdminOnly: true },
     ],
   },
 ];
 
-export const ALL_NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((group) => group.items);
+/** The platform level: super admin only (the API answers 403 to an owner too). */
+export const PLATFORM_NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Պլատֆորմ",
+    items: [
+      { href: "/admin/platform", label: "Բիզնեսներ", icon: Building2 },
+      { href: "/admin/platform/sites", label: "Կայքեր", icon: Globe },
+    ],
+  },
+];
+
+export const PLATFORM_HOME = "/admin/platform";
+
+export function isPlatformPath(pathname: string): boolean {
+  return pathname === PLATFORM_HOME || pathname.startsWith(`${PLATFORM_HOME}/`);
+}
+
+export const ALL_NAV_ITEMS: NavItem[] = [...BUSINESS_NAV_GROUPS, ...PLATFORM_NAV_GROUPS].flatMap((group) => group.items);
 
 /**
- * Drops nav items/groups gated behind a disabled feature flag or super-admin
- * access. A business owner also doesn't see the "soon" placeholders: only the
- * sections that work for them today.
+ * The menu for this page: the platform level on /admin/platform/*, the
+ * business admin elsewhere. Drops modules the business has off; a business
+ * owner also doesn't see the "soon" placeholders, only what works today.
  */
-export function visibleNavGroups(features: FeatureFlags, isSuperAdmin = false): NavGroup[] {
-  return NAV_GROUPS.map((group) => ({
+export function visibleNavGroups(features: FeatureFlags, isSuperAdmin: boolean, pathname: string): NavGroup[] {
+  if (isSuperAdmin && isPlatformPath(pathname)) return PLATFORM_NAV_GROUPS;
+
+  return BUSINESS_NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter(
-      (item) =>
-        (!item.requiresFeature || features[item.requiresFeature]) &&
-        (!item.superAdminOnly || isSuperAdmin) &&
-        (!item.soon || isSuperAdmin),
+      (item) => (!item.requiresFeature || features[item.requiresFeature]) && (!item.soon || isSuperAdmin),
     ),
   })).filter((group) => group.items.length > 0);
 }
@@ -124,5 +138,10 @@ export function visibleNavGroups(features: FeatureFlags, isSuperAdmin = false): 
 export function findActiveNavItem(pathname: string): NavItem | undefined {
   return [...ALL_NAV_ITEMS]
     .sort((a, b) => b.href.length - a.href.length)
-    .find((item) => (item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href)));
+    .find((item) => isActiveHref(item.href, pathname));
+}
+
+/** /admin and /admin/platform are section homes: only active on themselves. */
+export function isActiveHref(href: string, pathname: string): boolean {
+  return href === "/admin" || href === PLATFORM_HOME ? pathname === href : pathname.startsWith(href);
 }

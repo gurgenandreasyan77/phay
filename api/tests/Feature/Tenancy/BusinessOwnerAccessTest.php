@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Tenancy;
 
+use App\Models\FeatureFlagLog;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -77,6 +78,8 @@ class BusinessOwnerAccessTest extends TestCase
         $this->patchJson("/api/v1/admin/sites/{$site->id}", ['name' => 'x'])->assertForbidden();
         $this->postJson("/api/v1/admin/sites/{$site->id}/rotate-key")->assertForbidden();
         $this->patchJson('/api/v1/admin/feature-flags/market', ['active' => true])->assertForbidden();
+        $this->getJson("/api/v1/admin/tenants/{$shop->id}/features")->assertForbidden();
+        $this->patchJson("/api/v1/admin/tenants/{$shop->id}/features/market", ['active' => true])->assertForbidden();
         $this->postJson('/api/v1/admin/switch-tenant', ['tenant_id' => Tenant::default()->id])->assertForbidden();
 
         // The basic sections work.
@@ -187,6 +190,29 @@ class BusinessOwnerAccessTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.active', false)
             ->assertJsonPath('data.1.active', false);
+    }
+
+    public function test_a_super_admin_turns_a_module_on_for_one_business_from_the_platform(): void
+    {
+        $shop = $this->createTenant('test-shop');
+        Sanctum::actingAs(User::factory()->superAdmin()->create()); // works on Servio
+
+        $this->getJson("/api/v1/admin/tenants/{$shop->id}/features")
+            ->assertOk()
+            ->assertJsonPath('data.1.key', 'market')
+            ->assertJsonPath('data.1.active', false);
+
+        $this->patchJson("/api/v1/admin/tenants/{$shop->id}/features/market", ['active' => true])
+            ->assertOk()
+            ->assertJsonPath('data.active', true)
+            ->assertJsonPath('data.lastChangedBy', User::query()->where('is_super_admin', true)->value('name'));
+
+        $this->assertTrue(Feature::for($shop)->active('market'));
+        $this->assertFalse(Feature::for($shop)->active('auto-care'));
+        $this->assertSame($shop->id, FeatureFlagLog::withoutTenancy()->sole()->tenant_id);
+
+        $this->patchJson("/api/v1/admin/tenants/{$shop->id}/features/unknown", ['active' => true])
+            ->assertUnprocessable();
     }
 
     public function test_the_super_admin_command_promotes_an_existing_login(): void
