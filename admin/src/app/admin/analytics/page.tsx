@@ -10,9 +10,11 @@ import {
   type AnalyticsTotalsDto,
   type TableAnalyticsDto,
   type TableMetricDto,
+  type DashboardWidgetId,
 } from "@/lib/adminApi";
 import { formatMoment, formatNumber, SECTIONS, tablePath, tablesPath } from "../_components/tables/shared";
 import { LEAD_STATUS_LABELS, LEAD_STATUSES } from "../_components/leadStatus";
+import { WidgetPicker } from "../_components/analytics/WidgetPicker";
 import {
   buttonClasses,
   Card,
@@ -130,10 +132,13 @@ function BarChart({
   points,
   value,
   format,
+  label = (point) => bucketLabel(point.date),
 }: {
   points: { date: string }[];
   value: (index: number) => number;
   format: (n: number) => string;
+  /** The caption of a bar; a date by default. */
+  label?: (point: { date: string }) => string;
 }) {
   const values = points.map((_, i) => value(i));
   const max = Math.max(...values, 0);
@@ -150,7 +155,7 @@ function BarChart({
           <div
             key={point.date}
             className="group relative flex h-full flex-1 items-end"
-            title={`${bucketLabel(point.date)}: ${format(values[i])}`}
+            title={`${label(point)}: ${format(values[i])}`}
           >
             <div
               className="w-full rounded-t-sm bg-primary/70 transition-colors group-hover:bg-primary"
@@ -162,7 +167,7 @@ function BarChart({
       <div className="mt-2 flex gap-px text-[10px] text-ink-faint">
         {points.map((point, i) => (
           <div key={point.date} className="flex-1 overflow-visible whitespace-nowrap">
-            {i % labelEvery === 0 ? bucketLabel(point.date) : ""}
+            {i % labelEvery === 0 ? label(point) : ""}
           </div>
         ))}
       </div>
@@ -415,22 +420,75 @@ function AllOrders({ summary, period }: { summary: TableAnalyticsDto; period: An
   );
 }
 
+const WEEKDAYS = ["Երկուշաբթի", "Երեքշաբթի", "Չորեքշաբթի", "Հինգշաբթի", "Ուրբաթ", "Շաբաթ", "Կիրակի"];
+
 /**
- * All tables of a section together (thirty daily files read as one month):
- * the figures its columns allow, by day or month, the best and weakest
- * months, top values, and each table.
+ * All tables of a section together (thirty daily files read as one month),
+ * as the owner set it up: only the widgets they chose, in catalog order,
+ * and the catalog to add more from.
  */
 function SectionFigures({ summary, besideSite }: { summary: TableAnalyticsDto; besideSite: boolean }) {
-  const { section, rows, amount, breakdowns, period, tables, metrics, peaks, numbers } = summary;
+  const { section, rows, amount, breakdowns, period, tables, metrics, peaks, numbers, dashboard } = summary;
+  const on = (id: DashboardWidgetId) => dashboard.enabled.includes(id);
   const byMonth = period.days > 90;
   // A year starts at the business's first month, not with empty months before it.
   const series = byMonth && peaks ? summary.series.slice(-peaks.buckets) : summary.series;
   // "From tables" only tells site orders and table orders apart.
   const label = section === "orders" ? (besideSite ? "Պատվերներ աղյուսակներից" : SECTIONS.orders.label) : SECTIONS.sales.label;
   const unit = section === "orders" ? "պատվեր" : "վաճառք";
+  const over = byMonth ? "ամիսների" : "օրերի";
+  const available = dashboard.widgets.filter((w) => w.missing.length === 0).length;
+
+  const charts = [
+    on("revenueChart") && amount ? (
+      <SectionCard key="revenue" title={`Եկամուտ ըստ ${over}`}>
+        <Card>
+          <BarChart points={series} value={(i) => series[i].amount} format={money} />
+        </Card>
+      </SectionCard>
+    ) : null,
+    on("profitChart") && series.some((p) => p.profit !== undefined) ? (
+      <SectionCard key="profit" title={`Շահույթ ըստ ${over}`}>
+        <Card>
+          <BarChart points={series} value={(i) => Math.max(series[i].profit ?? 0, 0)} format={money} />
+        </Card>
+      </SectionCard>
+    ) : null,
+    on("countChart") ? (
+      <SectionCard key="count" title={`${section === "orders" ? "Պատվերներ" : "Վաճառքներ"} ըստ ${over}`}>
+        <Card>
+          <BarChart points={series} value={(i) => series[i].rows} format={(n) => `${n} ${unit}`} />
+        </Card>
+      </SectionCard>
+    ) : null,
+    on("weekdays") && summary.weekdays.length > 0 ? (
+      <SectionCard key="weekdays" title="Ըստ շաբաթվա օրերի">
+        <Card>
+          <BarChart
+            points={summary.weekdays.map((d) => ({ date: String(d.day) }))}
+            value={(i) => (amount ? summary.weekdays[i].amount : summary.weekdays[i].rows)}
+            format={(n) => (amount ? money(n) : `${n} ${unit}`)}
+            label={(p) => WEEKDAYS[Number(p.date) - 1].slice(0, 3)}
+          />
+        </Card>
+      </SectionCard>
+    ) : null,
+    on("hours") && summary.hours.length > 0 ? (
+      <SectionCard key="hours" title="Ըստ ժամերի">
+        <Card>
+          <BarChart
+            points={summary.hours.map((h) => ({ date: String(h.hour) }))}
+            value={(i) => summary.hours[i].rows}
+            format={(n) => `${n} ${unit}`}
+            label={(p) => `${p.date}:00`}
+          />
+        </Card>
+      </SectionCard>
+    ) : null,
+  ].filter(Boolean);
 
   return (
-    <section className="space-y-4 border-t border-border pt-8 first:border-t-0 first:pt-0">
+    <section className="space-y-4 border-t border-border pt-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-ink">{label}</h2>
@@ -443,6 +501,13 @@ function SectionFigures({ summary, besideSite }: { summary: TableAnalyticsDto; b
         </Link>
       </div>
 
+      {!dashboard.saved ? (
+        <p className="rounded-md border border-primary-light bg-primary-light px-4 py-3 text-sm text-primary">
+          Ձեր տվյալների համար ընտրել ենք {dashboard.enabled.length} ցուցանիշ։ Հասանելի է ևս{" "}
+          {Math.max(available - dashboard.enabled.length, 0)}-ը․ ավելացրեք կամ հանեք «Ավելացնել գրաֆիկ» կոճակով։
+        </p>
+      ) : null}
+
       {rows.withoutDate > 0 ? (
         <p className="rounded-md border border-warning/30 bg-warning-light px-4 py-3 text-sm text-warning">
           {rows.withoutDate} տող առանց ամսաթվի է և չի հաշվվում ոչ մի ժամանակահատվածում։ Լրացրեք ամսաթիվը աղյուսակում կամ
@@ -450,47 +515,40 @@ function SectionFigures({ summary, besideSite }: { summary: TableAnalyticsDto; b
         </p>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {metrics.filter((m) => !PER_UNIT.includes(m.key)).map((metric) => (
-          <Kpi
-            key={`${metric.key}|${metric.unit ?? ""}`}
-            label={metric.label}
-            value={formatMetric(metric, metric.value)}
-            current={metric.value}
-            previous={metric.previous}
-            highlight={metric.key === "revenue" || metric.key === "profit"}
-            note={metric.note}
-          />
-        ))}
-        {numbers.slice(0, 4).map((n) => (
-          <Kpi key={`n|${n.label}`} label={`${n.label}, ընդամենը`} value={formatNumber(n.sum)} current={null} previous={null} />
-        ))}
-      </div>
+      {metrics.some((m) => !PER_UNIT.includes(m.key)) || numbers.length > 0 ? (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {metrics
+            .filter((m) => !PER_UNIT.includes(m.key))
+            .map((metric) => (
+              <Kpi
+                key={metric.key}
+                label={metric.label}
+                value={formatMetric(metric, metric.value)}
+                current={metric.value}
+                previous={metric.previous}
+                highlight={metric.key === "revenue" || metric.key === "profit"}
+                note={metric.note}
+              />
+            ))}
+          {numbers.slice(0, 8).map((n) => (
+            <Kpi key={`n|${n.label}`} label={`${n.label}, ընդամենը`} value={formatNumber(n.sum)} current={null} previous={null} />
+          ))}
+        </div>
+      ) : null}
 
       <Units metrics={metrics} section={section} />
 
       {peaks ? <Peaks peaks={peaks} unit={unit} /> : null}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {amount ? (
-          <SectionCard title={`Եկամուտ ըստ ${byMonth ? "ամիսների" : "օրերի"}`}>
-            <Card>
-              <BarChart points={series} value={(i) => series[i].amount} format={money} />
-            </Card>
-          </SectionCard>
-        ) : null}
-        <SectionCard title={`${section === "orders" ? "Պատվերներ" : "Վաճառքներ"} ըստ ${byMonth ? "ամիսների" : "օրերի"}`}>
-          <Card>
-            <BarChart points={series} value={(i) => series[i].rows} format={(n) => `${n} ${unit}`} />
-          </Card>
-        </SectionCard>
-      </div>
+      {charts.length > 0 ? <div className="grid gap-6 lg:grid-cols-2">{charts}</div> : null}
 
-      {byMonth && peaks ? <Months series={series} peaks={peaks} withAmount={amount !== null} unit={unit} /> : null}
+      {summary.months?.peaks ? (
+        <Months series={summary.months.series} peaks={summary.months.peaks} withAmount={amount !== null} unit={unit} />
+      ) : null}
 
       {breakdowns.length > 0 ? (
         <div className="grid gap-6 lg:grid-cols-2">
-          {breakdowns.slice(0, 4).map((breakdown) => (
+          {breakdowns.map((breakdown) => (
             <SectionCard key={breakdown.label} title={`Ըստ «${breakdown.label}»`}>
               <TableWrap>
                 <Thead>
@@ -518,7 +576,7 @@ function SectionFigures({ summary, besideSite }: { summary: TableAnalyticsDto; b
         </div>
       ) : null}
 
-      {tables.length > 1 ? (
+      {on("tables") && tables.length > 1 ? (
         <SectionCard title="Ըստ աղյուսակների">
           <TableWrap>
             <Thead>
@@ -549,16 +607,14 @@ function SectionFigures({ summary, besideSite }: { summary: TableAnalyticsDto; b
               ))}
             </tbody>
           </TableWrap>
-          {tables.length > 15 ? (
-            <p className="text-xs text-ink-muted">
-              Ցույց են տրված առաջին 15-ը {tables.length}-ից։{" "}
-              <Link href={tablesPath(section)} className="underline">
-                Բոլոր աղյուսակները
-              </Link>
-            </p>
-          ) : null}
         </SectionCard>
       ) : null}
+
+      {dashboard.enabled.length === 0 ? (
+        <p className="text-sm text-ink-muted">Ոչ մի ցուցանիշ ընտրված չէ։ Ավելացրեք նրանք, որոնք ձեզ պետք են։</p>
+      ) : null}
+
+      <WidgetPicker key={dashboard.enabled.join(",")} section={section} dashboard={dashboard} />
     </section>
   );
 }
@@ -650,7 +706,7 @@ function Months({
   unit: string;
 }) {
   return (
-    <SectionCard title="Ամիսները" description="Ձեր առաջին տողի ամսից սկսած։ Ընթացիկ ամիսը դեռ ավարտված չէ։">
+    <SectionCard title="Տարվա ամիսները" description="Վերջին 12 ամիսը՝ ձեր առաջին տողի ամսից սկսած։ Ընթացիկ ամիսը դեռ ավարտված չէ։">
       <TableWrap>
         <Thead>
           <Th>Ամիս</Th>

@@ -2,6 +2,7 @@
 
 namespace App\Assistant;
 
+use App\Analytics\Dashboard;
 use App\DataTables\TableAnalytics;
 use App\Enums\DataTableSection;
 use App\Features\FeatureFlag;
@@ -25,6 +26,7 @@ class BusinessAssistant
         private readonly BusinessAnalytics $analytics,
         private readonly TableAnalytics $tableAnalytics,
         private readonly TenantContext $tenants,
+        private readonly Dashboard $dashboard,
     ) {}
 
     public function isConfigured(): bool
@@ -101,7 +103,7 @@ class BusinessAssistant
 
         How the data works:
         - siteOrders: orders that came from the business's website or were added by hand on the orders screen. An order counts on the day it was created; revenue counts on the day an order was completed, from its final price. "conversion" is the share of the period's orders that are already completed. "source" is where the order came from (website, manual entry, or a UTM source).
-        - ownTables: rows of tables the business designed itself (its own columns) and filled by hand or from files, e.g. sales from Instagram or a file imported every day. One entry per "section" (orders or sales), with all its tables taken together: rows and "amount" (the money a row is worth: its total column, else unit price × quantity, e.g. 0.5 kg at 3000 a kg is 1500) for the last 30 and 365 days by the date each row happened, with the previous period of the same length. "metrics" are the figures that make sense for what this business records, chosen by what its columns mean: revenue, profit and margin (only when a unit cost column exists: amount − cost × quantity), how many rows, rows a day and a month (counted from the business's first row), the average check, and per unit (kg, pieces...) the quantity sold, the average quantity of a sale and the average price of one unit. A figure that is missing can't be computed from the business's columns: don't guess it, say which column would make it possible. A monthly "series" and "peaks" (the best and the weakest finished month or day and the average one, by money, or by how many rows when there is no money), the most frequent values of columns of the same meaning across tables ("breakdowns", with the amount they bring) and sums of number columns (the business's own number columns). "tables" lists each table (rows and amount in the last 365 days, all rows, rows without a date, first and last date) and "latestRows" are the latest rows with their table and time. Rows without a date are in no period. Contact details of buyers are left out on purpose.
+        - ownTables: rows of tables the business designed itself (its own columns) and filled by hand or from files, e.g. sales from Instagram or a file imported every day. One entry per "section" (orders or sales), with all its tables taken together: rows and "amount" (the money a row is worth: its total column, else unit price × quantity, e.g. 0.5 kg at 3000 a kg is 1500) for the last 30 and 365 days by the date each row happened, with the previous period of the same length. "metrics" are the figures that make sense for what this business records, chosen by what its columns mean: revenue, profit and margin (only when a unit cost column exists: amount − cost × quantity), how many rows, rows a day and a month (counted from the business's first row), the average check, and per unit (kg, pieces...) the quantity sold, the average quantity of a sale and the average price of one unit. Only the figures the owner put on their analytics dashboard are given ("shownOnDashboard"); a figure that is missing was either not chosen or can't be computed from the business's columns: don't guess it, say it can be added on the analytics screen ("Ավելացնել գրաֆիկ") or which column would make it possible. "months" are the last twelve months with their best and weakest one, "weekdays" rows by day of the week (1 is Monday), "hours" rows by hour of the day. A monthly "series" and "peaks" (the best and the weakest finished month or day and the average one, by money, or by how many rows when there is no money), the most frequent values of columns of the same meaning across tables ("breakdowns", with the amount they bring) and sums of number columns (the business's own number columns). "tables" lists each table (rows and amount in the last 365 days, all rows, rows without a date, first and last date) and "latestRows" are the latest rows with their table and time. Rows without a date are in no period. Contact details of buyers are left out on purpose.
         Amounts are in {$tenant->currency}; write Armenian dram as "դր.".
 
         Reply in the language of the user's latest message (Armenian, Russian or English). Write natural, fluent text, as a native speaker would, with short paragraphs and simple lists. Do not use tables or headings unless asked.
@@ -125,12 +127,16 @@ class BusinessAssistant
             ->map(function ($tables, string $section) {
                 $tables = $tables->values();
                 $section = DataTableSection::from($section);
-                $year = $this->tableAnalytics->section($section, $tables, 365);
+                // The owner's dashboard decides what's summed up here too.
+                $enabled = $this->dashboard->for($section, $tables)['enabled'];
+                $year = $this->dashboard->apply($this->tableAnalytics->section($section, $tables, 365), $enabled);
+                $month = $this->dashboard->apply($this->tableAnalytics->section($section, $tables, 30), $enabled);
 
                 return [
                     'section' => $section->value,
-                    'last30Days' => collect($this->tableAnalytics->section($section, $tables, 30))->except(['section', 'series', 'tables'])->all(),
-                    'last365Days' => collect($year)->only(['period', 'rows', 'amount', 'metrics', 'series', 'peaks', 'breakdowns', 'numbers'])->all(),
+                    'shownOnDashboard' => $enabled,
+                    'last30Days' => collect($month)->except(['section', 'series', 'tables', 'months', 'dashboard'])->all(),
+                    'last365Days' => collect($year)->only(['period', 'rows', 'amount', 'metrics', 'series', 'peaks', 'months', 'weekdays', 'hours', 'breakdowns', 'numbers'])->all(),
                     'tables' => collect($year['tables'])->take(40)->map(fn (array $t) => collect($t)->except('id')->all())->all(),
                     'latestRows' => $this->tableAnalytics->recentRows($tables),
                 ];

@@ -213,6 +213,30 @@ export type AdminDataImportPreviewDto = AdminDataImportDto & {
 };
 
 /** Figures of all tables of a section together (see the API's TableAnalytics). */
+export type DashboardWidgetId =
+  | "revenue"
+  | "profit"
+  | "margin"
+  | "count"
+  | "perDay"
+  | "perMonth"
+  | "averageCheck"
+  | "units"
+  | "revenueChart"
+  | "countChart"
+  | "profitChart"
+  | "weekdays"
+  | "hours"
+  | "peaks"
+  | "months"
+  | "byItem"
+  | "byPayment"
+  | "byChannel"
+  | "byStatus"
+  | "byOwnColumns"
+  | "ownNumbers"
+  | "tables";
+
 export type TableMetricDto = {
   key: "revenue" | "profit" | "margin" | "count" | "perDay" | "perMonth" | "averageCheck" | "quantity" | "averageQuantity" | "unitPrice";
   label: string;
@@ -228,7 +252,8 @@ export type TableAnalyticsDto = {
   period: { days: AnalyticsPeriod; from: string; to: string };
   rows: { total: number; withoutDate: number; current: number; previous: number };
   amount: { current: number; previous: number; average: number | null } | null;
-  series: { date: string; rows: number; amount: number }[];
+  /** `profit` only when a table has a unit cost column. */
+  series: { date: string; rows: number; amount: number; profit?: number }[];
   /** The figures this business's columns allow (no price column, no revenue...). */
   metrics: TableMetricDto[];
   /** Best, weakest (finished) and average day or month, by money or by count. */
@@ -240,7 +265,25 @@ export type TableAnalyticsDto = {
     average: number | null;
     buckets: number;
   } | null;
-  breakdowns: { label: string; distinct: number; values: { value: string; rows: number; amount: number | null }[] }[];
+  /** The last twelve months from the business's first one, with their peaks. */
+  months: { series: { date: string; rows: number; amount: number }[]; peaks: TableAnalyticsDto["peaks"] } | null;
+  /** Rows by day of the week, 1 Monday … 7 Sunday. */
+  weekdays: { day: number; rows: number; amount: number }[];
+  /** Rows by hour, for tables whose date has a time. */
+  hours: { hour: number; rows: number }[];
+  /** The owner's choice of widgets and the catalog to choose from. */
+  dashboard: {
+    saved: boolean;
+    enabled: DashboardWidgetId[];
+    widgets: { id: DashboardWidgetId; group: "figures" | "charts" | "tables"; missing: string[] }[];
+  };
+  breakdowns: {
+    label: string;
+    /** The column's role; null for the business's own column. */
+    role: ColumnRole | null;
+    distinct: number;
+    values: { value: string; rows: number; amount: number | null }[];
+  }[];
   /** Sums of the business's own number columns (quantities are in metrics). */
   numbers: { label: string; unit: string | null; sum: number; filled: number }[];
   tables: {

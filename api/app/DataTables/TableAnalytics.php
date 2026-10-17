@@ -51,20 +51,6 @@ class TableAnalytics
     }
 
     /**
-     * One summary per section that has tables.
-     *
-     * @return list<array<string, mixed>>
-     */
-    public function overview(int $days): array
-    {
-        return $this->tables()
-            ->groupBy(fn (DataTable $t) => $t->section->value)
-            ->map(fn (Collection $tables, string $section) => $this->section(DataTableSection::from($section), $tables, $days))
-            ->values()
-            ->all();
-    }
-
-    /**
      * @param  Collection<int, DataTable>  $tables  tables of the section
      * @return array<string, mixed>
      */
@@ -104,7 +90,7 @@ class TableAnalytics
         $firstAt = $totals->pluck('first_at')->filter()->min();
         // occurred_at is the business's local time, like the bounds.
         $firstAt = $firstAt ? CarbonImmutable::parse(substr((string) $firstAt, 0, 10), $now->getTimezone()) : null;
-        $series = $this->series($current, $start, $now, $days > 90 ? 'month' : 'day');
+        $series = $this->series($current, $start, $now, $days > 90 ? 'month' : 'day', $tables->contains(fn (DataTable $t) => $t->roleColumn(ColumnRole::Cost) !== null));
 
         return [
             'section' => $section->value,
@@ -124,6 +110,10 @@ class TableAnalytics
             'metrics' => $this->metrics($section, $tables, $current, $previous, $start, $previousStart, $now, $firstAt),
             'series' => $series,
             'peaks' => $this->peaks($series, $days > 90 ? 'month' : 'day', $hasAmount, $firstAt),
+            // The last twelve months whatever the period: which months bring more.
+            'months' => $this->months($ids, $now, $hasAmount, $firstAt),
+            'weekdays' => $this->weekdays($current),
+            'hours' => $this->hours($tables, $current),
             'breakdowns' => $this->breakdowns($tables, $current),
             'numbers' => $this->numbers($tables, $current),
             'tables' => $tables->map(function (DataTable $table) use ($current, $totals) {
@@ -224,10 +214,8 @@ class TableAnalytics
 
         $metrics[] = ['key' => 'count', 'label' => $orders ? 'Պատվերներ' : 'Վաճառքներ', 'format' => 'count', 'value' => $current->count(), 'previous' => $previous->count()];
         $metrics[] = ['key' => 'perDay', 'label' => $orders ? 'Պատվերներ օրական' : 'Վաճառքներ օրական', 'format' => 'number', 'value' => $perDay($current->count(), $currentDays), 'previous' => $perDay($previous->count(), $previousDays)];
-        if ($start->diffInDays($now) > 90) {
-            $perMonth = fn (int $rows, int $d) => $d === 0 ? null : $this->round($rows / $d * 30.4375);
-            $metrics[] = ['key' => 'perMonth', 'label' => $orders ? 'Պատվերներ ամսական' : 'Վաճառքներ ամսական', 'format' => 'number', 'value' => $perMonth($current->count(), $currentDays), 'previous' => $perMonth($previous->count(), $previousDays)];
-        }
+        $perMonth = fn (int $rows, int $d) => $d === 0 ? null : $this->round($rows / $d * 30.4375);
+        $metrics[] = ['key' => 'perMonth', 'label' => $orders ? 'Պատվերներ ամսական' : 'Վաճառքներ ամսական', 'format' => 'number', 'value' => $perMonth($current->count(), $currentDays), 'previous' => $perMonth($previous->count(), $previousDays)];
 
         if ($hasAmount) {
             $average = fn (Collection $rows) => $rows->whereNotNull('amount')->isEmpty() ? null : $this->round($rows->whereNotNull('amount')->avg('amount'));
@@ -416,6 +404,7 @@ class TableAnalytics
 
                 return [
                     'label' => $column['label'],
+                    'role' => $column['role']?->value,
                     'filled' => $groups->sum(fn ($g) => $g->count()),
                     'distinct' => $groups->count(),
                     'values' => $groups
@@ -504,23 +493,112 @@ class TableAnalytics
     /**
      * @return list<array{date: string, rows: int, amount: int|float}>
      */
-    private function series(Collection $current, CarbonImmutable $from, CarbonImmutable $to, string $bucket): array
+    private function series(Collection $current, CarbonImmutable $from, CarbonImmutable $to, string $bucket, bool $withProfit = false): array
     {
         $format = $bucket === 'month' ? 'Y-m' : 'Y-m-d';
         $points = [];
 
         for ($cursor = $from; $cursor <= $to; $cursor = $bucket === 'month' ? $cursor->addMonthNoOverflow()->startOfMonth() : $cursor->addDay()) {
-            $points[$cursor->format($format)] = ['date' => $cursor->format($format), 'rows' => 0, 'amount' => 0];
+            $points[$cursor->format($format)] = ['date' => $cursor->format($format), 'rows' => 0, 'amount' => 0] + ($withProfit ? ['profit' => 0] : []);
         }
 
         foreach ($current as $row) {
             if (isset($points[$key = $row['at']->format($format)])) {
                 $points[$key]['rows']++;
                 $points[$key]['amount'] += $row['amount'] ?? 0;
+                if ($withProfit && ($row['cost'] ?? null) !== null && $row['amount'] !== null) {
+                    $points[$key]['profit'] += $row['amount'] - Decimal::multiply($row['cost'], $row['quantity'] ?? 1);
+                }
             }
         }
 
-        return array_values(array_map(fn ($p) => [...$p, 'amount' => $this->round($p['amount'])], $points));
+        return array_values(array_map(fn ($p) => [...$p, 'amount' => $this->round($p['amount'])] + ($withProfit ? ['profit' => $this->round($p['profit'])] : []), $points));
+    }
+
+    /**
+     * Rows and money of each of the last twelve months (this one included)
+     * with the best, weakest and average month, from the business's first.
+     *
+     * @param  list<int>  $ids
+     * @return array{series: list<array{date: string, rows: int, amount: int|float}>, peaks: ?array<string, mixed>}
+     */
+    private function months(array $ids, CarbonImmutable $now, bool $hasAmount, ?CarbonImmutable $firstAt): array
+    {
+        $from = $now->startOfMonth()->subMonthsNoOverflow(11);
+        $rows = DataTableRow::query()
+            ->whereIn('data_table_id', $ids)
+            ->where('occurred_at', '>=', $from->format('Y-m-d H:i:s'))
+            ->where('occurred_at', '<=', $now->endOfDay()->format('Y-m-d H:i:s'))
+            ->get(['occurred_at', 'amount'])
+            ->map(fn (DataTableRow $r) => ['at' => CarbonImmutable::parse($r->getRawOriginal('occurred_at')), 'amount' => $r->amount]);
+        $series = $this->series($rows, $from, $now, 'month');
+        $peaks = $this->peaks($series, 'month', $hasAmount, $firstAt);
+
+        return [
+            'series' => $peaks ? array_slice($series, -$peaks['buckets']) : [],
+            'peaks' => $peaks,
+        ];
+    }
+
+    /**
+     * Rows and money by day of the week (1 Monday … 7 Sunday): which days are busy.
+     *
+     * @return list<array{day: int, rows: int, amount: int|float}>
+     */
+    private function weekdays(Collection $current): array
+    {
+        return collect(range(1, 7))->map(function (int $day) use ($current) {
+            $rows = $current->filter(fn ($r) => $r['at']->isoWeekday() === $day);
+
+            return ['day' => $day, 'rows' => $rows->count(), 'amount' => $this->round($rows->sum('amount'))];
+        })->all();
+    }
+
+    /**
+     * Rows by hour of the day, for tables whose date has a time: when
+     * orders come in.
+     *
+     * @param  Collection<int, DataTable>  $tables
+     * @return list<array{hour: int, rows: int}>
+     */
+    private function hours(Collection $tables, Collection $current): array
+    {
+        $timed = $tables->filter(fn (DataTable $t) => $t->dateColumn()?->type === DataColumnType::DateTime)->pluck('id')->all();
+        $rows = $current->filter(fn ($r) => in_array($r['table'], $timed, true));
+
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        return collect(range(0, 23))->map(fn (int $hour) => ['hour' => $hour, 'rows' => $rows->filter(fn ($r) => $r['at']->hour === $hour)->count()])->all();
+    }
+
+    /**
+     * What the section's tables have, for the widgets (DashboardWidget::requires).
+     *
+     * @param  Collection<int, DataTable>  $tables
+     * @return array<string, bool>
+     */
+    public static function has(Collection $tables): array
+    {
+        $any = fn (callable $test) => $tables->contains($test);
+        $role = fn (ColumnRole $role) => $any(fn (DataTable $t) => $t->roleColumn($role) !== null);
+        $own = fn (array $types) => $any(fn (DataTable $t) => collect($t->columnDefinitions())->contains(fn (DataColumn $c) => $c->role === null && in_array($c->type, $types, true)));
+
+        return [
+            'date' => $any(fn (DataTable $t) => $t->dateColumn() !== null),
+            'datetime' => $any(fn (DataTable $t) => $t->dateColumn()?->type === DataColumnType::DateTime),
+            'money' => $any(fn (DataTable $t) => $t->amountColumn() !== null),
+            'cost' => $role(ColumnRole::Cost),
+            'quantity' => $role(ColumnRole::Quantity),
+            'item' => $role(ColumnRole::Item),
+            'payment' => $role(ColumnRole::Payment),
+            'channel' => $role(ColumnRole::Channel),
+            'status' => $role(ColumnRole::Status),
+            'ownColumns' => $own([DataColumnType::Text, DataColumnType::Select, DataColumnType::Boolean]),
+            'ownNumbers' => $own([DataColumnType::Number]),
+            'manyTables' => $tables->count() > 1,
+        ];
     }
 
     private function round(int|float|null $value): int|float|null
