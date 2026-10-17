@@ -15,7 +15,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // flags default to visible so a fetch hiccup doesn't hide the sidebar.
   const [flags, me] = await Promise.all([getFeatureFlagsAdmin(), getMe()]);
   const isActive = (key: string) => flags.find((f) => f.key === key)?.active ?? true;
-  const features = { autoCare: isActive("auto-care"), market: isActive("market") };
+  const features = {
+    autoCare: isActive("auto-care"),
+    market: isActive("market"),
+    dryCleaning: isActive("dry-cleaning"),
+  };
 
   return (
     <html lang="hy" suppressHydrationWarning>

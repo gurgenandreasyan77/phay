@@ -13,8 +13,8 @@ import {
   toTranslated,
   fieldClasses,
   labelClasses,
-} from "./shared";
-import { ImageUploadField } from "./ImageUploadField";
+} from "../services/shared";
+import { ImageUploadField } from "../services/ImageUploadField";
 import { Badge, buttonClasses } from "../_components/ui";
 
 const STATUS_LABELS: Record<ServiceStatus, string> = {

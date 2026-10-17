@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminServiceDto, AdminServiceGalleryItemDto, AdminTranslated } from "@/lib/adminApi";
 import type { CarBodyType } from "@/lib/api";
-import { TranslatedFields, emptyTranslated, toTranslated, fieldClasses, labelClasses } from "./shared";
-import { ImageUploadField } from "./ImageUploadField";
+import { TranslatedFields, emptyTranslated, toTranslated, fieldClasses, labelClasses } from "../services/shared";
+import { ImageUploadField } from "../services/ImageUploadField";
 import { buttonClasses } from "../_components/ui";
 
 const CAR_TYPES: CarBodyType[] = ["compact", "sedan", "wagon", "crossover", "suv", "minivan", "minibus", "commercial"];

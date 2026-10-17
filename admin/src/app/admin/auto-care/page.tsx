@@ -7,7 +7,6 @@ import {
   getServiceVideosAdmin,
   getFeatureFlagsAdmin,
 } from "@/lib/adminApi";
-import { ServiceCategoriesManager } from "./ServiceCategoriesManager";
 import { ServicesManager } from "./ServicesManager";
 import { GalleryManager } from "./GalleryManager";
 import { VideosManager } from "./VideosManager";
@@ -39,15 +38,6 @@ export default async function AdminAutoCarePage() {
         title="Ավտոխնամք"
         description="Ավտոխնամքի էջը (/services/auto-care) այժմ պարզ տեղեկատվական էջ է՝ գների ցանկով, տեսանյութերով, «մինչև/հետո» օրինակներով և Market-ի ապրանքներով։ Չկա հայտի ձև կամ առանձին ծառայության էջ։"
       />
-
-      {/* Categories cover Cleaning/Upholstery too, so this stays available
-          even with the flag off — it's the only screen that manages them. */}
-      <SectionCard
-        title="Կատեգորիաներ"
-        description="Ծառայությունների կատեգորիաները (Մաքրում, Քիմմաքրում, Ավտոխնամք)՝ ցուցադրվում են գլխավոր մենյուում և ծառայությունների էջում։"
-      >
-        <ServiceCategoriesManager items={categories} />
-      </SectionCard>
 
       {!autoCareEnabled ? (
         <SectionCard

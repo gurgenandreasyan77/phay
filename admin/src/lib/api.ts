@@ -312,6 +312,7 @@ export type ContactChannelDto = {
 export type FeatureFlags = {
   autoCare: boolean;
   market: boolean;
+  dryCleaning: boolean;
 };
 
 export type SiteSettingsDto = {
