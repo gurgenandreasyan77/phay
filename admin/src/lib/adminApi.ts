@@ -68,6 +68,8 @@ export type AdminLeadDto = {
   adminComment: string | null;
   estimatedPriceMin: number | null;
   estimatedPriceMax: number | null;
+  finalPrice: number | null;
+  completedAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -83,6 +85,31 @@ export type DashboardDto = {
   newThisWeek: number;
   recentLeads: AdminLeadDto[];
 };
+
+export type AnalyticsPeriod = 7 | 30 | 90 | 365;
+
+export type AnalyticsTotalsDto = {
+  orders: number;
+  completed: number;
+  cancelled: number;
+  revenue: number;
+  averageCheck: number | null;
+  completedWithoutPrice: number;
+  conversion: number | null;
+};
+
+export type AnalyticsDto = {
+  period: { days: AnalyticsPeriod; from: string; to: string; timezone: string; currency: string };
+  totals: AnalyticsTotalsDto;
+  previous: AnalyticsTotalsDto;
+  series: { date: string; orders: number; revenue: number }[];
+  topServices: { serviceId: number | null; name: string | null; orders: number; revenue: number }[];
+  sources: { source: string; orders: number; completed: number }[];
+  statuses: Record<LeadStatus, number>;
+  openOrders: number;
+};
+
+export type AssistantStatusDto = { configured: boolean; used: number; limit: number };
 
 export type AdminTenantDto = {
   id: number;
@@ -423,6 +450,37 @@ export async function adminApiFetch<T>(
   const json = response.status === 204 ? null : await response.json().catch(() => null);
 
   return { ok: response.ok, status: response.status, data: (json?.data as T | undefined) ?? null };
+}
+
+/** Like adminApiFetch, but hands back the whole JSON body (errors included). */
+export async function adminApiFetchRaw(
+  path: string,
+  init: RequestInit = {},
+): Promise<{ status: number; json: unknown }> {
+  const token = await getAdminToken();
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init.headers,
+    },
+    cache: "no-store",
+  });
+
+  return { status: response.status, json: await response.json().catch(() => null) };
+}
+
+export async function getAnalytics(period: AnalyticsPeriod): Promise<AnalyticsDto | null> {
+  const result = await adminApiFetch<AnalyticsDto>(`/admin/analytics?period=${period}`);
+  return result.data;
+}
+
+export async function getAssistantStatus(): Promise<AssistantStatusDto | null> {
+  const result = await adminApiFetch<AssistantStatusDto>("/admin/assistant");
+  return result.data;
 }
 
 export async function getDashboard(): Promise<DashboardDto | null> {

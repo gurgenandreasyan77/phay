@@ -49,6 +49,8 @@ services:
       ADMIN_NAME: ${ADMIN_NAME:-Admin}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ASSISTANT_MONTHLY_LIMIT: ${ASSISTANT_MONTHLY_LIMIT:-100}
       LOG_CHANNEL: stack
     depends_on:
       postgres:

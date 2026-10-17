@@ -4,6 +4,7 @@ import { getLeads } from "@/lib/adminApi";
 import { StatusFilter } from "./StatusFilter";
 import { SearchBox } from "./SearchBox";
 import { OrderStatusSelect } from "./OrderStatusSelect";
+import { OrderPriceInput } from "./OrderPriceInput";
 import { LEAD_STATUS_LABELS } from "../_components/leadStatus";
 import { Badge, buttonClasses, EmptyRow, PageHeader, TableWrap, Th, Thead, Td, Tr } from "../_components/ui";
 
@@ -47,6 +48,7 @@ export default async function AdminOrdersPage(props: PageProps<"/admin/orders">)
           <Th>Աղբյուր</Th>
           <Th>Ամսաթիվ</Th>
           <Th>Կարգավիճակ</Th>
+          <Th>Վերջնական գին</Th>
         </Thead>
         <tbody>
           {items.map((lead) => (
@@ -76,9 +78,17 @@ export default async function AdminOrdersPage(props: PageProps<"/admin/orders">)
               <Td>
                 <OrderStatusSelect leadId={lead.id} status={lead.status} statusLabels={LEAD_STATUS_LABELS} />
               </Td>
+              <Td>
+                <OrderPriceInput
+                  key={`${lead.id}-${lead.finalPrice}`}
+                  leadId={lead.id}
+                  finalPrice={lead.finalPrice}
+                  placeholder={lead.estimatedPriceMin ? String(lead.estimatedPriceMin) : undefined}
+                />
+              </Td>
             </Tr>
           ))}
-          {items.length === 0 ? <EmptyRow colSpan={7}>Պատվերներ չեն գտնվել։</EmptyRow> : null}
+          {items.length === 0 ? <EmptyRow colSpan={8}>Պատվերներ չեն գտնվել։</EmptyRow> : null}
         </tbody>
       </TableWrap>
     </div>

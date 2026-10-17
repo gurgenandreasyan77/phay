@@ -1,0 +1,136 @@
+<?php
+
+namespace App\Assistant;
+
+use App\Models\AssistantUsage;
+use App\Models\Lead;
+use App\Models\Service;
+use App\Services\BusinessAnalytics;
+use App\Tenancy\TenantContext;
+
+/**
+ * Answers a business owner's questions about their own sales. Every request
+ * carries a fresh snapshot of this business's figures; nothing from another
+ * business ever reaches the prompt.
+ */
+class BusinessAssistant
+{
+    public function __construct(
+        private readonly AssistantClient $client,
+        private readonly BusinessAnalytics $analytics,
+        private readonly TenantContext $tenants,
+    ) {}
+
+    public function isConfigured(): bool
+    {
+        return $this->client->isConfigured();
+    }
+
+    /**
+     * @return array{used: int, limit: int}
+     */
+    public function usage(): array
+    {
+        return [
+            'used' => (int) AssistantUsage::query()->where('month', now()->format('Y-m'))->value('requests'),
+            'limit' => (int) config('services.anthropic.monthly_limit'),
+        ];
+    }
+
+    public function limitReached(): bool
+    {
+        $usage = $this->usage();
+
+        return $usage['used'] >= $usage['limit'];
+    }
+
+    /**
+     * @param  list<array{role: 'user'|'assistant', content: string}>  $messages
+     */
+    public function ask(array $messages): AssistantReply
+    {
+        $reply = $this->client->reply($this->systemPrompt(), $messages);
+
+        $usage = AssistantUsage::forCurrentMonth();
+        $usage->increment('requests', 1, [
+            'input_tokens' => $usage->input_tokens + $reply->inputTokens,
+            'output_tokens' => $usage->output_tokens + $reply->outputTokens,
+        ]);
+
+        return $reply;
+    }
+
+    public function systemPrompt(): string
+    {
+        $tenant = $this->tenants->current();
+        $data = json_encode([
+            'business' => [
+                'name' => $tenant->name,
+                'currency' => $tenant->currency ?: 'AMD',
+                'timezone' => $tenant->timezone,
+                'today' => now($tenant->timezone ?: config('app.timezone'))->toDateString(),
+            ],
+            'services' => $this->services(),
+            'last30Days' => $this->analytics->summary(30),
+            'last365Days' => $this->analytics->summary(365),
+            'recentOrders' => $this->recentOrders(),
+        ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+
+        return <<<PROMPT
+        You are the business assistant inside the admin panel of "{$tenant->name}", a small business in Armenia. The person writing to you is its owner or manager. Your job is to help them understand their sales and decide what to do next to get more orders and more revenue.
+
+        Ground every claim in the data below. Quote the real numbers, compare periods, and point out what changed and the most likely reason. When the data cannot answer a question (for example, there are too few orders, or completed orders have no final price), say so plainly and tell them what to record so you can answer next time. Never invent figures.
+
+        Give practical advice a small team can act on this week: pricing, which services to promote, follow-up on open orders, which channels bring orders, seasonality. Prefer two or three concrete steps over a long list.
+
+        How the data works: an order counts on the day it was created; revenue counts on the day an order was completed, from its final price. "conversion" is the share of the period's orders that are already completed. "source" is where the order came from (website, manual entry, or a UTM source). Amounts are in {$tenant->currency}; write Armenian dram as "դր.".
+
+        Reply in the language of the user's latest message (Armenian, Russian or English). Write natural, fluent text, as a native speaker would, with short paragraphs and simple lists. Do not use tables or headings unless asked.
+
+        <business_data>
+        {$data}
+        </business_data>
+        PROMPT;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function services(): array
+    {
+        return Service::query()->orderBy('sort_order')->limit(50)->get()
+            ->map(fn (Service $s) => array_filter([
+                'name' => $s->trans('name', 'hy'),
+                'status' => $s->status?->value,
+                'priceType' => $s->price_type?->value,
+                'price' => $s->price_amount,
+                'priceMin' => $s->price_min,
+                'priceMax' => $s->price_max,
+            ], fn ($v) => $v !== null && $v !== ''))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * The latest orders without client names or contacts: the assistant
+     * needs what was sold, not who bought it.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function recentOrders(): array
+    {
+        return Lead::query()->with('service')->orderByDesc('created_at')->limit(30)->get()
+            ->map(fn (Lead $l) => array_filter([
+                'date' => $l->created_at?->toDateString(),
+                'service' => $l->service?->trans('name', 'hy'),
+                'status' => $l->status->value,
+                'source' => $l->utm_source ?: $l->source,
+                'estimate' => $l->estimated_price_min || $l->estimated_price_max
+                    ? trim(($l->estimated_price_min ?? '').'-'.($l->estimated_price_max ?? ''), '-')
+                    : null,
+                'finalPrice' => $l->final_price,
+            ], fn ($v) => $v !== null && $v !== ''))
+            ->values()
+            ->all();
+    }
+}
