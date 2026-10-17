@@ -3,9 +3,9 @@ PROD := -f compose.prod.yaml
 
 .PHONY: setup up down restart logs ps \
 	migrate migrate-status seed fresh key-generate \
-	test test-backend test-frontend lint typecheck \
+	test test-backend test-frontend test-admin lint typecheck \
 	build prod-build prod-up prod-down prod-logs prod-migrate \
-	shell-backend shell-frontend artisan \
+	shell-backend shell-frontend shell-admin artisan \
 	backup-dbmak restore-db
 
 ## First-time setup: env files, dev images, database ready to use.
@@ -17,7 +17,7 @@ setup:
 	docker compose up -d
 	$(MAKE) migrate
 	$(MAKE) seed
-	@echo "Servio is up. Frontend: http://localhost:$${FRONTEND_PORT:-3000}  API: http://localhost:$${API_PORT:-8080}/api/health"
+	@echo "Servio is up. Frontend: http://localhost:$${FRONTEND_PORT:-3000}  Admin: http://localhost:$${ADMIN_PORT:-3001}  API: http://localhost:$${API_PORT:-8080}/api/health"
 
 ## Start/stop the dev stack.
 up:
@@ -59,13 +59,19 @@ test-frontend:
 	docker compose exec frontend npm run lint
 	docker compose exec frontend npx tsc --noEmit
 
-test: test-backend test-frontend
+test-admin:
+	docker compose exec admin npm run lint
+	docker compose exec admin npx tsc --noEmit
+
+test: test-backend test-frontend test-admin
 
 lint:
 	docker compose exec frontend npm run lint
+	docker compose exec admin npm run lint
 
 typecheck:
 	docker compose exec frontend npx tsc --noEmit
+	docker compose exec admin npx tsc --noEmit
 
 ## Production. `build` is a plain alias for `prod-build` — `up`/`down`/`logs`
 ## intentionally keep their dev meaning above; use `prod-up`/`prod-down`/
@@ -93,6 +99,9 @@ shell-backend:
 
 shell-frontend:
 	docker compose exec frontend sh
+
+shell-admin:
+	docker compose exec admin sh
 
 artisan:
 	docker compose exec backend php artisan $(cmd)

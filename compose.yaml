@@ -6,6 +6,7 @@ networks:
 volumes:
   postgres_data:
   frontend_node_modules:
+  admin_node_modules:
 
 services:
   postgres:
@@ -85,15 +86,28 @@ services:
     build:
       context: ./servio-front
       target: dev
-    command: npm run dev -- --hostname 0.0.0.0
+    # node_modules lives in a named volume (so the host's own node_modules,
+    # possibly built for another OS, is never used). Docker normally fills a
+    # new volume from the image, but if it ever comes up empty or without
+    # devDependencies, install them up front — otherwise `next dev` crashes
+    # ("next: not found") or installs TypeScript itself mid-run, which can
+    # kill Turbopack's CSS worker (SIGBUS).
+    command: sh -c "[ -x node_modules/.bin/next ] && [ -d node_modules/typescript ] || npm ci --include=dev --no-audit --no-fund; exec npm run dev -- --hostname 0.0.0.0"
     restart: unless-stopped
     volumes:
       - ./servio-front:/app
       - frontend_node_modules:/app/node_modules
     environment:
+      # Pinned so a stray NODE_ENV (e.g. "production") can't make npm skip
+      # devDependencies or put `next dev` in a non-standard mode.
+      NODE_ENV: development
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api/v1}
       NEXT_INTERNAL_API_URL: http://api/api/v1
+      # The admin app lives on its own port; /admin/* on the site redirects there.
+      ADMIN_URL: ${ADMIN_URL:-http://localhost:3001}
+      # Shared with the admin so it can refresh this site's cache after edits.
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-dev_revalidate_secret}
       NEXT_PUBLIC_CONTACT_PHONE: ${NEXT_PUBLIC_CONTACT_PHONE:-+374 55 337633}
       NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL:-info@servio.am}
       NEXT_PUBLIC_CONTACT_CITY: ${NEXT_PUBLIC_CONTACT_CITY:-Yerevan, Armenia}
@@ -117,6 +131,28 @@ services:
       NEXT_PUBLIC_GOOGLE_MAPS_URL: ${NEXT_PUBLIC_GOOGLE_MAPS_URL:-}
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - api
+    networks:
+      - servio
+
+  admin:
+    build:
+      context: ./servio-admin
+      target: dev
+    # Same node_modules safeguard as the frontend service above.
+    command: sh -c "[ -x node_modules/.bin/next ] && [ -d node_modules/typescript ] || npm ci --include=dev --no-audit --no-fund; exec npm run dev -- --hostname 0.0.0.0"
+    restart: unless-stopped
+    volumes:
+      - ./servio-admin:/app
+      - admin_node_modules:/app/node_modules
+    environment:
+      NODE_ENV: development
+      NEXT_INTERNAL_API_URL: http://api/api/v1
+      SITE_REVALIDATE_URL: http://frontend:3000/api/revalidate
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-dev_revalidate_secret}
+    ports:
+      - "${ADMIN_PORT:-3001}:3001"
     depends_on:
       - api
     networks:

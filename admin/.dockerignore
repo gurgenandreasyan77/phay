@@ -1,0 +1,24 @@
+# Without this file, `COPY . .` in the Dockerfile's "builder" stage pulls in
+# whatever exists on the host — including a locally-installed node_modules/,
+# which can silently overwrite the clean `npm ci` output from the "deps"
+# stage with modules built for the host's OS/architecture (e.g. macOS/ARM
+# instead of the Alpine/Linux image), breaking native-binary packages like
+# Tailwind's oxide engine.
+
+node_modules/
+.next/
+
+# Secrets and local env files — never bake these into an image layer.
+.env
+.env.*
+!.env.example
+
+# VCS and editor metadata.
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# Build/test artifacts not needed to produce the image.
+tsconfig.tsbuildinfo
+tests/
