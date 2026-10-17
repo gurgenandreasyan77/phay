@@ -12,7 +12,7 @@ export function BusinessesManager({
   currentTenantId,
 }: {
   tenants: AdminTenantDto[];
-  currentTenantId: number;
+  currentTenantId: number | null;
 }) {
   const router = useRouter();
   const [switchingId, setSwitchingId] = useState<number | null>(null);

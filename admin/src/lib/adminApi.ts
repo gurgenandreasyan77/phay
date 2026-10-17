@@ -101,8 +101,8 @@ export type AdminUserDto = {
   name: string;
   email: string;
   isSuperAdmin: boolean;
-  /** The business the admin panel is working on right now. */
-  currentTenant: AdminTenantDto;
+  /** The business the admin panel is working on right now (null if the API didn't say). */
+  currentTenant: AdminTenantDto | null;
   /** Businesses the user can switch to (all of them for a super admin). */
   tenants: AdminTenantDto[];
 };
@@ -418,8 +418,13 @@ export async function getDashboard(): Promise<DashboardDto | null> {
 
 /** The signed-in user, or null (no session or an expired token) — no redirect. */
 export async function getMe(): Promise<AdminUserDto | null> {
-  const result = await adminApiFetch<AdminUserDto>("/admin/me");
-  return result.data;
+  const result = await adminApiFetch<Partial<AdminUserDto>>("/admin/me");
+  const me = result.data;
+  if (!me) return null;
+  // An API that predates businesses (e.g. a backend not restarted after an
+  // update) has no currentTenant/tenants — fall back instead of crashing the
+  // whole admin layout.
+  return { ...me, currentTenant: me.currentTenant ?? null, tenants: me.tenants ?? [] } as AdminUserDto;
 }
 
 export async function getTenantsAdmin(): Promise<AdminTenantDto[]> {

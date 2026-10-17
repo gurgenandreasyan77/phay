@@ -19,7 +19,7 @@ export default async function AdminBusinessesPage() {
         title="Բիզնեսներ"
         description="Պլատֆորմի բոլոր բիզնեսները։ Յուրաքանչյուր բիզնես ունի իր ծառայությունները, պատվերները, կարգավորումները և կայքերը։"
       />
-      <BusinessesManager tenants={tenants} currentTenantId={admin.currentTenant.id} />
+      <BusinessesManager tenants={tenants} currentTenantId={admin.currentTenant?.id ?? null} />
     </div>
   );
 }
