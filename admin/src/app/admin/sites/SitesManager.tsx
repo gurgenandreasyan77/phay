@@ -1,0 +1,263 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Check, Copy, KeyRound } from "lucide-react";
+import type { AdminSiteDto } from "@/lib/adminApi";
+import { Badge, Button, Card, EmptyCard, FieldLabel, FormStatus, Input, Textarea } from "../_components/ui";
+
+export function SitesManager({ sites }: { sites: AdminSiteDto[] }) {
+  const router = useRouter();
+
+  return (
+    <div className="space-y-6">
+      {sites.length === 0 ? (
+        <EmptyCard>Այս բիզնեսին դեռ ոչ մի կայք միացված չէ։ Ավելացրեք առաջինը ներքևում։</EmptyCard>
+      ) : (
+        sites.map((site) => <SiteCard key={site.id} site={site} onChanged={() => router.refresh()} />)
+      )}
+
+      <NewSiteForm onCreated={() => router.refresh()} />
+    </div>
+  );
+}
+
+function originsToText(origins: string[]): string {
+  return origins.join("\n");
+}
+
+function textToOrigins(text: string): string[] {
+  return text
+    .split(/[\s,]+/)
+    .map((o) => o.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+}
+
+function SiteCard({ site, onChanged }: { site: AdminSiteDto; onChanged: () => void }) {
+  const [name, setName] = useState(site.name);
+  const [domain, setDomain] = useState(site.domain ?? "");
+  const [origins, setOrigins] = useState(originsToText(site.allowedOrigins));
+  const [isActive, setIsActive] = useState(site.isActive);
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [rotating, setRotating] = useState(false);
+
+  const dirty =
+    name !== site.name ||
+    domain !== (site.domain ?? "") ||
+    origins !== originsToText(site.allowedOrigins) ||
+    isActive !== site.isActive;
+
+  async function save() {
+    setStatus("saving");
+    try {
+      const response = await fetch(`/api/admin/sites/${site.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          domain: domain.trim() || null,
+          allowed_origins: textToOrigins(origins),
+          is_active: isActive,
+        }),
+      });
+      setStatus(response.ok ? "saved" : "error");
+      if (response.ok) {
+        // Show the origins the way the API stored them (no trailing slash,
+        // no duplicates), so the form isn't "dirty" right after saving.
+        setOrigins(originsToText([...new Set(textToOrigins(origins))]));
+        onChanged();
+      }
+    } catch {
+      setStatus("error");
+    }
+  }
+
+  async function rotateKey() {
+    if (
+      !confirm(
+        "Ստեղծե՞լ նոր բանալի։ Հին բանալին անմիջապես կդադարի աշխատել, և կայքը տվյալներ չի ստանա, մինչև նրա կարգավորումներում չթարմացնեք բանալին։",
+      )
+    ) {
+      return;
+    }
+    setRotating(true);
+    try {
+      await fetch(`/api/admin/sites/${site.id}/rotate-key`, { method: "POST" });
+      onChanged();
+    } finally {
+      setRotating(false);
+    }
+  }
+
+  return (
+    <Card className="space-y-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-base font-semibold text-ink">{site.name}</h2>
+        {site.isActive ? <Badge tone="success">Ակտիվ</Badge> : <Badge tone="warning">Անջատված</Badge>}
+        {site.domain ? <span className="text-sm text-ink-muted">{site.domain}</span> : null}
+      </div>
+
+      <div className="space-y-2">
+        <FieldLabel>Կայքի բանալի (X-Site-Key)</FieldLabel>
+        <div className="flex flex-wrap items-center gap-2">
+          <code className="min-w-0 flex-1 truncate rounded-md border border-border bg-surface-secondary px-3 py-2 font-mono text-sm text-ink">
+            {site.publicKey}
+          </code>
+          <CopyButton value={site.publicKey} />
+          <Button variant="secondary" size="sm" onClick={rotateKey} disabled={rotating}>
+            <KeyRound className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Նոր բանալի
+          </Button>
+        </div>
+        <p className="text-xs text-ink-muted">
+          Բանալին գաղտնի չէ․ այն երևում է կայքի կոդում։ Կայքը պաշտպանում են թույլատրված հասցեները ներքևում։
+        </p>
+      </div>
+
+      <ConnectInstructions siteKey={site.publicKey} />
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-1.5">
+          <FieldLabel>Անվանում</FieldLabel>
+          <Input value={name} onChange={(e) => setName(e.target.value)} disabled={status === "saving"} />
+        </div>
+        <div className="space-y-1.5">
+          <FieldLabel>Դոմեն</FieldLabel>
+          <Input
+            value={domain}
+            onChange={(e) => setDomain(e.target.value)}
+            placeholder="servio.am"
+            disabled={status === "saving"}
+          />
+        </div>
+        <div className="space-y-1.5 md:col-span-2">
+          <FieldLabel>Թույլատրված հասցեներ (origin)</FieldLabel>
+          <Textarea
+            rows={2}
+            value={origins}
+            onChange={(e) => setOrigins(e.target.value)}
+            placeholder={"https://servio.am\nhttps://www.servio.am"}
+            disabled={status === "saving"}
+          />
+          <p className="text-xs text-ink-muted">
+            Մեկ տողում մեկ հասցե։ Միայն այս հասցեներից բացված էջերը կարող են օգտագործել բանալին բրաուզերում
+            (օրինակ՝ հայտի ձևի համար)։ Դատարկ թողնելու դեպքում՝ ցանկացած հասցե։
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-4">
+        <label className="flex items-center gap-2 text-sm text-ink">
+          <input
+            type="checkbox"
+            checked={isActive}
+            onChange={(e) => setIsActive(e.target.checked)}
+            disabled={status === "saving"}
+            className="h-4 w-4 accent-primary"
+          />
+          Կայքը ակտիվ է
+        </label>
+        <Button size="sm" onClick={save} disabled={!dirty || status === "saving"}>
+          Պահպանել
+        </Button>
+        <FormStatus status={status} errorLabel="Չհաջողվեց պահպանել։ Ստուգեք դոմենը և հասցեները։" />
+      </div>
+    </Card>
+  );
+}
+
+function ConnectInstructions({ siteKey }: { siteKey: string }) {
+  const envLine = `NEXT_PUBLIC_SITE_KEY=${siteKey}`;
+
+  return (
+    <details className="rounded-md border border-border bg-surface-secondary/60 px-4 py-3 text-sm">
+      <summary className="cursor-pointer font-medium text-ink">Ինչպես միացնել կայքը</summary>
+      <div className="mt-3 space-y-3 text-ink-muted">
+        <p>
+          <span className="font-medium text-ink">Servio-ի Next.js կայք։</span> Ավելացրեք այս տողը կայքի{" "}
+          <code className="font-mono">.env</code> ֆայլում և վերագործարկեք կայքը (production-ում՝ նորից build արեք)։
+        </p>
+        <div className="flex items-center gap-2">
+          <code className="min-w-0 flex-1 truncate rounded-md border border-border bg-surface px-3 py-2 font-mono text-xs text-ink">
+            {envLine}
+          </code>
+          <CopyButton value={envLine} />
+        </div>
+        <p>
+          <span className="font-medium text-ink">Այլ կայք։</span> API-ի յուրաքանչյուր հարցման մեջ ուղարկեք{" "}
+          <code className="font-mono">X-Site-Key</code> header-ը այս բանալիով։
+        </p>
+      </div>
+    </details>
+  );
+}
+
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <Button variant="secondary" size="sm" onClick={copy} aria-live="polite">
+      {copied ? <Check className="h-3.5 w-3.5 text-success" strokeWidth={2} /> : <Copy className="h-3.5 w-3.5" strokeWidth={1.75} />}
+      {copied ? "Պատճենված է" : "Պատճենել"}
+    </Button>
+  );
+}
+
+function NewSiteForm({ onCreated }: { onCreated: () => void }) {
+  const [name, setName] = useState("");
+  const [domain, setDomain] = useState("");
+  const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setStatus("saving");
+
+    try {
+      const response = await fetch("/api/admin/sites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), domain: domain.trim() || null }),
+      });
+
+      if (!response.ok) {
+        setStatus("error");
+        return;
+      }
+
+      setName("");
+      setDomain("");
+      setStatus("idle");
+      onCreated();
+    } catch {
+      setStatus("error");
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface p-4">
+      <div className="min-w-56 flex-1 space-y-1.5">
+        <FieldLabel>Նոր կայքի անվանում</FieldLabel>
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Օրինակ՝ shop.am" required />
+      </div>
+      <div className="space-y-1.5">
+        <FieldLabel>Դոմեն (ոչ պարտադիր)</FieldLabel>
+        <Input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="shop.am" />
+      </div>
+      <Button type="submit" disabled={status === "saving"}>
+        Միացնել կայք
+      </Button>
+      {status === "error" ? <span className="text-sm text-danger">Չհաջողվեց ավելացնել։ Ստուգեք դոմենը։</span> : null}
+    </form>
+  );
+}

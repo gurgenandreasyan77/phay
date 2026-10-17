@@ -17,7 +17,9 @@ use App\Http\Controllers\Api\V1\Admin\ServiceGalleryItemController as AdminServi
 use App\Http\Controllers\Api\V1\Admin\ServicePackageController as AdminServicePackageController;
 use App\Http\Controllers\Api\V1\Admin\ServiceVideoController as AdminServiceVideoController;
 use App\Http\Controllers\Api\V1\Admin\SettingsController as AdminSettingsController;
+use App\Http\Controllers\Api\V1\Admin\SiteController as AdminSiteController;
 use App\Http\Controllers\Api\V1\Admin\TaskPageController as AdminTaskPageController;
+use App\Http\Controllers\Api\V1\Admin\TenantController as AdminTenantController;
 use App\Http\Controllers\Api\V1\Admin\UploadController as AdminUploadController;
 use App\Http\Controllers\Api\V1\CalculatorSettingController;
 use App\Http\Controllers\Api\V1\LeadController;
@@ -75,6 +77,13 @@ Route::prefix('v1')->group(function () {
         Route::middleware(['auth:sanctum', 'tenant.admin'])->group(function () {
             Route::post('/logout', [AdminAuthController::class, 'logout']);
             Route::get('/me', [AdminAuthController::class, 'me']);
+            Route::post('/switch-tenant', [AdminAuthController::class, 'switchTenant']);
+            Route::get('/tenants', [AdminTenantController::class, 'index']);
+            Route::post('/tenants', [AdminTenantController::class, 'store']);
+            Route::get('/sites', [AdminSiteController::class, 'index']);
+            Route::post('/sites', [AdminSiteController::class, 'store']);
+            Route::patch('/sites/{site}', [AdminSiteController::class, 'update']);
+            Route::post('/sites/{site}/rotate-key', [AdminSiteController::class, 'rotateKey']);
             Route::get('/dashboard', AdminDashboardController::class);
             Route::get('/leads', [AdminLeadController::class, 'index']);
             Route::post('/leads', [AdminLeadController::class, 'store']);

@@ -4,6 +4,10 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\LoginRequest;
+use App\Http\Resources\Admin\TenantResource;
+use App\Models\Tenant;
+use App\Models\User;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -44,17 +48,46 @@ class AuthController extends Controller
         return response()->json(['data' => ['status' => 'ok']]);
     }
 
-    public function me(Request $request): JsonResponse
+    public function me(Request $request, TenantContext $context): JsonResponse
     {
-        $user = $request->user();
+        return response()->json(['data' => $this->presentMe($request->user(), $context->current())]);
+    }
 
-        return response()->json([
-            'data' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'isSuperAdmin' => $user->is_super_admin,
-            ],
+    /**
+     * Makes another business the one the admin panel works on. Only a
+     * business the user may access (any business for a super admin).
+     */
+    public function switchTenant(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'tenant_id' => ['required', 'integer', 'exists:tenants,id'],
         ]);
+
+        $user = $request->user();
+        $tenant = Tenant::query()->findOrFail($validated['tenant_id']);
+
+        abort_unless($user->canAccessTenant($tenant), 403, 'You have no access to this business.');
+
+        $user->forceFill(['current_tenant_id' => $tenant->id])->save();
+        $user->setRelation('currentTenant', $tenant);
+
+        return response()->json(['data' => $this->presentMe($user, $tenant)]);
+    }
+
+    private function presentMe(User $user, Tenant $current): array
+    {
+        // A super admin can switch to any business; everyone else to theirs.
+        $tenants = $user->is_super_admin
+            ? Tenant::query()->orderBy('id')->get()
+            : $user->tenants()->orderBy('tenants.id')->get();
+
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'isSuperAdmin' => $user->is_super_admin,
+            'currentTenant' => new TenantResource($current),
+            'tenants' => TenantResource::collection($tenants),
+        ];
     }
 }

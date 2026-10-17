@@ -84,7 +84,38 @@ export type DashboardDto = {
   recentLeads: AdminLeadDto[];
 };
 
-export type AdminUserDto = { id: number; name: string; email: string; isSuperAdmin: boolean };
+export type AdminTenantDto = {
+  id: number;
+  name: string;
+  slug: string;
+  defaultLocale: string;
+  status: "active" | "suspended";
+  /** The signed-in user's role in this business; absent for a super admin who isn't a member. */
+  role?: "owner" | "editor";
+  sitesCount?: number;
+  createdAt: string | null;
+};
+
+export type AdminUserDto = {
+  id: number;
+  name: string;
+  email: string;
+  isSuperAdmin: boolean;
+  /** The business the admin panel is working on right now. */
+  currentTenant: AdminTenantDto;
+  /** Businesses the user can switch to (all of them for a super admin). */
+  tenants: AdminTenantDto[];
+};
+
+export type AdminSiteDto = {
+  id: number;
+  name: string;
+  domain: string | null;
+  publicKey: string;
+  allowedOrigins: string[];
+  isActive: boolean;
+  createdAt: string | null;
+};
 
 export type AdminFeatureFlagDto = {
   key: string;
@@ -383,6 +414,22 @@ export async function adminApiFetch<T>(
 export async function getDashboard(): Promise<DashboardDto | null> {
   const result = await adminApiFetch<DashboardDto>("/admin/dashboard");
   return result.data;
+}
+
+/** The signed-in user, or null (no session or an expired token) — no redirect. */
+export async function getMe(): Promise<AdminUserDto | null> {
+  const result = await adminApiFetch<AdminUserDto>("/admin/me");
+  return result.data;
+}
+
+export async function getTenantsAdmin(): Promise<AdminTenantDto[]> {
+  const result = await adminApiFetch<AdminTenantDto[]>("/admin/tenants");
+  return result.data ?? [];
+}
+
+export async function getSitesAdmin(): Promise<AdminSiteDto[]> {
+  const result = await adminApiFetch<AdminSiteDto[]>("/admin/sites");
+  return result.data ?? [];
 }
 
 export async function getFeatureFlagsAdmin(): Promise<AdminFeatureFlagDto[]> {

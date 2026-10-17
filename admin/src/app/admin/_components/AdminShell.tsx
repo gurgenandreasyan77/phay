@@ -3,10 +3,20 @@
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import type { FeatureFlags } from "@/lib/api";
+import type { AdminUserDto } from "@/lib/adminApi";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
-export function AdminShell({ features, children }: { features: FeatureFlags; children: ReactNode }) {
+export function AdminShell({
+  features,
+  me,
+  children,
+}: {
+  features: FeatureFlags;
+  me: AdminUserDto | null;
+  children: ReactNode;
+}) {
+  const isSuperAdmin = me?.isSuperAdmin ?? false;
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [lastPathname, setLastPathname] = useState(pathname);
@@ -23,7 +33,7 @@ export function AdminShell({ features, children }: { features: FeatureFlags; chi
   return (
     <div className="min-h-screen bg-background lg:pl-64">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block">
-        <Sidebar features={features} />
+        <Sidebar features={features} isSuperAdmin={isSuperAdmin} />
       </aside>
 
       {mobileNavOpen ? (
@@ -35,12 +45,12 @@ export function AdminShell({ features, children }: { features: FeatureFlags; chi
             onClick={() => setMobileNavOpen(false)}
           />
           <aside className="absolute inset-y-0 left-0 w-64 shadow-md">
-            <Sidebar features={features} onNavigate={() => setMobileNavOpen(false)} />
+            <Sidebar features={features} isSuperAdmin={isSuperAdmin} onNavigate={() => setMobileNavOpen(false)} />
           </aside>
         </div>
       ) : null}
 
-      <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} />
+      <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} me={me} />
       <main className="px-4 py-6 sm:px-6 lg:px-8">{children}</main>
     </div>
   );

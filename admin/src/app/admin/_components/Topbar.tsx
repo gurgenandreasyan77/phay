@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Bell, ChevronDown, LogOut, Menu, Search } from "lucide-react";
+import type { AdminUserDto } from "@/lib/adminApi";
 import { findActiveNavItem } from "./nav";
+import { TenantSwitcher } from "./TenantSwitcher";
 import { cn } from "./ui";
 
 const EXTRA_SEGMENT_LABELS: Record<string, string> = {
@@ -24,7 +26,8 @@ function useBreadcrumbs(pathname: string) {
   return crumbs;
 }
 
-export function Topbar({ onOpenMobileNav, adminEmail }: { onOpenMobileNav: () => void; adminEmail?: string }) {
+export function Topbar({ onOpenMobileNav, me }: { onOpenMobileNav: () => void; me: AdminUserDto | null }) {
+  const adminEmail = me?.email;
   const pathname = usePathname();
   const router = useRouter();
   const crumbs = useBreadcrumbs(pathname);
@@ -77,6 +80,7 @@ export function Topbar({ onOpenMobileNav, adminEmail }: { onOpenMobileNav: () =>
       </nav>
 
       <div className="ml-auto flex items-center gap-1">
+        {me ? <TenantSwitcher current={me.currentTenant} tenants={me.tenants} /> : null}
         <button
           type="button"
           disabled
@@ -111,7 +115,7 @@ export function Topbar({ onOpenMobileNav, adminEmail }: { onOpenMobileNav: () =>
             <div className="absolute right-0 top-full mt-1.5 w-56 rounded-lg border border-border bg-surface p-1.5 shadow-md">
               <div className="px-2.5 py-2">
                 <p className="text-sm font-medium text-ink">{adminEmail ?? "Ադմինիստրատոր"}</p>
-                <p className="text-xs text-ink-muted">Servio</p>
+                <p className="text-xs text-ink-muted">{me?.currentTenant.name ?? "Servio"}</p>
               </div>
               <div className="my-1 h-px bg-border" />
               <button
