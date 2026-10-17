@@ -1,0 +1,39 @@
+# Without this file, `COPY . .` in the Dockerfile's "app" stage pulls in
+# whatever exists on the host — including a locally-installed vendor/ with
+# dev dependencies (e.g. laravel/pail). That overwrites the clean --no-dev
+# vendor/ built by the earlier "vendor" stage, and then
+# `composer dump-autoload --no-dev` strips dev packages from the autoloader
+# while package-discovery metadata still references them, causing errors
+# like "Class Laravel\Pail\PailServiceProvider not found" during the build.
+
+vendor/
+node_modules/
+
+# Secrets and local env files — never bake these into an image layer.
+.env
+.env.*
+!.env.example
+
+# VCS and editor metadata.
+.git/
+.gitignore
+.idea/
+.vscode/
+
+# Local runtime state that the Dockerfile recreates itself.
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/testing/*
+storage/framework/views/*
+storage/logs/*
+bootstrap/cache/*.php
+!storage/framework/cache/.gitignore
+!storage/framework/sessions/.gitignore
+!storage/framework/testing/.gitignore
+!storage/framework/views/.gitignore
+!storage/logs/.gitignore
+!bootstrap/cache/.gitignore
+
+# Test artifacts.
+.phpunit.result.cache
+tests/
