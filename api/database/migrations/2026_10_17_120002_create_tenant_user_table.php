@@ -12,8 +12,8 @@ return new class extends Migration
         Schema::create('tenant_user', function (Blueprint $table) {
             $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            // owner | editor (permissions per role arrive with the
-            // business/site screens).
+            // owner | admin | moderator (see App\Enums\BusinessRole; was
+            // owner | editor before the roles migration).
             $table->string('role')->default('owner');
             $table->timestamps();
 

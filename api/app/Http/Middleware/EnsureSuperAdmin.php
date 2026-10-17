@@ -7,9 +7,9 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Platform screens (businesses, their logins, sites, feature flags): only a
- * super admin. A business owner signs in to the same admin panel but works
- * on their own business only.
+ * Platform-wide switches (modules of a business, feature flags) and the
+ * platform team: only the super admin. Onboarding screens are open to
+ * platform moderators too (EnsurePlatformStaff).
  */
 class EnsureSuperAdmin
 {

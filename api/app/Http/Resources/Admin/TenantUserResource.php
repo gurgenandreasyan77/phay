@@ -13,9 +13,11 @@ class TenantUserResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            // The login: what the person types on the sign-in page.
             'email' => $this->email,
             'role' => $this->whenPivotLoaded('tenant_user', fn () => $this->pivot->role),
             'isSuperAdmin' => $this->is_super_admin,
+            'platformRole' => $this->platformRole()?->value,
             'createdAt' => $this->created_at?->toIso8601String(),
         ];
     }

@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\EnsureBusinessPermission;
+use App\Http\Middleware\EnsurePlatformStaff;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\RequireFeature;
 use App\Http\Middleware\ResolveAdminTenant;
@@ -28,6 +30,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.site' => ResolveSiteTenant::class,
             'tenant.admin' => ResolveAdminTenant::class,
             'super.admin' => EnsureSuperAdmin::class,
+            'platform.staff' => EnsurePlatformStaff::class,
+            'business.can' => EnsureBusinessPermission::class,
         ]);
 
         // Route model binding ({lead}, {post:slug}...) must already see the
