@@ -88,6 +88,8 @@ class BusinessAnalytics
                 ->mapWithKeys(fn (LeadStatus $s) => [$s->value => $created->where('status', $s)->count()])
                 ->all(),
             'openOrders' => Lead::query()->whereIn('status', self::OPEN_STATUSES)->count(),
+            // Orders ever: a business with none has no site orders to show.
+            'everOrders' => Lead::query()->count(),
         ];
     }
 
