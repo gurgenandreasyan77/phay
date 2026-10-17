@@ -79,22 +79,23 @@ class AdminBusinessAndSiteScreensTest extends TestCase
             ->assertJsonValidationErrors('slug');
     }
 
-    public function test_a_regular_user_lists_only_their_businesses(): void
+    public function test_a_super_admin_lists_every_business(): void
     {
         $this->createTenant('other-shop');
-        Sanctum::actingAs(User::factory()->create());
+        $this->superAdmin();
 
         $this->getJson('/api/v1/admin/tenants')
             ->assertOk()
-            ->assertJsonCount(1, 'data')
+            ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.slug', 'servio')
-            ->assertJsonPath('data.0.sitesCount', 1);
+            ->assertJsonPath('data.0.sitesCount', 1)
+            ->assertJsonPath('data.0.usersCount', 1);
     }
 
     public function test_sites_are_listed_and_created_for_the_current_business(): void
     {
         $shop = $this->createTenant('test-shop');
-        Sanctum::actingAs(User::factory()->forTenant($shop)->create());
+        Sanctum::actingAs(User::factory()->forTenant($shop)->superAdmin()->create());
 
         $this->getJson('/api/v1/admin/sites')->assertOk()->assertJsonCount(0, 'data');
 
@@ -115,7 +116,7 @@ class AdminBusinessAndSiteScreensTest extends TestCase
 
     public function test_invalid_origins_and_domains_are_rejected(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        $this->superAdmin();
 
         $this->postJson('/api/v1/admin/sites', [
             'name' => 'x',
@@ -126,7 +127,7 @@ class AdminBusinessAndSiteScreensTest extends TestCase
 
     public function test_a_site_can_be_updated_deactivated_and_its_key_rotated(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        $this->superAdmin();
         $site = Tenant::default()->sites()->sole();
         $oldKey = $site->public_key;
 
@@ -145,7 +146,7 @@ class AdminBusinessAndSiteScreensTest extends TestCase
     {
         $shop = $this->createTenant('test-shop');
         $shopSite = $this->createSite($shop);
-        Sanctum::actingAs(User::factory()->create()); // default business
+        Sanctum::actingAs(User::factory()->superAdmin()->create()); // works on the default business
 
         $this->getJson('/api/v1/admin/sites')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.name', 'servio.am');
         $this->patchJson("/api/v1/admin/sites/{$shopSite->id}", ['name' => 'hacked'])->assertNotFound();

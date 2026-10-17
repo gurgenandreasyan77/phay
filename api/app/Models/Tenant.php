@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Features\FeatureFlag;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Laravel\Pennant\Contracts\FeatureScopeSerializeable;
+use Laravel\Pennant\Feature;
 use RuntimeException;
 
 /**
@@ -31,6 +33,17 @@ class Tenant extends Model implements FeatureScopeSerializeable
     protected $casts = [
         'locales' => 'array',
     ];
+
+    protected static function booted(): void
+    {
+        // A new business starts with only the basic sections: optional
+        // modules (Auto Care, Market...) stay off until the platform
+        // administrator turns them on for it in Feature Flags. Servio itself
+        // was inserted by a migration and keeps its own flags.
+        static::created(function (Tenant $tenant) {
+            Feature::for($tenant)->deactivate(array_map(fn (FeatureFlag $flag) => $flag->value, FeatureFlag::cases()));
+        });
+    }
 
     public static function default(): self
     {

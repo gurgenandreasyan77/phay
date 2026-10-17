@@ -34,7 +34,8 @@ export type NavItem = {
   soon?: boolean;
   /** Hidden entirely (not just disabled) while this feature flag is off. */
   requiresFeature?: keyof FeatureFlags;
-  /** Platform-level screens only a super admin can use. */
+  /** Platform-level screens only a super admin can use (the API answers 403
+   *  to a business owner too — hiding the item is just for a clean menu). */
   superAdminOnly?: boolean;
 };
 
@@ -82,7 +83,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Պլատֆորմ",
     items: [
       { href: "/admin/businesses", label: "Բիզնեսներ", icon: Building2, superAdminOnly: true },
-      { href: "/admin/sites", label: "Կայքեր", icon: Globe },
+      { href: "/admin/sites", label: "Կայքեր", icon: Globe, superAdminOnly: true },
     ],
   },
   {
@@ -95,20 +96,26 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/settings", label: "Կարգավորումներ", icon: Settings },
       // Deliberately never gated by requiresFeature — otherwise disabling a
       // flag could hide the only place that can turn it back on.
-      { href: "/admin/feature-flags", label: "Feature Flags", icon: ToggleLeft },
+      { href: "/admin/feature-flags", label: "Feature Flags", icon: ToggleLeft, superAdminOnly: true },
     ],
   },
 ];
 
 export const ALL_NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((group) => group.items);
 
-/** Drops nav items/groups gated behind a disabled feature flag or super-admin access. */
+/**
+ * Drops nav items/groups gated behind a disabled feature flag or super-admin
+ * access. A business owner also doesn't see the "soon" placeholders: only the
+ * sections that work for them today.
+ */
 export function visibleNavGroups(features: FeatureFlags, isSuperAdmin = false): NavGroup[] {
   return NAV_GROUPS.map((group) => ({
     ...group,
     items: group.items.filter(
       (item) =>
-        (!item.requiresFeature || features[item.requiresFeature]) && (!item.superAdminOnly || isSuperAdmin),
+        (!item.requiresFeature || features[item.requiresFeature]) &&
+        (!item.superAdminOnly || isSuperAdmin) &&
+        (!item.soon || isSuperAdmin),
     ),
   })).filter((group) => group.items.length > 0);
 }

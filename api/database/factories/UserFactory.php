@@ -65,6 +65,14 @@ class UserFactory extends Factory
     }
 
     /**
+     * Platform administrator: every business and the platform screens.
+     */
+    public function superAdmin(): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->forceFill(['is_super_admin' => true])->save());
+    }
+
+    /**
      * Indicate that the model's email address should be unverified.
      */
     public function unverified(): static
