@@ -2,6 +2,7 @@
 
 namespace App\DataTables;
 
+use App\Enums\ColumnRole;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
 
@@ -9,7 +10,8 @@ use App\Models\DataTableRow;
  * When a row of a business's own table happened and what it's worth, read
  * from its data by the table's date and amount columns and kept on the row
  * (occurred_at, amount), so analytics and the AI assistant can sum and
- * group rows of every table in the database.
+ * group rows of every table in the database. Columns are found by their
+ * role (ColumnRole), not by their names.
  */
 final class RowMetrics
 {
@@ -19,24 +21,26 @@ final class RowMetrics
     public static function for(DataTable $table): callable
     {
         $date = $table->dateColumn();
-        $amount = $table->amountColumn();
+        $total = $table->roleColumn(ColumnRole::Amount);
+        $price = $table->roleColumn(ColumnRole::UnitPrice);
         $quantity = $table->quantityColumn();
         $number = fn ($v) => is_int($v) || is_float($v) ? $v : null;
 
-        return function (array $data) use ($date, $amount, $quantity, $number): array {
+        return function (array $data) use ($date, $total, $price, $quantity, $number): array {
             $moment = $date ? ($data[$date->key] ?? null) : null;
-            $value = $amount ? $number($data[$amount->key] ?? null) : null;
 
-            if ($value !== null && $quantity) {
-                // A row without a quantity counts once.
-                $value *= $number($data[$quantity->key] ?? null) ?? 1;
+            // The row's own total when it has one; else price × quantity
+            // (0.5 kg at 3000 a kg is 1500), a row without a quantity once.
+            $amount = $total ? $number($data[$total->key] ?? null) : null;
+            if ($amount === null && $price && ($unitPrice = $number($data[$price->key] ?? null)) !== null) {
+                $amount = Decimal::multiply($unitPrice, ($quantity ? $number($data[$quantity->key] ?? null) : null) ?? 1);
             }
 
             return [
                 'occurred_at' => is_string($moment) && preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/', $moment)
                     ? (strlen($moment) === 10 ? "{$moment} 00:00:00" : "{$moment}:00")
                     : null,
-                'amount' => $value === null ? null : round($value, 2),
+                'amount' => $amount === null ? null : Decimal::round($amount),
             ];
         };
     }

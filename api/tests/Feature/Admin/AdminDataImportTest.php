@@ -259,6 +259,7 @@ class AdminDataImportTest extends TestCase
         ]), 'orders.csv'), forTable: false);
 
         $this->assertSame(['datetime', 'text', 'text', 'text', 'money'], array_column($preview['guessedColumns'], 'type'));
+        $this->assertSame(['date', 'customer', 'phone', 'item', 'amount'], array_column($preview['guessedColumns'], 'role'));
 
         $table = $this->postJson('/api/v1/admin/data-tables', [
             'section' => 'sales', 'name' => 'Orders', 'columns' => $preview['guessedColumns'],
@@ -276,6 +277,18 @@ class AdminDataImportTest extends TestCase
         $this->assertSame('+374 55 000001', $rows[0]->data[$phone]);
         $this->assertSame('2026-10-09 14:06:00', $rows[0]->getRawOriginal('occurred_at'));
         $this->assertSame([9900.0, 5900.0, 11900.0], $rows->pluck('amount')->all());
+    }
+
+    public function test_file_columns_are_matched_by_meaning_in_any_language(): void
+    {
+        // The table says Ապրանք, Քանակ, Գին, Ամսաթիվ; the file is in Russian.
+        $preview = $this->upload($this->csv("Дата;Товар;Кол-во;Цена\n17.10.2026;Мёд;0,5;3000\n"));
+
+        $this->assertSame([$this->key(0) => 1, $this->key(1) => 2, $this->key(2) => 3, $this->key(3) => 0], $preview['mapping']);
+
+        $this->postJson("/api/v1/admin/data-imports/{$preview['id']}/run", ['data_table_id' => $this->table['id'], 'mapping' => $preview['mapping']])
+            ->assertOk()->assertJsonPath('data.importedRows', 1);
+        $this->assertSame(1500.0, DataTableRow::withoutTenancy()->first()->amount);
     }
 
     public function test_ambiguous_dates_are_read_day_first(): void

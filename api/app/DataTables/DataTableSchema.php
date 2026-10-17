@@ -2,6 +2,7 @@
 
 namespace App\DataTables;
 
+use App\Enums\ColumnRole;
 use App\Enums\DataColumnType;
 use App\Models\DataTable;
 use Illuminate\Support\Str;
@@ -19,6 +20,10 @@ final class DataTableSchema
      * that already exists keeps its key (so renaming it keeps the data),
      * a new one gets a fresh key never used in this table before.
      *
+     * Each role (price, quantity...) is on one column at most, of a type the
+     * role allows. A column sent without a `role` field at all (an API call,
+     * a table made from a file) gets the role its label suggests, if free.
+     *
      * @param  list<array>  $columns  validated input
      * @return list<array>
      */
@@ -27,6 +32,8 @@ final class DataTableSchema
         $known = collect($existing?->columns ?? [])->pluck('key')->all();
         $result = [];
         $labels = [];
+        $roles = [];
+        $guessLater = [];
 
         foreach ($columns as $index => $column) {
             $label = trim($column['label']);
@@ -44,12 +51,33 @@ final class DataTableSchema
                 throw ValidationException::withMessages(["columns.{$index}.options" => ['Ավելացրեք առնվազն մեկ տարբերակ։']]);
             }
 
+            $role = ColumnRole::tryFrom((string) ($column['role'] ?? ''));
+            if ($role) {
+                if (isset($roles[$role->value])) {
+                    throw ValidationException::withMessages(["columns.{$index}.role" => ['Այս իմաստով սյունակ արդեն կա աղյուսակում։']]);
+                }
+                if (! in_array($type, $role->types(), true)) {
+                    throw ValidationException::withMessages(["columns.{$index}.type" => ['Այս սյունակի համար ընտրեք այլ տեսակ։']]);
+                }
+                $roles[$role->value] = true;
+            } elseif (! array_key_exists('role', $column)) {
+                $guessLater[] = $index;
+            }
+
             $key = isset($column['key']) && in_array($column['key'], $known, true) ? $column['key'] : self::newKey();
 
-            $result[] = (new DataColumn($key, $label, $type, (bool) ($column['required'] ?? false), $options))->toArray();
+            $result[$index] = (new DataColumn($key, $label, $type, (bool) ($column['required'] ?? false), $options, $role))->toArray();
         }
 
-        return $result;
+        foreach ($guessLater as $index) {
+            $role = ColumnRole::guess($result[$index]['label']);
+            if ($role && ! isset($roles[$role->value]) && in_array(DataColumnType::from($result[$index]['type']), $role->types(), true)) {
+                $result[$index]['role'] = $role->value;
+                $roles[$role->value] = true;
+            }
+        }
+
+        return array_values($result);
     }
 
     /** Validation rules for the `columns` field of a table request. */
@@ -63,6 +91,7 @@ final class DataTableSchema
             'columns.*.required' => ['sometimes', 'boolean'],
             'columns.*.options' => ['sometimes', 'array', 'max:100'],
             'columns.*.options.*' => ['nullable', 'string', 'max:100'],
+            'columns.*.role' => ['sometimes', 'nullable', 'string', 'in:'.implode(',', ColumnRole::values())],
         ];
     }
 
@@ -96,41 +125,6 @@ final class DataTableSchema
         }
 
         return [$data, $errors];
-    }
-
-    /** Validation rules for the date, amount and quantity column choices. */
-    public static function metricRules(): array
-    {
-        return [
-            'date_column' => ['sometimes', 'nullable', 'string', 'max:20'],
-            'amount_column' => ['sometimes', 'nullable', 'string', 'max:20'],
-            'quantity_column' => ['sometimes', 'nullable', 'string', 'max:20'],
-        ];
-    }
-
-    /**
-     * Applies the choices sent with a table: a column may be named by its key
-     * or, for a column that is new in this request, by its label.
-     *
-     * @param  array<string, mixed>  $validated
-     */
-    public static function applyMetrics(DataTable $table, array $validated): void
-    {
-        $explicit = [];
-
-        foreach (['date_column', 'amount_column', 'quantity_column'] as $field) {
-            if (! array_key_exists($field, $validated)) {
-                continue;
-            }
-
-            $explicit[] = $field;
-            $wanted = $validated[$field];
-            $table->{$field} = $wanted === null || $wanted === ''
-                ? null
-                : collect($table->columnDefinitions())->first(fn (DataColumn $c) => $c->key === $wanted || mb_strtolower($c->label) === mb_strtolower(trim($wanted)))?->key;
-        }
-
-        $table->fillMetricColumns($explicit);
     }
 
     private static function newKey(): string

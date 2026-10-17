@@ -54,21 +54,18 @@ class DataTableController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:1000'],
             ...DataTableSchema::rules(),
-            ...DataTableSchema::metricRules(),
         ]);
 
         $section = DataTableSection::from($validated['section']);
         abort_unless(self::moduleActive($section), 404);
 
-        $table = new DataTable([
+        $table = DataTable::create([
             'section' => $section,
             'name' => trim($validated['name']),
             'description' => $validated['description'] ?? null,
             'columns' => DataTableSchema::columns($validated['columns']),
             'sort_order' => (DataTable::query()->where('section', $section)->max('sort_order') ?? 0) + 1,
         ]);
-        DataTableSchema::applyMetrics($table, $validated);
-        $table->save();
 
         return (new DataTableResource($table->loadCount('rows')))->response()->setStatusCode(201);
     }
@@ -90,7 +87,6 @@ class DataTableController extends Controller
             ...collect(DataTableSchema::rules())
                 ->map(fn (array $rules, string $field) => $field === 'columns' ? ['sometimes', ...$rules] : $rules)
                 ->all(),
-            ...DataTableSchema::metricRules(),
         ]);
 
         if (array_key_exists('columns', $validated)) {
@@ -101,13 +97,12 @@ class DataTableController extends Controller
             $validated['name'] = trim($validated['name']);
         }
 
-        $dataTable->fill(collect($validated)->except(['date_column', 'amount_column', 'quantity_column'])->all());
-        DataTableSchema::applyMetrics($dataTable, $validated);
-        $recompute = $dataTable->isDirty(['columns', 'date_column', 'amount_column', 'quantity_column']);
+        $dataTable->fill($validated);
+        $recompute = $dataTable->isDirty('columns');
         $dataTable->save();
 
-        // New date or amount column (or a retyped one): every row is read again,
-        // so analytics follow at once.
+        // A new date, price or quantity column (or a retyped one): every row
+        // is read again, so analytics follow at once.
         if ($recompute) {
             RowMetrics::recompute($dataTable);
         }
