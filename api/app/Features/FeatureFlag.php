@@ -10,6 +10,9 @@ namespace App\Features;
  */
 enum FeatureFlag: string
 {
+    // What the business sells: services (orders) and/or goods (sales).
+    case Orders = 'orders';
+    case Sales = 'sales';
     case AutoCare = 'auto-care';
     case Market = 'market';
     case DryCleaning = 'dry-cleaning';
@@ -20,6 +23,8 @@ enum FeatureFlag: string
             self::AutoCare => 'Ավտոխնամք',
             self::Market => 'Խանութ',
             self::DryCleaning => 'Քիմմաքրում',
+            self::Orders => 'Պատվերներ',
+            self::Sales => 'Վաճառքներ',
         };
     }
 
@@ -29,6 +34,8 @@ enum FeatureFlag: string
             self::AutoCare => 'Ակտիվացնում կամ ամբողջովին անջատում է ավտոմեքենայի խնամքի բաժինը ողջ հավելվածում։',
             self::Market => 'Ակտիվացնում կամ ամբողջովին անջատում է Խանութ (Market) բաժինը ողջ հավելվածում։',
             self::DryCleaning => 'Փափուկ կահույքի քիմմաքրման հաշվիչը, դրա սակագները և լրացուցիչ ծառայությունները։',
+            self::Orders => 'Ծառայություն մատուցող բիզնեսի համար՝ կայքից եկած պատվերները և պատվերների սեփական աղյուսակները։',
+            self::Sales => 'Ապրանք վաճառող բիզնեսի համար՝ վաճառքների սեփական աղյուսակներ, ձեռքով կամ ֆայլից ներմուծմամբ։',
         };
     }
 
@@ -36,6 +43,7 @@ enum FeatureFlag: string
     {
         return match ($this) {
             self::AutoCare, self::Market, self::DryCleaning => 'Կատալոգ',
+            self::Orders, self::Sales => 'Բիզնեսի տեսակ',
         };
     }
 
@@ -46,9 +54,19 @@ enum FeatureFlag: string
     public function default(): bool
     {
         return match ($this) {
-            self::AutoCare, self::Market => true,
+            self::AutoCare, self::Market, self::Orders => true,
             // Servio has it on by a migration; anyone else starts without it.
-            self::DryCleaning => false,
+            self::DryCleaning, self::Sales => false,
         };
+    }
+
+    /**
+     * Whether a business created on the platform starts with it on. Most
+     * modules wait for the super admin; orders stay on so a new business
+     * gets what every business had before they became a module.
+     */
+    public function onForNewBusiness(): bool
+    {
+        return $this === self::Orders;
     }
 }

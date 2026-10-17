@@ -1,13 +1,22 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/adminAuth";
-import { getDashboard } from "@/lib/adminApi";
+import { getDashboard, getDataTables, getFeatureFlagsAdmin } from "@/lib/adminApi";
+import { SECTIONS, tablePath } from "./_components/tables/shared";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_TONES, LEAD_STATUSES } from "./_components/leadStatus";
-import { Badge, buttonClasses, Card, EmptyRow, PageHeader, TableWrap, Th, Thead, Td, Tr } from "./_components/ui";
+import { Badge, buttonClasses, Card, EmptyCard, EmptyRow, PageHeader, TableWrap, Th, Thead, Td, Tr } from "./_components/ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   await requireAdmin();
+  const flags = await getFeatureFlagsAdmin();
+
+  // A business without the orders module (e.g. a shop that sells goods)
+  // has no orders from the site: its home is its own tables.
+  if (!(flags.find((f) => f.key === "orders")?.active ?? true)) {
+    return <TablesHome />;
+  }
+
   const dashboard = await getDashboard();
 
   return (
@@ -78,6 +87,32 @@ export default async function AdminDashboardPage() {
         </>
       ) : (
         <p className="text-sm text-danger">Չհաջողվեց բեռնել տվյալները։</p>
+      )}
+    </div>
+  );
+}
+
+async function TablesHome() {
+  const tables = await getDataTables();
+
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Վահանակ" />
+      {tables.length === 0 ? (
+        <EmptyCard>Աղյուսակներ դեռ չկան։ Ստեղծեք առաջինը «Վաճառքներ» բաժնում։</EmptyCard>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {tables.map((table) => (
+            <Link key={table.id} href={tablePath(table.section, table.id)}>
+              <Card className="h-full transition-colors hover:border-primary">
+                <p className="text-xs text-ink-faint">{SECTIONS[table.section].label}</p>
+                <p className="mt-1 font-medium text-ink">{table.name}</p>
+                <p className="mt-3 text-3xl font-semibold text-ink">{table.rowsCount ?? 0}</p>
+                <p className="text-xs text-ink-muted">տող</p>
+              </Card>
+            </Link>
+          ))}
+        </div>
       )}
     </div>
   );

@@ -12,6 +12,8 @@ import { cn } from "./ui";
 
 const EXTRA_SEGMENT_LABELS: Record<string, string> = {
   new: "Նոր",
+  tables: "Աղյուսակ",
+  settings: "Կարգավորումներ",
 };
 
 function useBreadcrumbs(pathname: string) {
@@ -20,7 +22,9 @@ function useBreadcrumbs(pathname: string) {
 
   const crumbs = [{ label: activeItem.label, href: activeItem.href }];
   const rest = pathname.slice(activeItem.href.length).split("/").filter(Boolean);
-  for (const segment of rest) {
+  for (const [i, segment] of rest.entries()) {
+    // A table's own id says nothing to the reader: "Աղյուսակ" already names it.
+    if (rest[i - 1] === "tables" && /^\d+$/.test(segment)) continue;
     const label = EXTRA_SEGMENT_LABELS[segment] ?? (/^\d+$/.test(segment) ? "Խմբագրում" : segment);
     crumbs.push({ label, href: "" });
   }

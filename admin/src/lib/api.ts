@@ -310,6 +310,9 @@ export type ContactChannelDto = {
 };
 
 export type FeatureFlags = {
+  /** What the business sells: services (orders) and/or goods (sales). */
+  orders: boolean;
+  sales: boolean;
   autoCare: boolean;
   market: boolean;
   dryCleaning: boolean;

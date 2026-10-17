@@ -24,7 +24,7 @@ import {
   Settings,
   TrendingUp,
   Sparkles,
-  Upload,
+  Wallet,
   Building2,
   Globe,
   UsersRound,
@@ -60,8 +60,8 @@ export const BUSINESS_NAV_GROUPS: NavGroup[] = [
     label: "Հիմնական",
     items: [
       { href: "/admin", label: "Վահանակ", icon: LayoutDashboard, requires: "orders" },
-      { href: "/admin/orders", label: "Պատվերներ", icon: ClipboardList, requires: "orders" },
-      { href: "/admin/sales", label: "Վաճառքներ", icon: Upload, soon: true },
+      { href: "/admin/orders", label: "Պատվերներ", icon: ClipboardList, requiresFeature: "orders", requires: "orders" },
+      { href: "/admin/sales", label: "Վաճառքներ", icon: Receipt, requiresFeature: "sales", requires: "orders" },
       { href: "/admin/analytics", label: "Վերլուծություն", icon: TrendingUp, requires: "insights" },
       { href: "/admin/assistant", label: "AI օգնական", icon: Sparkles, requires: "insights" },
       { href: "/admin/clients", label: "Հաճախորդներ", icon: Users, soon: true },
@@ -94,7 +94,7 @@ export const BUSINESS_NAV_GROUPS: NavGroup[] = [
     label: "Ֆինանսներ",
     items: [
       { href: "/admin/payments", label: "Վճարումներ", icon: CreditCard, soon: true },
-      { href: "/admin/expenses", label: "Ծախսեր", icon: Receipt, soon: true },
+      { href: "/admin/expenses", label: "Ծախսեր", icon: Wallet, soon: true },
     ],
   },
   {

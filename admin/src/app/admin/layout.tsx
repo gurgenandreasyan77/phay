@@ -16,6 +16,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const [flags, me] = await Promise.all([getFeatureFlagsAdmin(), getMe()]);
   const isActive = (key: string) => flags.find((f) => f.key === key)?.active ?? true;
   const features = {
+    orders: isActive("orders"),
+    sales: isActive("sales"),
     autoCare: isActive("auto-care"),
     market: isActive("market"),
     dryCleaning: isActive("dry-cleaning"),

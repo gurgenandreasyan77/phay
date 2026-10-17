@@ -109,6 +109,46 @@ export type AnalyticsDto = {
   openOrders: number;
 };
 
+/** A business's own table (orders, sales): see the API's DataTableController. */
+export type DataTableSection = "orders" | "sales";
+
+export type DataColumnType = "text" | "number" | "money" | "date" | "select" | "boolean";
+
+export type AdminDataColumnDto = {
+  /** Stable key the rows' values are stored under; absent for a column not saved yet. */
+  key?: string;
+  label: string;
+  type: DataColumnType;
+  required: boolean;
+  options: string[];
+};
+
+export type AdminDataTableDto = {
+  id: number;
+  section: DataTableSection;
+  name: string;
+  description: string | null;
+  columns: Required<AdminDataColumnDto>[];
+  rowsCount?: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type DataCellValue = string | number | boolean | null;
+
+export type AdminDataTableRowDto = {
+  id: number;
+  values: Record<string, DataCellValue>;
+  source: "manual" | "import";
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type PaginatedDataRowsDto = {
+  items: AdminDataTableRowDto[];
+  meta: { currentPage: number; lastPage: number; total: number };
+};
+
 export type AssistantStatusDto = { configured: boolean; used: number; limit: number };
 
 /** A person's role inside one business (see the API's BusinessRole). */
@@ -645,6 +685,42 @@ export async function getLeads(params: {
   } | null;
 
   if (!json) return empty;
+
+  return {
+    items: json.data,
+    meta: json.meta
+      ? { currentPage: json.meta.current_page, lastPage: json.meta.last_page, total: json.meta.total }
+      : empty.meta,
+  };
+}
+
+export async function getDataTables(section?: DataTableSection): Promise<AdminDataTableDto[]> {
+  const result = await adminApiFetch<AdminDataTableDto[]>(`/admin/data-tables${section ? `?section=${section}` : ""}`);
+  return result.data ?? [];
+}
+
+export async function getDataTable(id: number): Promise<AdminDataTableDto | null> {
+  const result = await adminApiFetch<AdminDataTableDto>(`/admin/data-tables/${id}`);
+  return result.data;
+}
+
+export async function getDataTableRows(
+  id: number,
+  params: { search?: string; page?: number },
+): Promise<PaginatedDataRowsDto> {
+  const empty = { items: [], meta: { currentPage: 1, lastPage: 1, total: 0 } };
+
+  const query = new URLSearchParams();
+  if (params.search) query.set("search", params.search);
+  if (params.page) query.set("page", String(params.page));
+
+  const result = await adminApiFetchRaw(`/admin/data-tables/${id}/rows?${query.toString()}`);
+  if (result.status !== 200 || !result.json) return empty;
+
+  const json = result.json as {
+    data: AdminDataTableRowDto[];
+    meta?: { current_page: number; last_page: number; total: number };
+  };
 
   return {
     items: json.data,
