@@ -208,8 +208,21 @@ class TableAnalyticsTest extends TestCase
 
         $year = $this->getJson('/api/v1/admin/analytics/tables?period=365')->assertOk()->json('data.0');
 
+        // Without money: what fits a service business, nothing about money or kilograms.
+        $this->assertSame(['count', 'perDay', 'countChart', 'peaks', 'byItem'], $year['dashboard']['enabled']);
+        $this->assertFalse($year['dashboard']['saved']);
+        $this->assertSame(['money'], collect($year['dashboard']['widgets'])->firstWhere('id', 'revenue')['missing']);
+        $this->assertSame(['datetime'], collect($year['dashboard']['widgets'])->firstWhere('id', 'hours')['missing']);
+
+        // The owner adds orders a month and the months of the year.
+        $this->putJson('/api/v1/admin/analytics/dashboard', ['section' => 'orders', 'widgets' => ['count', 'perDay', 'perMonth', 'peaks', 'months']])->assertOk();
+        $year = $this->getJson('/api/v1/admin/analytics/tables?period=365')->assertOk()->json('data.0');
+
+        $this->assertTrue($year['dashboard']['saved']);
         $this->assertSame('orders', $year['section']);
         $this->assertNull($year['amount']);
+        $this->assertSame([], $year['breakdowns'], 'By service is no longer chosen.');
+        $this->assertSame(['2026-06', '2026-07', '2026-08', '2026-09', '2026-10'], array_column($year['months']['series'], 'date'));
         $this->assertSame(['count', 'perDay', 'perMonth'], array_column($year['metrics'], 'key'));
         $this->assertSame('Պատվերներ ամսական', $year['metrics'][2]['label']);
         // 6 orders since 03.06, 137 days: 0.04 a day, 1.33 a month.
@@ -243,11 +256,61 @@ class TableAnalyticsTest extends TestCase
         ]);
 
         $sales = $this->getJson('/api/v1/admin/analytics/tables?period=7')->assertOk()->json('data.0');
+        // Profit is on by default once there is a cost; the margin is offered.
+        $this->assertContains('profit', $sales['dashboard']['enabled']);
+        $this->assertNotContains('margin', $sales['dashboard']['enabled']);
+        $this->assertSame([], collect($sales['dashboard']['widgets'])->firstWhere('id', 'margin')['missing']);
+
+        $this->putJson('/api/v1/admin/analytics/dashboard', ['section' => 'sales', 'widgets' => ['profit', 'margin', 'profitChart']])->assertOk();
+        $sales = $this->getJson('/api/v1/admin/analytics/tables?period=7')->assertOk()->json('data.0');
+        $this->assertSame(['profit', 'margin'], array_column($sales['metrics'], 'key'));
+        $this->assertSame(600, $sales['series'][6]['profit']);
         $profit = collect($sales['metrics'])->firstWhere('key', 'profit');
 
         $this->assertSame(600, $profit['value']);
         $this->assertSame('Հաշվված է 3 տողից 1-ի համար, որոնց ինքնարժեքը լրացված է։', $profit['note']);
         $this->assertSame(37.5, collect($sales['metrics'])->firstWhere('key', 'margin')['value']);
+    }
+
+    public function test_the_dashboard_takes_only_known_widgets_and_the_ai_gets_only_the_chosen_ones(): void
+    {
+        $this->putJson('/api/v1/admin/analytics/dashboard', ['section' => 'sales', 'widgets' => ['revenue', 'pie']])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('widgets.1');
+        $this->putJson('/api/v1/admin/analytics/dashboard', ['section' => 'cars', 'widgets' => []])->assertUnprocessable();
+
+        // Only how many: no money and no products reach the screen or the AI.
+        $this->putJson('/api/v1/admin/analytics/dashboard', ['section' => 'sales', 'widgets' => ['count', 'weekdays']])->assertOk();
+        $sales = $this->getJson('/api/v1/admin/analytics/tables?period=30')->assertOk()->json('data.0');
+        $this->assertSame(['count'], array_column($sales['metrics'], 'key'));
+        $this->assertSame([], $sales['breakdowns']);
+        $this->assertSame(7, count($sales['weekdays']));
+        // 01.10, 16.10 and 10.10: a Thursday, a Friday and a Saturday.
+        $this->assertSame([4 => 1, 5 => 1, 6 => 1], collect($sales['weekdays'])->where('rows', '>', 0)->mapWithKeys(fn ($d) => [$d['day'] => $d['rows']])->all());
+
+        $client = new class implements AssistantClient
+        {
+            public string $system = '';
+
+            public function isConfigured(): bool
+            {
+                return true;
+            }
+
+            public function reply(string $system, array $messages): \App\Assistant\AssistantReply
+            {
+                $this->system = $system;
+
+                return new \App\Assistant\AssistantReply('ok', 1, 1);
+            }
+        };
+        $this->app->instance(AssistantClient::class, $client);
+        $this->postJson('/api/v1/admin/assistant', ['messages' => [['role' => 'user', 'content' => 'Ինչպե՞ս են վաճառքները']]])->assertOk();
+
+        $this->assertStringContainsString('"shownOnDashboard"', $client->system);
+        $this->assertStringContainsString('"weekdays"', $client->system);
+        $this->assertStringNotContainsString('"label": "Եկամուտ"', $client->system);
+        $this->assertStringNotContainsString('"value": "Մոմ"', $client->system);
     }
 
     public function test_a_role_is_on_one_column_of_a_type_it_allows(): void

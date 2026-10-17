@@ -156,6 +156,7 @@ Route::prefix('v1')->group(function () {
             Route::middleware('business.can:insights')->group(function () {
                 Route::get('/analytics', AdminAnalyticsController::class);
                 Route::get('/analytics/tables', AdminTableAnalyticsController::class);
+                Route::put('/analytics/dashboard', [AdminTableAnalyticsController::class, 'update']);
                 Route::get('/assistant', [AdminAssistantController::class, 'show']);
                 Route::post('/assistant', [AdminAssistantController::class, 'store'])->middleware('throttle:assistant');
             });
