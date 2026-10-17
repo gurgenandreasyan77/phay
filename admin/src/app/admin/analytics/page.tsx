@@ -1,12 +1,21 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { requirePermission } from "@/lib/adminAuth";
-import { getAnalytics, type AnalyticsPeriod, type AnalyticsTotalsDto } from "@/lib/adminApi";
+import {
+  getAnalytics,
+  getFeatureFlagsAdmin,
+  getTableAnalytics,
+  type AnalyticsPeriod,
+  type AnalyticsTotalsDto,
+  type TableAnalyticsDto,
+} from "@/lib/adminApi";
+import { SECTIONS, tablePath } from "../_components/tables/shared";
 import { LEAD_STATUS_LABELS, LEAD_STATUSES } from "../_components/leadStatus";
 import {
   buttonClasses,
   Card,
   cn,
+  EmptyCard,
   EmptyRow,
   PageHeader,
   SectionCard,
@@ -136,13 +145,23 @@ export default async function AdminAnalyticsPage(props: {
   const searchParams = await props.searchParams;
   const requested = Number(first(searchParams.period));
   const period = (PERIODS.find((p) => p.days === requested)?.days ?? 30) as AnalyticsPeriod;
-  const analytics = await getAnalytics(period);
+  const [analytics, flags, tables] = await Promise.all([
+    getAnalytics(period),
+    getFeatureFlagsAdmin(),
+    getTableAnalytics(period),
+  ]);
+  // A shop without the orders module has no site orders to show.
+  const ordersOn = flags.find((f) => f.key === "orders")?.active ?? true;
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Վերլուծություն"
-        description="Ձեր պատվերների և եկամտի ամփոփումը։ Եկամուտը հաշվվում է կատարված պատվերների վերջնական գնից։"
+        description={
+          ordersOn
+            ? "Ձեր պատվերների, եկամտի և ձեր աղյուսակների ամփոփումը։ Կայքի պատվերների եկամուտը հաշվվում է կատարված պատվերների վերջնական գնից։"
+            : "Ձեր աղյուսակների ամփոփումը ընտրված ժամանակահատվածի համար։"
+        }
         actions={
           <Link href="/admin/assistant" className={buttonClasses("secondary")}>
             <Sparkles className="h-4 w-4" />
@@ -166,8 +185,9 @@ export default async function AdminAnalyticsPage(props: {
         ))}
       </div>
 
-      {analytics ? (
+      {!ordersOn ? null : analytics ? (
         <>
+          {tables.length > 0 ? <h2 className="text-lg font-semibold text-ink">Կայքի պատվերներ</h2> : null}
           <Totals totals={analytics.totals} previous={analytics.previous} />
 
           {analytics.totals.completedWithoutPrice > 0 ? (
@@ -256,7 +276,112 @@ export default async function AdminAnalyticsPage(props: {
       ) : (
         <p className="text-sm text-danger">Չհաջողվեց բեռնել տվյալները։</p>
       )}
+
+      {tables.map((summary) => (
+        <TableFigures key={summary.table.id} summary={summary} />
+      ))}
+
+      {!ordersOn && tables.length === 0 ? (
+        <EmptyCard>
+          Աղյուսակներ դեռ չկան։ Ստեղծեք դրանք «Վաճառքներ» բաժնում և լրացրեք ձեռքով կամ ֆայլից, այստեղ կհայտնվեն
+          վաճառքների թվերը։
+        </EmptyCard>
+      ) : null}
     </div>
+  );
+}
+
+/** One of the business's own tables: rows and money in the period, by day/month, top values. */
+function TableFigures({ summary }: { summary: TableAnalyticsDto }) {
+  const { table, rows, amount, series, breakdowns, period } = summary;
+  const byMonth = period.days > 90;
+  const hasDate = summary.dateColumn !== null;
+
+  return (
+    <section className="space-y-4 border-t border-border pt-8">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs text-ink-faint">{SECTIONS[table.section].label}</p>
+          <h2 className="text-lg font-semibold text-ink">{table.name}</h2>
+          <p className="mt-1 max-w-2xl text-sm text-ink-muted">
+            {hasDate
+              ? `Ըստ «${summary.dateColumn}» սյունակի։${rows.withoutDate ? ` ${rows.withoutDate} տող առանց ամսաթվի հաշվված չէ։` : ""}`
+              : "Աղյուսակում ամսաթվի սյունակ չկա, ուստի ցույց են տրված բոլոր տողերը։ Ավելացրեք ամսաթիվ՝ ժամանակահատվածներ համեմատելու համար։"}
+          </p>
+        </div>
+        <Link href={tablePath(table.section, table.id)} className={buttonClasses("ghost", "sm")}>
+          Բացել աղյուսակը
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {amount ? (
+          <Kpi
+            label={summary.amountColumn ?? "Գումար"}
+            value={money(amount.current)}
+            current={amount.current}
+            previous={amount.previous}
+            highlight
+          />
+        ) : null}
+        <Kpi label="Տողեր" value={String(rows.current)} current={rows.current} previous={rows.previous} />
+        {amount ? <Kpi label="Միջինը մեկ տողում" value={money(amount.average)} current={null} previous={null} /> : null}
+        {summary.numbers
+          .filter((n) => n.type === "number")
+          .slice(0, amount ? 1 : 3)
+          .map((n) => (
+            <Kpi
+              key={n.label}
+              label={`${n.label} (ընդամենը)`}
+              value={new Intl.NumberFormat("hy-AM").format(n.sum)}
+              current={n.sum}
+              previous={n.previousSum}
+            />
+          ))}
+      </div>
+
+      {hasDate ? (
+        <SectionCard title={`${amount ? (summary.amountColumn ?? "Գումար") : "Տողեր"} ըստ ${byMonth ? "ամիսների" : "օրերի"}`}>
+          <Card>
+            <BarChart
+              points={series}
+              value={(i) => (amount ? series[i].amount : series[i].rows)}
+              format={amount ? money : (n) => `${n} տող`}
+            />
+          </Card>
+        </SectionCard>
+      ) : null}
+
+      {breakdowns.length > 0 ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {breakdowns.slice(0, 4).map((breakdown) => (
+            <SectionCard key={breakdown.label} title={`Ըստ «${breakdown.label}»`}>
+              <TableWrap>
+                <Thead>
+                  <Th>{breakdown.label}</Th>
+                  <Th className="text-right">Տողեր</Th>
+                  {amount ? <Th className="text-right">Գումար</Th> : null}
+                </Thead>
+                <tbody>
+                  {breakdown.values.map((row) => (
+                    <Tr key={row.value}>
+                      <Td className="font-medium">{row.value}</Td>
+                      <Td className="text-right">{row.rows}</Td>
+                      {amount ? <Td className="whitespace-nowrap text-right">{money(row.amount)}</Td> : null}
+                    </Tr>
+                  ))}
+                </tbody>
+              </TableWrap>
+              {breakdown.distinct > breakdown.values.length ? (
+                <p className="text-xs text-ink-muted">
+                  Ցույց են տրված առաջին {breakdown.values.length}-ը {breakdown.distinct} տարբեր արժեքներից։
+                </p>
+              ) : null}
+            </SectionCard>
+          ))}
+        </div>
+      ) : null}
+    </section>
   );
 }
 
