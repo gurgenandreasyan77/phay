@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\V1\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Api\V1\Admin\CalculatorSettingController as AdminCalculatorSettingController;
 use App\Http\Controllers\Api\V1\Admin\ContactChannelController as AdminContactChannelController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Api\V1\Admin\DataTableController as AdminDataTableController;
+use App\Http\Controllers\Api\V1\Admin\DataTableRowController as AdminDataTableRowController;
 use App\Http\Controllers\Api\V1\Admin\FeatureFlagController as AdminFeatureFlagController;
 use App\Http\Controllers\Api\V1\Admin\LeadController as AdminLeadController;
 use App\Http\Controllers\Api\V1\Admin\PlatformUserController as AdminPlatformUserController;
@@ -120,10 +122,26 @@ Route::prefix('v1')->group(function () {
 
             Route::middleware('business.can:orders')->group(function () {
                 Route::get('/dashboard', AdminDashboardController::class);
-                Route::get('/leads', [AdminLeadController::class, 'index']);
-                Route::post('/leads', [AdminLeadController::class, 'store']);
-                Route::get('/leads/{lead}', [AdminLeadController::class, 'show']);
-                Route::patch('/leads/{lead}', [AdminLeadController::class, 'update']);
+
+                // Orders from the site: the "orders" module (a business that sells services).
+                Route::middleware('feature:orders')->group(function () {
+                    Route::get('/leads', [AdminLeadController::class, 'index']);
+                    Route::post('/leads', [AdminLeadController::class, 'store']);
+                    Route::get('/leads/{lead}', [AdminLeadController::class, 'show']);
+                    Route::patch('/leads/{lead}', [AdminLeadController::class, 'update']);
+                });
+
+                // The business's own tables (orders, sales): everyone who works
+                // with orders reads them and keeps their rows; the controllers
+                // check the table's module.
+                Route::get('/data-tables', [AdminDataTableController::class, 'index']);
+                Route::get('/data-tables/{dataTable}', [AdminDataTableController::class, 'show']);
+                Route::scopeBindings()->group(function () {
+                    Route::get('/data-tables/{dataTable}/rows', [AdminDataTableRowController::class, 'index']);
+                    Route::post('/data-tables/{dataTable}/rows', [AdminDataTableRowController::class, 'store']);
+                    Route::patch('/data-tables/{dataTable}/rows/{row}', [AdminDataTableRowController::class, 'update']);
+                    Route::delete('/data-tables/{dataTable}/rows/{row}', [AdminDataTableRowController::class, 'destroy']);
+                });
             });
 
             Route::middleware('business.can:insights')->group(function () {
@@ -141,6 +159,11 @@ Route::prefix('v1')->group(function () {
             });
 
             Route::middleware('business.can:catalog')->group(function () {
+                // Designing a table (its name and columns): owner and admin.
+                Route::post('/data-tables', [AdminDataTableController::class, 'store']);
+                Route::patch('/data-tables/{dataTable}', [AdminDataTableController::class, 'update']);
+                Route::delete('/data-tables/{dataTable}', [AdminDataTableController::class, 'destroy']);
+
                 Route::get('/additional-services', [AdminAdditionalServiceController::class, 'index']);
                 Route::post('/additional-services', [AdminAdditionalServiceController::class, 'store']);
                 Route::patch('/additional-services/{additionalService}', [AdminAdditionalServiceController::class, 'update']);

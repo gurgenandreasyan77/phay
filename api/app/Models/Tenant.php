@@ -36,12 +36,16 @@ class Tenant extends Model implements FeatureScopeSerializeable
 
     protected static function booted(): void
     {
-        // A new business starts with only the basic sections: optional
-        // modules (Auto Care, Market...) stay off until the platform
-        // administrator turns them on for it in Feature Flags. Servio itself
-        // was inserted by a migration and keeps its own flags.
+        // A new business starts with only the basic sections and orders:
+        // the other modules (Sales, Auto Care, Market...) stay off until the
+        // platform administrator turns them on for it. Servio itself was
+        // inserted by a migration and keeps its own flags.
         static::created(function (Tenant $tenant) {
-            Feature::for($tenant)->deactivate(array_map(fn (FeatureFlag $flag) => $flag->value, FeatureFlag::cases()));
+            foreach (FeatureFlag::cases() as $flag) {
+                $flag->onForNewBusiness()
+                    ? Feature::for($tenant)->activate($flag->value)
+                    : Feature::for($tenant)->deactivate($flag->value);
+            }
         });
     }
 
