@@ -21,6 +21,8 @@ import {
   History,
   Settings,
   ToggleLeft,
+  Building2,
+  Globe,
 } from "lucide-react";
 
 export type NavItem = {
@@ -32,6 +34,8 @@ export type NavItem = {
   soon?: boolean;
   /** Hidden entirely (not just disabled) while this feature flag is off. */
   requiresFeature?: keyof FeatureFlags;
+  /** Platform-level screens only a super admin can use. */
+  superAdminOnly?: boolean;
 };
 
 export type NavGroup = {
@@ -75,6 +79,13 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: "Պլատֆորմ",
+    items: [
+      { href: "/admin/businesses", label: "Բիզնեսներ", icon: Building2, superAdminOnly: true },
+      { href: "/admin/sites", label: "Կայքեր", icon: Globe },
+    ],
+  },
+  {
     label: "Այլ",
     items: [
       { href: "/admin/documents", label: "Փաստաթղթեր", icon: FileText, soon: true },
@@ -91,11 +102,14 @@ export const NAV_GROUPS: NavGroup[] = [
 
 export const ALL_NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((group) => group.items);
 
-/** Drops nav items/groups gated behind a disabled feature flag. */
-export function visibleNavGroups(features: FeatureFlags): NavGroup[] {
+/** Drops nav items/groups gated behind a disabled feature flag or super-admin access. */
+export function visibleNavGroups(features: FeatureFlags, isSuperAdmin = false): NavGroup[] {
   return NAV_GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter((item) => !item.requiresFeature || features[item.requiresFeature]),
+    items: group.items.filter(
+      (item) =>
+        (!item.requiresFeature || features[item.requiresFeature]) && (!item.superAdminOnly || isSuperAdmin),
+    ),
   })).filter((group) => group.items.length > 0);
 }
 

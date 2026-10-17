@@ -56,5 +56,6 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Gate::define('manage-feature-flags', fn (User $user) => $user->is_super_admin);
+        Gate::define('manage-tenants', fn (User $user) => $user->is_super_admin);
     }
 }

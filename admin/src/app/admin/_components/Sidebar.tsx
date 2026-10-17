@@ -8,15 +8,17 @@ import { cn } from "./ui";
 
 export function Sidebar({
   features,
+  isSuperAdmin = false,
   onNavigate,
   className,
 }: {
   features: FeatureFlags;
+  isSuperAdmin?: boolean;
   onNavigate?: () => void;
   className?: string;
 }) {
   const pathname = usePathname();
-  const navGroups = visibleNavGroups(features);
+  const navGroups = visibleNavGroups(features, isSuperAdmin);
 
   return (
     <nav className={cn("flex h-full flex-col bg-sidebar text-sidebar-text", className)}>

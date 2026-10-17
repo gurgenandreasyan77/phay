@@ -303,8 +303,17 @@ business, and every query is limited to the current one automatically
 - **Admin API:** the signed-in user's business (`tenant_user`). A super admin
   without a business works on the default one.
 
-Create a business and connect a site from the console (screens for this come
-next):
+In the admin (as a super admin): **Բիզնեսներ** creates a business,
+**Կայքեր** connects a site to the current business and shows its key (copy,
+rotate, allowed origins, on/off), and the business switcher in the top bar
+changes which business the admin works on.
+
+To connect servio-front (or a copy of it for another business), put the key
+in its env: `NEXT_PUBLIC_SITE_KEY=site_pk_...` (root `.env` for Docker; a
+production build needs it at build time, like every `NEXT_PUBLIC_*`). It is
+sent as `X-Site-Key` on every API call, including the lead forms.
+
+The same from the console:
 
 ```bash
 make artisan cmd="platform:tenant:create 'Test Shop' --owner=you@example.com"
