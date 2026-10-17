@@ -16,7 +16,6 @@ export function AdminShell({
   me: AdminUserDto | null;
   children: ReactNode;
 }) {
-  const isSuperAdmin = me?.isSuperAdmin ?? false;
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [lastPathname, setLastPathname] = useState(pathname);
@@ -33,7 +32,7 @@ export function AdminShell({
   return (
     <div className="min-h-screen bg-background lg:pl-64">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block">
-        <Sidebar features={features} isSuperAdmin={isSuperAdmin} businessName={me?.currentTenant?.name} />
+        <Sidebar features={features} me={me} businessName={me?.currentTenant?.name} />
       </aside>
 
       {mobileNavOpen ? (
@@ -47,7 +46,7 @@ export function AdminShell({
           <aside className="absolute inset-y-0 left-0 w-64 shadow-md">
             <Sidebar
               features={features}
-              isSuperAdmin={isSuperAdmin}
+              me={me}
               businessName={me?.currentTenant?.name}
               onNavigate={() => setMobileNavOpen(false)}
             />

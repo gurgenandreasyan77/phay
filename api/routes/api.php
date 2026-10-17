@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\Admin\ContactChannelController as AdminContactCh
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\V1\Admin\FeatureFlagController as AdminFeatureFlagController;
 use App\Http\Controllers\Api\V1\Admin\LeadController as AdminLeadController;
+use App\Http\Controllers\Api\V1\Admin\PlatformUserController as AdminPlatformUserController;
 use App\Http\Controllers\Api\V1\Admin\ProductCategoryController as AdminProductCategoryController;
 use App\Http\Controllers\Api\V1\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Api\V1\Admin\ServiceCategoryController as AdminServiceCategoryController;
@@ -88,8 +89,9 @@ Route::prefix('v1')->group(function () {
             Route::get('/me', [AdminAuthController::class, 'me']);
             Route::post('/switch-tenant', [AdminAuthController::class, 'switchTenant']);
 
-            // Platform screens: a business owner gets 403 here.
-            Route::middleware('super.admin')->group(function () {
+            // Onboarding (platform staff: super admin and moderators); a
+            // business's own people get 403 here.
+            Route::middleware('platform.staff')->group(function () {
                 Route::get('/tenants', [AdminTenantController::class, 'index']);
                 Route::post('/tenants', [AdminTenantController::class, 'store']);
                 Route::get('/tenants/{tenant}/users', [AdminTenantUserController::class, 'index']);
@@ -97,67 +99,88 @@ Route::prefix('v1')->group(function () {
                 Route::patch('/tenants/{tenant}/users/{user}', [AdminTenantUserController::class, 'update']);
                 Route::delete('/tenants/{tenant}/users/{user}', [AdminTenantUserController::class, 'destroy']);
                 Route::get('/tenants/{tenant}/features', [AdminTenantFeatureController::class, 'index']);
-                Route::patch('/tenants/{tenant}/features/{key}', [AdminTenantFeatureController::class, 'update']);
                 Route::get('/sites', [AdminSiteController::class, 'index']);
                 Route::post('/sites', [AdminSiteController::class, 'store']);
                 Route::patch('/sites/{site}', [AdminSiteController::class, 'update']);
                 Route::post('/sites/{site}/rotate-key', [AdminSiteController::class, 'rotateKey']);
-                Route::patch('/feature-flags/{key}', [AdminFeatureFlagController::class, 'update']);
             });
 
-            Route::get('/dashboard', AdminDashboardController::class);
-            Route::get('/analytics', AdminAnalyticsController::class);
-            Route::get('/assistant', [AdminAssistantController::class, 'show']);
-            Route::post('/assistant', [AdminAssistantController::class, 'store'])->middleware('throttle:assistant');
-            Route::get('/leads', [AdminLeadController::class, 'index']);
-            Route::post('/leads', [AdminLeadController::class, 'store']);
-            Route::get('/leads/{lead}', [AdminLeadController::class, 'show']);
-            Route::patch('/leads/{lead}', [AdminLeadController::class, 'update']);
-            Route::get('/settings', [AdminSettingsController::class, 'show']);
-            Route::put('/settings', [AdminSettingsController::class, 'update']);
+            // Platform-wide switches and the platform team: super admin only.
+            Route::middleware('super.admin')->group(function () {
+                Route::patch('/tenants/{tenant}/features/{key}', [AdminTenantFeatureController::class, 'update']);
+                Route::patch('/feature-flags/{key}', [AdminFeatureFlagController::class, 'update']);
+                Route::get('/platform-users', [AdminPlatformUserController::class, 'index']);
+                Route::post('/platform-users', [AdminPlatformUserController::class, 'store']);
+                Route::patch('/platform-users/{user}', [AdminPlatformUserController::class, 'update']);
+                Route::delete('/platform-users/{user}', [AdminPlatformUserController::class, 'destroy']);
+            });
+
+            // The business admin, by role (App\Enums\BusinessRole).
             Route::get('/feature-flags', [AdminFeatureFlagController::class, 'index']);
-            Route::post('/contact-channels', [AdminContactChannelController::class, 'store']);
-            Route::patch('/contact-channels/{contactChannel}', [AdminContactChannelController::class, 'update']);
-            Route::delete('/contact-channels/{contactChannel}', [AdminContactChannelController::class, 'destroy']);
-            Route::get('/additional-services', [AdminAdditionalServiceController::class, 'index']);
-            Route::post('/additional-services', [AdminAdditionalServiceController::class, 'store']);
-            Route::patch('/additional-services/{additionalService}', [AdminAdditionalServiceController::class, 'update']);
-            Route::delete('/additional-services/{additionalService}', [AdminAdditionalServiceController::class, 'destroy']);
-            Route::get('/products', [AdminProductController::class, 'index']);
-            Route::post('/products', [AdminProductController::class, 'store']);
-            Route::patch('/products/{product}', [AdminProductController::class, 'update']);
-            Route::delete('/products/{product}', [AdminProductController::class, 'destroy']);
-            Route::get('/product-categories', [AdminProductCategoryController::class, 'index']);
-            Route::post('/product-categories', [AdminProductCategoryController::class, 'store']);
-            Route::patch('/product-categories/{productCategory}', [AdminProductCategoryController::class, 'update']);
-            Route::delete('/product-categories/{productCategory}', [AdminProductCategoryController::class, 'destroy']);
-            Route::get('/task-pages', [AdminTaskPageController::class, 'index']);
-            Route::post('/task-pages', [AdminTaskPageController::class, 'store']);
-            Route::patch('/task-pages/{taskPage}', [AdminTaskPageController::class, 'update']);
-            Route::delete('/task-pages/{taskPage}', [AdminTaskPageController::class, 'destroy']);
-            Route::get('/calculator-settings', [AdminCalculatorSettingController::class, 'show']);
-            Route::put('/calculator-settings', [AdminCalculatorSettingController::class, 'update']);
-            Route::get('/service-categories', [AdminServiceCategoryController::class, 'index']);
-            Route::post('/service-categories', [AdminServiceCategoryController::class, 'store']);
-            Route::patch('/service-categories/{serviceCategory}', [AdminServiceCategoryController::class, 'update']);
-            Route::delete('/service-categories/{serviceCategory}', [AdminServiceCategoryController::class, 'destroy']);
-            Route::get('/services', [AdminServiceController::class, 'index']);
-            Route::post('/services', [AdminServiceController::class, 'store']);
-            Route::patch('/services/{service}', [AdminServiceController::class, 'update']);
-            Route::delete('/services/{service}', [AdminServiceController::class, 'destroy']);
-            Route::get('/service-packages', [AdminServicePackageController::class, 'index']);
-            Route::post('/service-packages', [AdminServicePackageController::class, 'store']);
-            Route::patch('/service-packages/{servicePackage}', [AdminServicePackageController::class, 'update']);
-            Route::delete('/service-packages/{servicePackage}', [AdminServicePackageController::class, 'destroy']);
-            Route::get('/service-gallery-items', [AdminServiceGalleryItemController::class, 'index']);
-            Route::post('/service-gallery-items', [AdminServiceGalleryItemController::class, 'store']);
-            Route::patch('/service-gallery-items/{serviceGalleryItem}', [AdminServiceGalleryItemController::class, 'update']);
-            Route::delete('/service-gallery-items/{serviceGalleryItem}', [AdminServiceGalleryItemController::class, 'destroy']);
-            Route::get('/service-videos', [AdminServiceVideoController::class, 'index']);
-            Route::post('/service-videos', [AdminServiceVideoController::class, 'store']);
-            Route::patch('/service-videos/{serviceVideo}', [AdminServiceVideoController::class, 'update']);
-            Route::delete('/service-videos/{serviceVideo}', [AdminServiceVideoController::class, 'destroy']);
-            Route::post('/uploads', [AdminUploadController::class, 'store']);
+
+            Route::middleware('business.can:orders')->group(function () {
+                Route::get('/dashboard', AdminDashboardController::class);
+                Route::get('/leads', [AdminLeadController::class, 'index']);
+                Route::post('/leads', [AdminLeadController::class, 'store']);
+                Route::get('/leads/{lead}', [AdminLeadController::class, 'show']);
+                Route::patch('/leads/{lead}', [AdminLeadController::class, 'update']);
+            });
+
+            Route::middleware('business.can:insights')->group(function () {
+                Route::get('/analytics', AdminAnalyticsController::class);
+                Route::get('/assistant', [AdminAssistantController::class, 'show']);
+                Route::post('/assistant', [AdminAssistantController::class, 'store'])->middleware('throttle:assistant');
+            });
+
+            Route::middleware('business.can:settings')->group(function () {
+                Route::get('/settings', [AdminSettingsController::class, 'show']);
+                Route::put('/settings', [AdminSettingsController::class, 'update']);
+                Route::post('/contact-channels', [AdminContactChannelController::class, 'store']);
+                Route::patch('/contact-channels/{contactChannel}', [AdminContactChannelController::class, 'update']);
+                Route::delete('/contact-channels/{contactChannel}', [AdminContactChannelController::class, 'destroy']);
+            });
+
+            Route::middleware('business.can:catalog')->group(function () {
+                Route::get('/additional-services', [AdminAdditionalServiceController::class, 'index']);
+                Route::post('/additional-services', [AdminAdditionalServiceController::class, 'store']);
+                Route::patch('/additional-services/{additionalService}', [AdminAdditionalServiceController::class, 'update']);
+                Route::delete('/additional-services/{additionalService}', [AdminAdditionalServiceController::class, 'destroy']);
+                Route::get('/products', [AdminProductController::class, 'index']);
+                Route::post('/products', [AdminProductController::class, 'store']);
+                Route::patch('/products/{product}', [AdminProductController::class, 'update']);
+                Route::delete('/products/{product}', [AdminProductController::class, 'destroy']);
+                Route::get('/product-categories', [AdminProductCategoryController::class, 'index']);
+                Route::post('/product-categories', [AdminProductCategoryController::class, 'store']);
+                Route::patch('/product-categories/{productCategory}', [AdminProductCategoryController::class, 'update']);
+                Route::delete('/product-categories/{productCategory}', [AdminProductCategoryController::class, 'destroy']);
+                Route::get('/task-pages', [AdminTaskPageController::class, 'index']);
+                Route::post('/task-pages', [AdminTaskPageController::class, 'store']);
+                Route::patch('/task-pages/{taskPage}', [AdminTaskPageController::class, 'update']);
+                Route::delete('/task-pages/{taskPage}', [AdminTaskPageController::class, 'destroy']);
+                Route::get('/calculator-settings', [AdminCalculatorSettingController::class, 'show']);
+                Route::put('/calculator-settings', [AdminCalculatorSettingController::class, 'update']);
+                Route::get('/service-categories', [AdminServiceCategoryController::class, 'index']);
+                Route::post('/service-categories', [AdminServiceCategoryController::class, 'store']);
+                Route::patch('/service-categories/{serviceCategory}', [AdminServiceCategoryController::class, 'update']);
+                Route::delete('/service-categories/{serviceCategory}', [AdminServiceCategoryController::class, 'destroy']);
+                Route::get('/services', [AdminServiceController::class, 'index']);
+                Route::post('/services', [AdminServiceController::class, 'store']);
+                Route::patch('/services/{service}', [AdminServiceController::class, 'update']);
+                Route::delete('/services/{service}', [AdminServiceController::class, 'destroy']);
+                Route::get('/service-packages', [AdminServicePackageController::class, 'index']);
+                Route::post('/service-packages', [AdminServicePackageController::class, 'store']);
+                Route::patch('/service-packages/{servicePackage}', [AdminServicePackageController::class, 'update']);
+                Route::delete('/service-packages/{servicePackage}', [AdminServicePackageController::class, 'destroy']);
+                Route::get('/service-gallery-items', [AdminServiceGalleryItemController::class, 'index']);
+                Route::post('/service-gallery-items', [AdminServiceGalleryItemController::class, 'store']);
+                Route::patch('/service-gallery-items/{serviceGalleryItem}', [AdminServiceGalleryItemController::class, 'update']);
+                Route::delete('/service-gallery-items/{serviceGalleryItem}', [AdminServiceGalleryItemController::class, 'destroy']);
+                Route::get('/service-videos', [AdminServiceVideoController::class, 'index']);
+                Route::post('/service-videos', [AdminServiceVideoController::class, 'store']);
+                Route::patch('/service-videos/{serviceVideo}', [AdminServiceVideoController::class, 'update']);
+                Route::delete('/service-videos/{serviceVideo}', [AdminServiceVideoController::class, 'destroy']);
+                Route::post('/uploads', [AdminUploadController::class, 'store']);
+            });
         });
     });
 });

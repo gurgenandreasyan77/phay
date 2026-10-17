@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/adminAuth";
+import { requirePermission } from "@/lib/adminAuth";
 import { getProductsAdmin, getProductCategoriesAdmin } from "@/lib/adminApi";
 import { getServices } from "@/lib/api";
 import { ProductEditor } from "../ProductEditor";
@@ -7,7 +7,7 @@ import { PageHeader } from "../../_components/ui";
 export const dynamic = "force-dynamic";
 
 export default async function NewProductPage() {
-  await requireAdmin();
+  await requirePermission("catalog");
 
   const [categories, services, products] = await Promise.all([
     getProductCategoriesAdmin(),

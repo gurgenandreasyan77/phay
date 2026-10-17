@@ -36,6 +36,7 @@ class AuthController extends Controller
                     'name' => $user->name,
                     'email' => $user->email,
                     'isSuperAdmin' => $user->is_super_admin,
+                    'platformRole' => $user->platformRole()?->value,
                 ],
             ],
         ]);
@@ -55,7 +56,7 @@ class AuthController extends Controller
 
     /**
      * Makes another business the one the admin panel works on. Only a
-     * business the user may access (any business for a super admin).
+     * business the user may access (any business for platform staff).
      */
     public function switchTenant(Request $request): JsonResponse
     {
@@ -76,8 +77,10 @@ class AuthController extends Controller
 
     private function presentMe(User $user, Tenant $current): array
     {
-        // A super admin can switch to any business; everyone else to theirs.
-        $tenants = $user->is_super_admin
+        $role = $user->businessRole($current);
+
+        // Platform staff can switch to any business; everyone else to theirs.
+        $tenants = $user->isPlatformStaff()
             ? Tenant::query()->orderBy('id')->get()
             : $user->tenants()->orderBy('tenants.id')->get();
 
@@ -86,6 +89,11 @@ class AuthController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'isSuperAdmin' => $user->is_super_admin,
+            'platformRole' => $user->platformRole()?->value,
+            // The role in the current business and what it allows there
+            // (platform staff act as the owner).
+            'businessRole' => $role?->value,
+            'permissions' => $role?->permissions() ?? [],
             'currentTenant' => new TenantResource($current),
             'tenants' => TenantResource::collection($tenants),
         ];

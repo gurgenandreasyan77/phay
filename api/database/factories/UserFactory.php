@@ -73,6 +73,15 @@ class UserFactory extends Factory
     }
 
     /**
+     * Platform moderator: onboards businesses, can't change modules or the
+     * platform team.
+     */
+    public function platformModerator(): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->forceFill(['is_platform_moderator' => true])->save());
+    }
+
+    /**
      * Indicate that the model's email address should be unverified.
      */
     public function unverified(): static

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/adminAuth";
+import { requirePermission } from "@/lib/adminAuth";
 import { getProductsAdmin } from "@/lib/adminApi";
 import { ProductsList } from "./ProductsList";
 import { PageHeader, buttonClasses } from "../_components/ui";
@@ -7,7 +7,7 @@ import { PageHeader, buttonClasses } from "../_components/ui";
 export const dynamic = "force-dynamic";
 
 export default async function AdminProductsPage() {
-  await requireAdmin();
+  await requirePermission("catalog");
   const items = await getProductsAdmin();
 
   return (

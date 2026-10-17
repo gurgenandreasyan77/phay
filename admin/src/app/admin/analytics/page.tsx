@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
-import { requireAdmin } from "@/lib/adminAuth";
+import { requirePermission } from "@/lib/adminAuth";
 import { getAnalytics, type AnalyticsPeriod, type AnalyticsTotalsDto } from "@/lib/adminApi";
 import { LEAD_STATUS_LABELS, LEAD_STATUSES } from "../_components/leadStatus";
 import {
@@ -132,7 +132,7 @@ function first(value: string | string[] | undefined): string | undefined {
 export default async function AdminAnalyticsPage(props: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireAdmin();
+  await requirePermission("insights");
   const searchParams = await props.searchParams;
   const requested = Number(first(searchParams.period));
   const period = (PERIODS.find((p) => p.days === requested)?.days ?? 30) as AnalyticsPeriod;

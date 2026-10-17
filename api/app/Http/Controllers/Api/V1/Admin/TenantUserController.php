@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Enums\BusinessRole;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\TenantUserResource;
 use App\Models\Tenant;
@@ -15,10 +16,13 @@ use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Logins of a business (super admin only). The platform administrator
- * creates them by hand while onboarding a client: no invitation emails and
- * no self sign-up yet. Every login created here is the business's owner and
- * sees only that business.
+ * Logins of a business (platform staff only). Servio's people create them by
+ * hand while onboarding a client: no invitation emails and no self sign-up
+ * yet. Each login has a role in the business (owner, admin, moderator, see
+ * BusinessRole) and sees only that business.
+ *
+ * Passwords are stored hashed and can't be shown again; a forgotten one is
+ * replaced with a new one (update with `password`).
  */
 class TenantUserController extends Controller
 {
@@ -33,6 +37,7 @@ class TenantUserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('users', 'email')],
             'password' => ['required', 'string', Password::min(8)],
+            'role' => ['sometimes', 'string', Rule::enum(BusinessRole::class)],
         ]);
 
         $user = DB::transaction(function () use ($tenant, $validated) {
@@ -41,8 +46,12 @@ class TenantUserController extends Controller
                 'email' => $validated['email'],
                 'password' => $validated['password'],
             ]);
-            $user->forceFill(['is_super_admin' => false, 'current_tenant_id' => $tenant->id])->save();
-            $user->tenants()->attach($tenant->id, ['role' => 'owner']);
+            $user->forceFill([
+                'is_super_admin' => false,
+                'is_platform_moderator' => false,
+                'current_tenant_id' => $tenant->id,
+            ])->save();
+            $user->tenants()->attach($tenant->id, ['role' => $validated['role'] ?? BusinessRole::Owner->value]);
 
             return $user;
         });
@@ -52,28 +61,39 @@ class TenantUserController extends Controller
             ->setStatusCode(201);
     }
 
-    /** Renames the login or sets a new password (signs it out everywhere). */
+    /**
+     * Renames the login, changes its role in this business, or sets a new
+     * password (which signs it out everywhere).
+     */
     public function update(Request $request, Tenant $tenant, User $user): TenantUserResource
     {
         $this->ensureMember($tenant, $user);
+        $this->ensureMayManage($request, $user);
 
         $validated = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'password' => ['sometimes', 'required', 'string', Password::min(8)],
+            'role' => ['sometimes', 'required', 'string', Rule::enum(BusinessRole::class)],
         ]);
 
-        $user->fill($validated)->save();
+        DB::transaction(function () use ($tenant, $user, $validated) {
+            $user->fill(array_intersect_key($validated, array_flip(['name', 'password'])))->save();
 
-        if (array_key_exists('password', $validated)) {
-            $user->tokens()->delete();
-        }
+            if (array_key_exists('role', $validated)) {
+                $tenant->users()->updateExistingPivot($user->id, ['role' => $validated['role']]);
+            }
+
+            if (array_key_exists('password', $validated)) {
+                $user->tokens()->delete();
+            }
+        });
 
         return new TenantUserResource($tenant->users()->findOrFail($user->id));
     }
 
     /**
      * Takes the login's access to this business away. A login left with no
-     * business is deleted; a platform administrator is only detached.
+     * business is deleted; platform staff are only detached.
      */
     public function destroy(Request $request, Tenant $tenant, User $user): JsonResponse
     {
@@ -83,11 +103,13 @@ class TenantUserController extends Controller
             throw ValidationException::withMessages(['user' => ['Չեք կարող ջնջել ինքներդ ձեզ։']]);
         }
 
+        $this->ensureMayManage($request, $user);
+
         DB::transaction(function () use ($tenant, $user) {
             $user->tenants()->detach($tenant->id);
             $user->tokens()->delete();
 
-            if (! $user->is_super_admin && ! $user->tenants()->exists()) {
+            if (! $user->isPlatformStaff() && ! $user->tenants()->exists()) {
                 $user->delete();
             } elseif ($user->current_tenant_id === $tenant->id) {
                 $user->forceFill(['current_tenant_id' => null])->save();
@@ -100,5 +122,18 @@ class TenantUserController extends Controller
     private function ensureMember(Tenant $tenant, User $user): void
     {
         abort_unless($tenant->users()->whereKey($user->getKey())->exists(), 404);
+    }
+
+    /**
+     * A platform moderator manages the business's own people only; accounts
+     * of platform staff are the super admin's (see PlatformUserController).
+     */
+    private function ensureMayManage(Request $request, User $user): void
+    {
+        abort_if(
+            $user->isPlatformStaff() && ! $request->user()->is_super_admin,
+            403,
+            'Only the super admin can change platform staff accounts.',
+        );
     }
 }

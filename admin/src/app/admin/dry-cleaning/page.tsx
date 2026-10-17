@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/adminAuth";
+import { requirePermission } from "@/lib/adminAuth";
 import { getAdditionalServicesAdmin, getCalculatorSettingsAdmin, getFeatureFlagsAdmin } from "@/lib/adminApi";
 import { AdditionalServicesManager } from "./AdditionalServicesManager";
 import { CalculatorSettingsForm } from "./CalculatorSettingsForm";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 /** Servio's upholstery dry cleaning module: the calculator and its add-on services. */
 export default async function AdminDryCleaningPage() {
-  await requireAdmin();
+  await requirePermission("catalog");
   // Without the module the business has no calculator (and opening this page
   // shouldn't create one with Servio's sofa prices).
   const flags = await getFeatureFlagsAdmin();

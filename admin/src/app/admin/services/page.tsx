@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/adminAuth";
+import { requirePermission } from "@/lib/adminAuth";
 import { getServiceCategoriesAdmin, getServicesAdmin } from "@/lib/adminApi";
 import { ServiceCategoriesManager } from "./ServiceCategoriesManager";
 import { ServicesCatalog } from "./ServicesCatalog";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
  * in a module.
  */
 export default async function AdminServicesPage() {
-  await requireAdmin();
+  await requirePermission("catalog");
   const [services, categories] = await Promise.all([getServicesAdmin(), getServiceCategoriesAdmin()]);
 
   return (

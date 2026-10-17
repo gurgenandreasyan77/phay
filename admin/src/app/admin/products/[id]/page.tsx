@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/adminAuth";
+import { requirePermission } from "@/lib/adminAuth";
 import { getProductsAdmin, getProductCategoriesAdmin } from "@/lib/adminApi";
 import { getServices } from "@/lib/api";
 import { ProductEditor } from "../ProductEditor";
@@ -8,7 +8,7 @@ import { PageHeader } from "../../_components/ui";
 export const dynamic = "force-dynamic";
 
 export default async function EditProductPage(props: { params: Promise<{ id: string }> }) {
-  await requireAdmin();
+  await requirePermission("catalog");
   const { id } = await props.params;
 
   const [categories, services, products] = await Promise.all([

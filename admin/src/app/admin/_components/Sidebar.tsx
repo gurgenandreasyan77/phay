@@ -3,27 +3,30 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { FeatureFlags } from "@/lib/api";
+import type { AdminUserDto } from "@/lib/adminApi";
+import { isPlatformStaff } from "@/lib/roles";
 import { ArrowLeft } from "lucide-react";
 import { PLATFORM_HOME, isActiveHref, isPlatformPath, visibleNavGroups } from "./nav";
 import { cn } from "./ui";
 
 export function Sidebar({
   features,
-  isSuperAdmin = false,
+  me,
   businessName,
   onNavigate,
   className,
 }: {
   features: FeatureFlags;
-  isSuperAdmin?: boolean;
+  me: AdminUserDto | null;
   /** The business this admin works on (shown in business mode). */
   businessName?: string;
   onNavigate?: () => void;
   className?: string;
 }) {
   const pathname = usePathname();
-  const navGroups = visibleNavGroups(features, isSuperAdmin, pathname);
-  const onPlatform = isSuperAdmin && isPlatformPath(pathname);
+  const staff = isPlatformStaff(me);
+  const navGroups = visibleNavGroups(features, me, pathname);
+  const onPlatform = staff && isPlatformPath(pathname);
 
   return (
     <nav className={cn("flex h-full flex-col bg-sidebar text-sidebar-text", className)}>
@@ -39,7 +42,7 @@ export function Sidebar({
         </div>
       </div>
 
-      {isSuperAdmin && !onPlatform ? (
+      {staff && !onPlatform ? (
         <div className="px-3 pb-3">
           <Link
             href={PLATFORM_HOME}

@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/adminAuth";
+import { requirePermission } from "@/lib/adminAuth";
 import { getAssistantStatus } from "@/lib/adminApi";
 import { PageHeader } from "../_components/ui";
 import { AssistantChat } from "./AssistantChat";
@@ -6,7 +6,7 @@ import { AssistantChat } from "./AssistantChat";
 export const dynamic = "force-dynamic";
 
 export default async function AdminAssistantPage() {
-  await requireAdmin();
+  await requirePermission("insights");
   const status = await getAssistantStatus();
 
   return (

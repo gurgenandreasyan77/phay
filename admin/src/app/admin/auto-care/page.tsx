@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/adminAuth";
+import { requirePermission } from "@/lib/adminAuth";
 import {
   getServiceCategoriesAdmin,
   getServicesAdmin,
@@ -15,7 +15,7 @@ import { PageHeader, SectionCard } from "../_components/ui";
 export const dynamic = "force-dynamic";
 
 export default async function AdminAutoCarePage() {
-  await requireAdmin();
+  await requirePermission("catalog");
 
   const [categories, services, gallery, videos, flags] = await Promise.all([
     getServiceCategoriesAdmin(),

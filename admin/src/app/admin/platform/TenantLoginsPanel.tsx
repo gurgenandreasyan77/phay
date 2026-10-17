@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { AdminTenantDto, AdminTenantUserDto } from "@/lib/adminApi";
+import type { AdminTenantDto, AdminTenantUserDto, BusinessRole } from "@/lib/adminApi";
+import { BUSINESS_ROLE_HINTS, BUSINESS_ROLE_LABELS, BUSINESS_ROLES, PLATFORM_ROLE_LABELS } from "@/lib/roles";
 import {
   Badge,
   Button,
@@ -10,21 +11,14 @@ import {
   FieldLabel,
   Input,
   SectionCard,
+  Select,
   TableWrap,
   Td,
   Th,
   Thead,
   Tr,
 } from "../_components/ui";
-
-/** 12 characters without look-alikes (0/O, 1/l/I), easy to dictate on the phone. */
-function generatePassword(): string {
-  const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = crypto.getRandomValues(new Uint32Array(12));
-  return Array.from(bytes, (n) => alphabet[n % alphabet.length]).join("");
-}
-
-type Credentials = { email: string; password: string };
+import { CopyLoginButton, CredentialsNotice, generatePassword, type Credentials } from "./credentials";
 
 async function fetchLogins(tenantId: number): Promise<AdminTenantUserDto[] | null> {
   const response = await fetch(`/api/admin/tenants/${tenantId}/users`, { cache: "no-store" });
@@ -34,11 +28,21 @@ async function fetchLogins(tenantId: number): Promise<AdminTenantUserDto[] | nul
 }
 
 /**
- * Logins of one business. The platform administrator creates them by hand
- * while onboarding a client and hands the email + password over; the owner
- * then signs in to this same admin panel and sees only their business.
+ * Logins of one business. Platform staff create them by hand while
+ * onboarding a client, each with a role (owner, admin, moderator), and hand
+ * the email + password over; the person then signs in to this same admin
+ * panel and sees only their business, as far as their role allows.
  */
-export function TenantLoginsPanel({ tenant, onClose }: { tenant: AdminTenantDto; onClose: () => void }) {
+export function TenantLoginsPanel({
+  tenant,
+  isSuperAdmin,
+  onClose,
+}: {
+  tenant: AdminTenantDto;
+  /** Only the super admin may change accounts of platform staff. */
+  isSuperAdmin: boolean;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const [users, setUsers] = useState<AdminTenantUserDto[] | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -64,7 +68,8 @@ export function TenantLoginsPanel({ tenant, onClose }: { tenant: AdminTenantDto;
   }, [tenant.id]);
 
   async function changed(next?: Credentials) {
-    setCredentials(next ?? null);
+    // A plain change (role, removal) keeps the last credentials on screen.
+    if (next) setCredentials(next);
     await load();
     router.refresh(); // the logins count in the businesses table
   }
@@ -72,7 +77,7 @@ export function TenantLoginsPanel({ tenant, onClose }: { tenant: AdminTenantDto;
   return (
     <SectionCard
       title={`«${tenant.name}» բիզնեսի մուտքերը`}
-      description="Այս էլ. փոստով և գաղտնաբառով բիզնեսի տերը մուտք է գործում նույն ադմին վահանակ և տեսնում է միայն իր բիզնեսը՝ պատվերներ, ծառայություններ, կարգավորումներ։"
+      description="Յուրաքանչյուր աշխատակից մուտք է գործում իր էլ. փոստով (մուտքանուն) և գաղտնաբառով նույն ադմին վահանակ և տեսնում է միայն այս բիզնեսը՝ իր դերի թույլատրած բաժինները։ Գաղտնաբառերը պահվում են գաղտնագրված, ուստի դրանք հնարավոր չէ տեսնել. մոռացված գաղտնաբառի փոխարեն ստեղծեք նորը։"
       actions={
         <Button size="sm" variant="ghost" onClick={onClose}>
           Փակել
@@ -85,13 +90,13 @@ export function TenantLoginsPanel({ tenant, onClose }: { tenant: AdminTenantDto;
         <TableWrap>
           <Thead>
             <Th>Անուն</Th>
-            <Th>Էլ. փոստ</Th>
+            <Th>Մուտքանուն (էլ. փոստ)</Th>
             <Th>Դեր</Th>
             <Th />
           </Thead>
           <tbody>
             {(users ?? []).map((user) => (
-              <LoginRow key={user.id} tenant={tenant} user={user} onChanged={changed} />
+              <LoginRow key={user.id} tenant={tenant} user={user} isSuperAdmin={isSuperAdmin} onChanged={changed} />
             ))}
             {users && users.length === 0 ? <EmptyRow colSpan={4}>Մուտքեր դեռ չկան։</EmptyRow> : null}
             {!users && !loadError ? <EmptyRow colSpan={4}>Բեռնվում է…</EmptyRow> : null}
@@ -99,48 +104,52 @@ export function TenantLoginsPanel({ tenant, onClose }: { tenant: AdminTenantDto;
           </tbody>
         </TableWrap>
 
+        <RolesLegend />
+
         <NewLoginForm tenant={tenant} onCreated={changed} />
       </div>
     </SectionCard>
   );
 }
 
-function CredentialsNotice({ credentials, onDismiss }: { credentials: Credentials; onDismiss: () => void }) {
-  const [copied, setCopied] = useState(false);
-  const text = `Մուտք՝ ${typeof window !== "undefined" ? window.location.origin : ""}/admin/login\nԷլ. փոստ՝ ${credentials.email}\nԳաղտնաբառ՝ ${credentials.password}`;
-
-  async function copy() {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-  }
-
+function RolesLegend() {
   return (
-    <div className="space-y-2 rounded-lg border border-success/30 bg-success-light px-4 py-3 text-sm text-ink">
-      <p className="font-medium">Ուղարկեք այս տվյալները հաճախորդին։ Գաղտնաբառը այլևս չի ցուցադրվի։</p>
-      <pre className="whitespace-pre-wrap rounded-md bg-surface px-3 py-2 font-mono text-xs">{text}</pre>
-      <div className="flex gap-2">
-        <Button size="sm" onClick={copy}>
-          {copied ? "Պատճենված է" : "Պատճենել"}
-        </Button>
-        <Button size="sm" variant="ghost" onClick={onDismiss}>
-          Թաքցնել
-        </Button>
-      </div>
-    </div>
+    <ul className="space-y-1 text-xs text-ink-muted">
+      {BUSINESS_ROLES.map((role) => (
+        <li key={role}>
+          <span className="font-medium text-ink">{BUSINESS_ROLE_LABELS[role]}</span>՝ {BUSINESS_ROLE_HINTS[role]}
+        </li>
+      ))}
+    </ul>
   );
 }
 
 function LoginRow({
   tenant,
   user,
+  isSuperAdmin,
   onChanged,
 }: {
   tenant: AdminTenantDto;
   user: AdminTenantUserDto;
+  isSuperAdmin: boolean;
   onChanged: (credentials?: Credentials) => Promise<void>;
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const staff = Boolean(user.platformRole ?? (user.isSuperAdmin ? "super_admin" : null));
+  // Staff accounts are managed on the platform team page.
+  const editable = !staff;
+  const removable = !staff || isSuperAdmin;
+
+  async function patch(body: Record<string, string>): Promise<boolean> {
+    const response = await fetch(`/api/admin/tenants/${tenant.id}/users/${user.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return response.ok;
+  }
 
   async function resetPassword() {
     if (!confirm(`Նոր գաղտնաբառ ստեղծե՞լ ${user.email}-ի համար։ Հինը այլևս չի աշխատի։`)) return;
@@ -148,24 +157,38 @@ function LoginRow({
     setPending(true);
     setError(null);
     try {
-      const response = await fetch(`/api/admin/tenants/${tenant.id}/users/${user.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      if (!response.ok) {
+      if (!(await patch({ password }))) {
         setError("Չհաջողվեց փոխել գաղտնաբառը։");
         return;
       }
-      await onChanged({ email: user.email, password });
+      await onChanged({
+        name: user.name,
+        email: user.email,
+        password,
+        role: user.role ? BUSINESS_ROLE_LABELS[user.role] : undefined,
+      });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function changeRole(role: BusinessRole) {
+    setPending(true);
+    setError(null);
+    try {
+      if (!(await patch({ role }))) {
+        setError("Չհաջողվեց փոխել դերը։");
+        return;
+      }
+      await onChanged();
     } finally {
       setPending(false);
     }
   }
 
   async function remove() {
-    const question = user.isSuperAdmin
-      ? `Հեռացնե՞լ ${user.email}-ը այս բիզնեսից։ Պլատֆորմի ադմինի հաշիվը կմնա։`
+    const question = staff
+      ? `Հեռացնե՞լ ${user.email}-ը այս բիզնեսից։ Պլատֆորմի հաշիվը կմնա։`
       : `Ջնջե՞լ ${user.email} մուտքը։ Նա այլևս չի կարողանա մուտք գործել։`;
     if (!confirm(question)) return;
     setPending(true);
@@ -185,19 +208,43 @@ function LoginRow({
   return (
     <Tr>
       <Td className="font-medium text-ink">{user.name}</Td>
-      <Td className="text-ink-muted">{user.email}</Td>
-      <Td>{user.isSuperAdmin ? <Badge tone="primary">Պլատֆորմի ադմին</Badge> : <Badge>Բիզնեսի տեր</Badge>}</Td>
+      <Td className="text-ink-muted">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-xs">{user.email}</span>
+          <CopyLoginButton email={user.email} />
+        </span>
+      </Td>
+      <Td>
+        {staff ? (
+          <Badge tone="primary">{PLATFORM_ROLE_LABELS[user.platformRole ?? "super_admin"]}</Badge>
+        ) : (
+          <Select
+            value={user.role ?? "owner"}
+            disabled={pending}
+            onChange={(e) => changeRole(e.target.value as BusinessRole)}
+            aria-label="Դեր"
+          >
+            {BUSINESS_ROLES.map((role) => (
+              <option key={role} value={role}>
+                {BUSINESS_ROLE_LABELS[role]}
+              </option>
+            ))}
+          </Select>
+        )}
+      </Td>
       <Td className="text-right">
         <span className="inline-flex flex-wrap items-center justify-end gap-2">
           {error ? <span className="text-xs text-danger">{error}</span> : null}
-          {!user.isSuperAdmin ? (
+          {editable ? (
             <Button size="sm" variant="secondary" disabled={pending} onClick={resetPassword}>
               Նոր գաղտնաբառ
             </Button>
           ) : null}
-          <Button size="sm" variant="secondary" disabled={pending} onClick={remove}>
-            Հեռացնել
-          </Button>
+          {removable ? (
+            <Button size="sm" variant="secondary" disabled={pending} onClick={remove}>
+              Հեռացնել
+            </Button>
+          ) : null}
         </span>
       </Td>
     </Tr>
@@ -213,6 +260,7 @@ function NewLoginForm({
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [role, setRole] = useState<BusinessRole>("owner");
   const [password, setPassword] = useState(generatePassword);
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [errors, setErrors] = useState<Record<string, string[]>>({});
@@ -229,6 +277,7 @@ function NewLoginForm({
           name: name.trim(),
           email: email.trim().toLowerCase(),
           password,
+          role,
         }),
       });
       if (!response.ok) {
@@ -241,9 +290,15 @@ function NewLoginForm({
         setStatus("error");
         return;
       }
-      const created = { email: email.trim().toLowerCase(), password };
+      const created = {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        role: BUSINESS_ROLE_LABELS[role],
+      };
       setName("");
       setEmail("");
+      setRole("owner");
       setPassword(generatePassword());
       setStatus("idle");
       await onCreated(created);
@@ -262,7 +317,7 @@ function NewLoginForm({
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Օրինակ՝ Արամ" required />
       </div>
       <div className="min-w-56 flex-1 space-y-1.5">
-        <FieldLabel>Էլ. փոստ</FieldLabel>
+        <FieldLabel>Էլ. փոստ (մուտքանուն)</FieldLabel>
         <Input
           type="email"
           value={email}
@@ -270,6 +325,16 @@ function NewLoginForm({
           placeholder="owner@example.am"
           required
         />
+      </div>
+      <div className="space-y-1.5">
+        <FieldLabel>Դեր</FieldLabel>
+        <Select value={role} onChange={(e) => setRole(e.target.value as BusinessRole)}>
+          {BUSINESS_ROLES.map((r) => (
+            <option key={r} value={r}>
+              {BUSINESS_ROLE_LABELS[r]}
+            </option>
+          ))}
+        </Select>
       </div>
       <div className="space-y-1.5">
         <FieldLabel>Գաղտնաբառ (առնվազն 8 նիշ)</FieldLabel>

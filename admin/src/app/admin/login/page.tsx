@@ -46,8 +46,9 @@ export default function AdminLoginPage() {
       }
 
       // A platform administrator starts on the platform level, an owner in their business.
-      const json = (await response.json().catch(() => null)) as { data?: { user?: { isSuperAdmin?: boolean } } } | null;
-      router.push(json?.data?.user?.isSuperAdmin ? "/admin/platform" : "/admin");
+      const json = (await response.json().catch(() => null)) as { data?: { user?: { isSuperAdmin?: boolean; platformRole?: string | null } } } | null;
+      const user = json?.data?.user;
+      router.push(user?.platformRole || user?.isSuperAdmin ? "/admin/platform" : "/admin");
       router.refresh();
     } catch {
       setStatus("error");
