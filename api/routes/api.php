@@ -171,6 +171,7 @@ Route::prefix('v1')->group(function () {
             Route::middleware('business.can:catalog')->group(function () {
                 // Designing a table (its name and columns): owner and admin.
                 Route::post('/data-tables', [AdminDataTableController::class, 'store']);
+                Route::post('/data-tables/bulk-delete', [AdminDataTableController::class, 'bulkDestroy']);
                 Route::patch('/data-tables/{dataTable}', [AdminDataTableController::class, 'update']);
                 Route::delete('/data-tables/{dataTable}', [AdminDataTableController::class, 'destroy']);
 

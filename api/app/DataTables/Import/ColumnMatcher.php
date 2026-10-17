@@ -3,6 +3,8 @@
 namespace App\DataTables\Import;
 
 use App\DataTables\DataColumn;
+use App\DataTables\Moment;
+use App\DataTables\TableAnalytics;
 use App\Enums\DataColumnType;
 
 /**
@@ -93,10 +95,11 @@ final class ColumnMatcher
             return [DataColumnType::Text, []];
         }
 
-        $fits = function (DataColumnType $type, array $options = []) use ($values): bool {
+        $order = Moment::detectOrder($values);
+        $fits = function (DataColumnType $type, array $options = []) use ($values, $order): bool {
             $column = new DataColumn('x', 'x', $type, false, $options);
             foreach ($values as $value) {
-                if ($column->parse($value)[1] !== null) {
+                if ($column->parse($value, $order)[1] !== null) {
                     return false;
                 }
             }
@@ -105,10 +108,19 @@ final class ColumnMatcher
         };
 
         // Dates first: plain numbers like 45000 would also pass as dates, so a
-        // date column needs a separator in its values.
+        // date column needs a separator in its values. With a time of day in
+        // any value it's a date-and-time column (when an order was placed).
         $looksLikeDate = count(array_filter($values, fn ($v) => preg_match('/^\d{1,4}[.\/-]\d{1,2}[.\/-]\d{1,4}/', $v))) === count($values);
         if ($looksLikeDate && $fits(DataColumnType::Date)) {
-            return [DataColumnType::Date, []];
+            $withTime = array_filter($values, fn ($v) => (Moment::parse($v, $order)['time'] ?? null) !== null);
+
+            return [$withTime === [] ? DataColumnType::Date : DataColumnType::DateTime, []];
+        }
+
+        // Phone numbers (+374 55 123456, 055123456) are digits, but not numbers.
+        $phoneLike = array_filter($values, fn ($v) => preg_match('/^\s*(\+|0\d)/', $v));
+        if ((TableAnalytics::isPersonal($header) && $phoneLike !== []) || count($phoneLike) > count($values) / 2) {
+            return [DataColumnType::Text, []];
         }
 
         // Yes/no words (a column of only 0 and 1 stays a number).

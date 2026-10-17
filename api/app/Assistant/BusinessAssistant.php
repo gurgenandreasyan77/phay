@@ -3,6 +3,7 @@
 namespace App\Assistant;
 
 use App\DataTables\TableAnalytics;
+use App\Enums\DataTableSection;
 use App\Features\FeatureFlag;
 use App\Models\AssistantUsage;
 use App\Models\DataTable;
@@ -99,7 +100,7 @@ class BusinessAssistant
 
         How the data works:
         - siteOrders: orders that came from the business's website or were added by hand on the orders screen. An order counts on the day it was created; revenue counts on the day an order was completed, from its final price. "conversion" is the share of the period's orders that are already completed. "source" is where the order came from (website, manual entry, or a UTM source).
-        - ownTables: tables the business designed itself (its own columns) and filled by hand or from files, e.g. sales from Instagram or a shop. "section" says whether a table holds orders or sales. Each has its columns, figures for the last 30 and 365 days by its date column ("dateColumn"; without one, figures cover all rows), "amount" (the money a row is worth: price × quantity when both exist, see "amountColumn"), sums of number columns, the most frequent values of other columns ("breakdowns", with the amount they bring), and the latest rows. Contact details of buyers are left out on purpose.
+        - ownTables: rows of tables the business designed itself (its own columns) and filled by hand or from files, e.g. sales from Instagram or a file imported every day. One entry per "section" (orders or sales), with all its tables taken together: rows and "amount" (the money a row is worth: price × quantity when both exist) for the last 30 and 365 days by the date each row happened, with the previous period of the same length, a monthly "series", the most frequent values of columns of the same name across tables ("breakdowns", with the amount they bring) and sums of number columns. "tables" lists each table (rows and amount in the last 365 days, all rows, rows without a date, first and last date) and "latestRows" are the latest rows with their table and time. Rows without a date are in no period. Contact details of buyers are left out on purpose.
         Amounts are in {$tenant->currency}; write Armenian dram as "դր.".
 
         Reply in the language of the user's latest message (Armenian, Russian or English). Write natural, fluent text, as a native speaker would, with short paragraphs and simple lists. Do not use tables or headings unless asked.
@@ -111,22 +112,28 @@ class BusinessAssistant
     }
 
     /**
-     * The business's own tables: figures and the latest rows of each.
+     * The business's own tables, per section (orders, sales): figures of all
+     * its tables together, each table in short, and the latest rows.
      *
      * @return list<array<string, mixed>>
      */
     private function ownTables(): array
     {
         return $this->tableAnalytics->tables()
-            ->take(10)
-            ->map(fn (DataTable $table) => [
-                'name' => $table->name,
-                'section' => $table->section->value,
-                'description' => $table->description,
-                'last30Days' => collect($this->tableAnalytics->summary($table, 30))->except(['table', 'series'])->all(),
-                'last365Days' => collect($this->tableAnalytics->summary($table, 365))->only(['period', 'rows', 'amount', 'numbers', 'series', 'breakdowns'])->all(),
-                'latestRows' => $this->tableAnalytics->recentRows($table),
-            ])
+            ->groupBy(fn (DataTable $table) => $table->section->value)
+            ->map(function ($tables, string $section) {
+                $tables = $tables->values();
+                $section = DataTableSection::from($section);
+                $year = $this->tableAnalytics->section($section, $tables, 365);
+
+                return [
+                    'section' => $section->value,
+                    'last30Days' => collect($this->tableAnalytics->section($section, $tables, 30))->except(['section', 'series', 'tables'])->all(),
+                    'last365Days' => collect($year)->only(['period', 'rows', 'amount', 'series', 'breakdowns', 'numbers'])->all(),
+                    'tables' => collect($year['tables'])->take(40)->map(fn (array $t) => collect($t)->except('id')->all())->all(),
+                    'latestRows' => $this->tableAnalytics->recentRows($tables),
+                ];
+            })
             ->values()
             ->all();
     }

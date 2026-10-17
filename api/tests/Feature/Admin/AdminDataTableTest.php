@@ -161,7 +161,7 @@ class AdminDataTableTest extends TestCase
         ]);
 
         $this->patchJson("/api/v1/admin/data-tables/{$table['id']}/rows/{$row['id']}", ['values' => [
-            $product => 'Մոմ մեծ', $amount => '1.234.567,50',
+            $product => 'Մոմ մեծ', $amount => '1.234.567,50', $date => '2026-10-17',
         ]])->assertOk()
             ->assertJsonPath("data.values.{$product}", 'Մոմ մեծ')
             ->assertJsonPath("data.values.{$amount}", 1234567.5)

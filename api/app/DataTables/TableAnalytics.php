@@ -5,31 +5,33 @@ namespace App\DataTables;
 use App\Enums\DataColumnType;
 use App\Enums\DataTableSection;
 use App\Models\DataTable;
+use App\Models\DataTableRow;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Laravel\Pennant\Feature;
 
 /**
- * Figures of a business's own tables, whatever columns they have: rows and
- * amounts per period (by the table's first date column), sums of number
- * columns, and the most frequent values of the other columns. Feeds the
- * analytics screen and the AI assistant.
+ * Figures of a business's own tables, per section (orders, sales), over all
+ * tables of the section together: a business that imports a file a day has
+ * thirty tables a month, and wants one month of sales, not thirty.
  *
- * Like BusinessAnalytics, rows are aggregated in PHP: a small business's
- * table has thousands of rows, not millions.
+ * Rows are placed in time and valued by occurred_at and amount (see
+ * RowMetrics), which are kept on each row when it's saved, so a period is
+ * one indexed query. Column breakdowns join columns of the same name across
+ * tables. Feeds the analytics screen and the AI assistant.
  */
 class TableAnalytics
 {
-    /** Rows read per table at most (the latest ones). */
+    /** Rows of a period read at most for breakdowns (the latest ones). */
     private const MAX_ROWS = 50000;
 
     private const TOP_VALUES = 10;
 
+    private const MAX_BREAKDOWNS = 6;
+
     /** Columns about the buyer (contacts, names) stay out of AI prompts and breakdowns. */
     public const PERSONAL_LABELS = '/հեռախոս|phone|tel\b|телефон|e-?mail|էլ\.?\s*փոստ|почта|հասցե|address|адрес|հաճախորդ|գնորդ|client|customer|buyer|клиент|покупатель|заказчик|անուն\s*ազգանուն|фио|instagram|insta|facebook|telegram|whatsapp|viber|\bnick|\buser/iu';
-
-    private const QUANTITY_LABELS = '/քանակ|հատ|qty|quantity|pcs|count|кол-?во|количество|шт/iu';
 
     public function __construct(private readonly TenantContext $tenants) {}
 
@@ -48,78 +50,154 @@ class TableAnalytics
     }
 
     /**
+     * One summary per section that has tables.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function overview(int $days): array
+    {
+        return $this->tables()
+            ->groupBy(fn (DataTable $t) => $t->section->value)
+            ->map(fn (Collection $tables, string $section) => $this->section(DataTableSection::from($section), $tables, $days))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int, DataTable>  $tables  tables of the section
      * @return array<string, mixed>
      */
-    public function summary(DataTable $table, int $days): array
+    public function section(DataTableSection $section, Collection $tables, int $days): array
     {
-        $columns = collect($table->columnDefinitions());
-        $date = $columns->first(fn (DataColumn $c) => $c->type === DataColumnType::Date);
-        $amount = $this->amount($columns);
+        [$now, $start, $previousStart, $end] = $this->bounds($days);
+        $ids = $tables->pluck('id')->all();
 
-        $now = CarbonImmutable::now($this->tenants->current()->timezone ?: config('app.timezone'))->startOfDay();
-        $start = $now->subDays($days - 1);
-        $previousStart = $start->subDays($days);
-
-        $rows = $table->rows()->latest('id')->limit(self::MAX_ROWS)->pluck('data')
-            ->map(fn ($data) => is_array($data) ? $data : (json_decode($data, true) ?? []))
-            ->map(fn (array $data) => [
-                'data' => $data,
-                'date' => $date ? $this->date($data[$date->key] ?? null, $now->timezone) : null,
-                'amount' => $amount ? $amount['value']($data) : null,
+        $current = DataTableRow::query()
+            ->whereIn('data_table_id', $ids)
+            ->where('occurred_at', '>=', $start->format('Y-m-d H:i:s'))
+            ->where('occurred_at', '<=', $end->format('Y-m-d H:i:s'))
+            ->orderByDesc('occurred_at')
+            ->limit(self::MAX_ROWS)
+            ->get(['data_table_id', 'occurred_at', 'amount', 'data'])
+            ->map(fn (DataTableRow $r) => [
+                'table' => $r->data_table_id,
+                'at' => CarbonImmutable::parse($r->getRawOriginal('occurred_at')),
+                'amount' => $r->amount,
+                'data' => $r->data ?? [],
             ]);
 
-        $current = $date ? $rows->filter(fn ($r) => $r['date'] && $r['date'] >= $start && $r['date'] <= $now) : $rows;
-        $previous = $date ? $rows->filter(fn ($r) => $r['date'] && $r['date'] >= $previousStart && $r['date'] < $start) : collect();
+        $previous = DataTableRow::query()
+            ->whereIn('data_table_id', $ids)
+            ->where('occurred_at', '>=', $previousStart->format('Y-m-d H:i:s'))
+            ->where('occurred_at', '<', $start->format('Y-m-d H:i:s'))
+            ->selectRaw('COUNT(*) as rows_count, SUM(amount) as amount_sum')
+            ->first();
+
+        $totals = DataTableRow::query()
+            ->whereIn('data_table_id', $ids)
+            ->groupBy('data_table_id')
+            ->selectRaw('data_table_id, COUNT(*) as total, SUM(CASE WHEN occurred_at IS NULL THEN 1 ELSE 0 END) as without_date, MIN(occurred_at) as first_at, MAX(occurred_at) as last_at')
+            ->get()
+            ->keyBy('data_table_id');
+
+        $hasAmount = $tables->contains(fn (DataTable $t) => $t->amountColumn() !== null);
+        $currentAmount = $this->round($current->sum('amount'));
+        $priced = $current->whereNotNull('amount');
 
         return [
-            'table' => ['id' => $table->id, 'name' => $table->name, 'section' => $table->section->value],
-            'columns' => $columns->map(fn (DataColumn $c) => ['label' => $c->label, 'type' => $c->type->value])->all(),
-            'dateColumn' => $date?->label,
-            'amountColumn' => $amount['label'] ?? null,
+            'section' => $section->value,
             'period' => ['days' => $days, 'from' => $start->toDateString(), 'to' => $now->toDateString()],
             'rows' => [
-                'total' => $table->rows()->count(),
-                'withoutDate' => $date ? $rows->whereNull('date')->count() : null,
-                // Without a date column there is no period: "current" is every row.
+                'total' => (int) $totals->sum('total'),
+                // Rows with no date are in no period; the screen says how many.
+                'withoutDate' => (int) $totals->sum('without_date'),
                 'current' => $current->count(),
-                'previous' => $date ? $previous->count() : null,
+                'previous' => (int) $previous->rows_count,
             ],
-            'amount' => $amount ? [
-                'current' => $this->round($current->sum('amount')),
-                'previous' => $date ? $this->round($previous->sum('amount')) : null,
-                'average' => $current->whereNotNull('amount')->isEmpty() ? null : $this->round($current->whereNotNull('amount')->avg('amount')),
+            'amount' => $hasAmount ? [
+                'current' => $currentAmount,
+                'previous' => $this->round((float) $previous->amount_sum),
+                'average' => $priced->isEmpty() ? null : $this->round($priced->avg('amount')),
             ] : null,
-            'numbers' => $columns
-                ->filter(fn (DataColumn $c) => $c->type->isNumeric())
-                ->map(fn (DataColumn $c) => $this->numberStats($c, $current, $previous, (bool) $date))
-                ->values()
-                ->all(),
-            'series' => $date ? $this->series($current, $start, $now, $days > 90 ? 'month' : 'day') : [],
-            'breakdowns' => $columns
-                ->filter(fn (DataColumn $c) => in_array($c->type, [DataColumnType::Text, DataColumnType::Select, DataColumnType::Boolean], true))
-                ->reject(fn (DataColumn $c) => self::isPersonal($c->label))
-                ->map(fn (DataColumn $c) => $this->breakdown($c, $current))
-                ->filter(fn (array $b) => $b['values'] !== [])
-                ->values()
-                ->all(),
+            'series' => $this->series($current, $start, $now, $days > 90 ? 'month' : 'day'),
+            'breakdowns' => $this->breakdowns($tables, $current),
+            'numbers' => $this->numbers($tables, $current),
+            'tables' => $tables->map(function (DataTable $table) use ($current, $totals) {
+                $rows = $current->where('table', $table->id);
+                $total = $totals->get($table->id);
+
+                return [
+                    'id' => $table->id,
+                    'name' => $table->name,
+                    'dateColumn' => $table->dateColumn()?->label,
+                    'amountColumn' => $this->amountLabel($table),
+                    'rows' => $rows->count(),
+                    'amount' => $table->amountColumn() ? $this->round($rows->sum('amount')) : null,
+                    'total' => (int) ($total->total ?? 0),
+                    'withoutDate' => (int) ($total->without_date ?? 0),
+                    'firstAt' => $total?->first_at ? substr((string) $total->first_at, 0, 16) : null,
+                    'lastAt' => $total?->last_at ? substr((string) $total->last_at, 0, 16) : null,
+                ];
+            })->sortByDesc('rows')->values()->all(),
         ];
     }
 
     /**
-     * The latest rows, by column label, without columns about the buyer.
+     * Orders of the orders section together with the orders from the site
+     * (BusinessAnalytics::summary): how many and how much in all.
      *
+     * @param  array<string, mixed>  $section  a summary of the orders section
+     * @param  array<string, mixed>  $site  BusinessAnalytics::summary of the same period
+     * @return array<string, mixed>
+     */
+    public static function withSiteOrders(array $section, array $site): array
+    {
+        $series = collect($site['series'])->keyBy('date');
+
+        return [
+            'orders' => $section['rows']['current'] + $site['totals']['orders'],
+            'previousOrders' => $section['rows']['previous'] + $site['previous']['orders'],
+            'revenue' => ($section['amount']['current'] ?? 0) + $site['totals']['revenue'],
+            'previousRevenue' => ($section['amount']['previous'] ?? 0) + $site['previous']['revenue'],
+            'series' => array_map(fn (array $p) => [
+                'date' => $p['date'],
+                'rows' => $p['rows'] + ($series[$p['date']]['orders'] ?? 0),
+                'amount' => $p['amount'] + ($series[$p['date']]['revenue'] ?? 0),
+            ], $section['series']),
+        ];
+    }
+
+    /**
+     * The latest rows of the tables (by when they happened), by column
+     * label, without columns about the buyer.
+     *
+     * @param  Collection<int, DataTable>  $tables
      * @return list<array<string, mixed>>
      */
-    public function recentRows(DataTable $table, int $limit = 30): array
+    public function recentRows(Collection $tables, int $limit = 30): array
     {
-        $columns = collect($table->columnDefinitions())->reject(fn (DataColumn $c) => self::isPersonal($c->label));
+        $byId = $tables->keyBy('id');
 
-        return $table->rows()->latest('id')->limit($limit)->pluck('data')
-            ->map(fn ($data) => is_array($data) ? $data : (json_decode($data, true) ?? []))
-            ->map(fn (array $data) => $columns
-                ->mapWithKeys(fn (DataColumn $c) => [$c->label => $data[$c->key] ?? null])
-                ->filter(fn ($v) => $v !== null && $v !== '')
-                ->all())
+        return DataTableRow::query()
+            ->whereIn('data_table_id', $tables->pluck('id'))
+            ->whereNotNull('occurred_at')
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get(['data_table_id', 'occurred_at', 'data'])
+            ->map(function (DataTableRow $row) use ($byId) {
+                $table = $byId[$row->data_table_id];
+
+                return [
+                    'table' => $table->name,
+                    'at' => substr((string) $row->getRawOriginal('occurred_at'), 0, 16),
+                    ...collect($table->columnDefinitions())
+                        ->reject(fn (DataColumn $c) => self::isPersonal($c->label) || $c->key === $table->date_column)
+                        ->mapWithKeys(fn (DataColumn $c) => [$c->label => $row->data[$c->key] ?? null])
+                        ->filter(fn ($v) => $v !== null && $v !== '')
+                        ->all(),
+                ];
+            })
             ->values()
             ->all();
     }
@@ -129,83 +207,117 @@ class TableAnalytics
         return (bool) preg_match(self::PERSONAL_LABELS, $label);
     }
 
+    /** @return array{0: CarbonImmutable, 1: CarbonImmutable, 2: CarbonImmutable, 3: CarbonImmutable} today, start, previous start, end of today */
+    private function bounds(int $days): array
+    {
+        // occurred_at is the business's local time, so are the bounds.
+        $now = CarbonImmutable::now($this->tenants->current()->timezone ?: config('app.timezone'))->startOfDay();
+        $start = $now->subDays($days - 1);
+
+        return [$now, $start, $start->subDays($days), $now->endOfDay()];
+    }
+
+    private function amountLabel(DataTable $table): ?string
+    {
+        $amount = $table->amountColumn();
+        $quantity = $table->quantityColumn();
+
+        return $amount ? ($quantity ? "{$amount->label} × {$quantity->label}" : $amount->label) : null;
+    }
+
     /**
-     * What a row is worth: price × quantity when the table has both a money
-     * and a quantity column, else the first money column.
+     * Most frequent values of text, list and yes/no columns, columns of the
+     * same name in different tables taken as one.
      *
-     * @param  Collection<int, DataColumn>  $columns
-     * @return array{label: string, value: callable(array): (int|float|null)}|null
+     * @param  Collection<int, DataTable>  $tables
+     * @return list<array{label: string, values: list<array{value: string, rows: int, amount: int|float|null}>, distinct: int}>
      */
-    private function amount(Collection $columns): ?array
+    private function breakdowns(Collection $tables, Collection $current): array
     {
-        $money = $columns->first(fn (DataColumn $c) => $c->type === DataColumnType::Money);
-        if (! $money) {
-            return null;
-        }
+        $columns = $this->columnsByLabel($tables, fn (DataColumn $c) => in_array($c->type, [DataColumnType::Text, DataColumnType::Select, DataColumnType::Boolean], true)
+            && ! self::isPersonal($c->label));
 
-        $quantity = $columns->first(fn (DataColumn $c) => $c->type === DataColumnType::Number && preg_match(self::QUANTITY_LABELS, $c->label));
-        $number = fn ($v) => is_int($v) || is_float($v) ? $v : null;
+        return $columns
+            ->map(function (array $column) use ($current) {
+                $groups = $current
+                    ->map(fn ($r) => [...$r, 'value' => isset($column['keys'][$r['table']]) ? ($r['data'][$column['keys'][$r['table']]] ?? null) : null])
+                    ->filter(fn ($r) => $r['value'] !== null && $r['value'] !== '')
+                    ->groupBy(fn ($r) => match ($r['value']) {
+                        true => 'Այո',
+                        false => 'Ոչ',
+                        default => (string) $r['value'],
+                    });
 
-        if ($quantity) {
-            return [
-                'label' => "{$money->label} × {$quantity->label}",
-                'value' => function (array $data) use ($money, $quantity, $number) {
-                    $price = $number($data[$money->key] ?? null);
-
-                    // A row without a quantity counts once.
-                    return $price === null ? null : $price * ($number($data[$quantity->key] ?? null) ?? 1);
-                },
-            ];
-        }
-
-        return ['label' => $money->label, 'value' => fn (array $data) => $number($data[$money->key] ?? null)];
-    }
-
-    private function numberStats(DataColumn $column, Collection $current, Collection $previous, bool $hasDate): array
-    {
-        $values = $current->map(fn ($r) => $r['data'][$column->key] ?? null)->filter(fn ($v) => is_int($v) || is_float($v));
-
-        return [
-            'label' => $column->label,
-            'type' => $column->type->value,
-            'sum' => $this->round($values->sum()),
-            'previousSum' => $hasDate
-                ? $this->round($previous->map(fn ($r) => $r['data'][$column->key] ?? null)->filter(fn ($v) => is_int($v) || is_float($v))->sum())
-                : null,
-            'average' => $values->isEmpty() ? null : $this->round($values->avg()),
-            'min' => $values->min(),
-            'max' => $values->max(),
-            'filled' => $values->count(),
-        ];
+                return [
+                    'label' => $column['label'],
+                    'filled' => $groups->sum(fn ($g) => $g->count()),
+                    'distinct' => $groups->count(),
+                    'values' => $groups
+                        ->map(fn (Collection $rows, string $value) => [
+                            'value' => $value,
+                            'rows' => $rows->count(),
+                            'amount' => $rows->whereNotNull('amount')->isEmpty() ? null : $this->round($rows->sum('amount')),
+                        ])
+                        ->sortByDesc(fn (array $v) => [$v['amount'] ?? 0, $v['rows']])
+                        ->take(self::TOP_VALUES)
+                        ->values()
+                        ->all(),
+                ];
+            })
+            // A column where every row has its own value (an order number) says nothing.
+            ->filter(fn (array $b) => $b['values'] !== [] && $b['distinct'] < max(2, $b['filled']))
+            ->sortByDesc('filled')
+            ->take(self::MAX_BREAKDOWNS)
+            ->map(fn (array $b) => collect($b)->except('filled')->all())
+            ->values()
+            ->all();
     }
 
     /**
-     * @return array{label: string, values: list<array{value: string, rows: int, amount: int|float|null}>, distinct: int}
+     * Sums of number columns (quantities, kilograms...), same name taken as one.
+     *
+     * @param  Collection<int, DataTable>  $tables
+     * @return list<array{label: string, sum: int|float, filled: int}>
      */
-    private function breakdown(DataColumn $column, Collection $current): array
+    private function numbers(Collection $tables, Collection $current): array
     {
-        $groups = $current
-            ->filter(fn ($r) => ($r['data'][$column->key] ?? null) !== null && ($r['data'][$column->key] ?? '') !== '')
-            ->groupBy(fn ($r) => match (true) {
-                $r['data'][$column->key] === true => 'Այո',
-                $r['data'][$column->key] === false => 'Ոչ',
-                default => (string) $r['data'][$column->key],
-            });
+        return $this->columnsByLabel($tables, fn (DataColumn $c) => $c->type === DataColumnType::Number)
+            ->map(function (array $column) use ($current) {
+                $values = $current
+                    ->map(fn ($r) => isset($column['keys'][$r['table']]) ? ($r['data'][$column['keys'][$r['table']]] ?? null) : null)
+                    ->filter(fn ($v) => is_int($v) || is_float($v));
 
-        return [
-            'label' => $column->label,
-            'distinct' => $groups->count(),
-            'values' => $groups
-                ->map(fn (Collection $rows, string $value) => [
-                    'value' => $value,
-                    'rows' => $rows->count(),
-                    'amount' => $rows->whereNotNull('amount')->isEmpty() ? null : $this->round($rows->sum('amount')),
-                ])
-                ->sortByDesc(fn (array $v) => [$v['amount'] ?? 0, $v['rows']])
-                ->take(self::TOP_VALUES)
-                ->values()
-                ->all(),
-        ];
+                return ['label' => $column['label'], 'sum' => $this->round($values->sum()), 'filled' => $values->count()];
+            })
+            ->filter(fn (array $n) => $n['filled'] > 0)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Columns of all tables grouped by name: label and, per table id, the key.
+     *
+     * @param  Collection<int, DataTable>  $tables
+     * @return Collection<string, array{label: string, keys: array<int, string>}>
+     */
+    private function columnsByLabel(Collection $tables, callable $filter): Collection
+    {
+        $columns = collect();
+
+        foreach ($tables as $table) {
+            foreach ($table->columnDefinitions() as $column) {
+                if ($column->key === $table->date_column || ! $filter($column)) {
+                    continue;
+                }
+
+                $name = mb_strtolower(trim($column->label));
+                $entry = $columns->get($name, ['label' => $column->label, 'keys' => []]);
+                $entry['keys'][$table->id] = $column->key;
+                $columns->put($name, $entry);
+            }
+        }
+
+        return $columns;
     }
 
     /**
@@ -221,22 +333,13 @@ class TableAnalytics
         }
 
         foreach ($current as $row) {
-            if (isset($points[$key = $row['date']->format($format)])) {
+            if (isset($points[$key = $row['at']->format($format)])) {
                 $points[$key]['rows']++;
                 $points[$key]['amount'] += $row['amount'] ?? 0;
             }
         }
 
         return array_values(array_map(fn ($p) => [...$p, 'amount' => $this->round($p['amount'])], $points));
-    }
-
-    private function date(mixed $value, \DateTimeZone $timezone): ?CarbonImmutable
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        return CarbonImmutable::createFromFormat('!Y-m-d', $value, $timezone) ?: null;
     }
 
     private function round(int|float|null $value): int|float|null
