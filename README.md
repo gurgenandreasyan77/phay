@@ -8,23 +8,28 @@ with a lead-capture form backed by a small REST API.
 
 ```
 servio/
-├── frontend/            Next.js 16 (App Router, TypeScript strict) — the public site
-├── backend/              Laravel 13 API-only — services catalog + lead intake
-├── docker/
+├── servio-front/         Next.js 16 (App Router, TypeScript strict) — the public site
+├── servio-admin/         Next.js 16 — the admin panel (own app, own port)
+├── servio-back/          Laravel 13 API — catalog, leads, admin API
+├── servio-docker/
 │   ├── nginx/            Dev nginx config (proxies to php-fpm)
 │   ├── php/               Shared php.ini / opcache / fpm-pool config (dev + prod)
 │   └── production/        Prod nginx config, baked into the "nginx" build target
-├── deploy/
-│   └── servio.nginx.conf  Example HOST-level nginx config for the domain + SSL
+├── servio-deploy/
+│   └── servio.nginx.conf  Example HOST-level nginx config for the domains + SSL
 ├── compose.yaml            Dev stack
 ├── compose.prod.yaml       Prod stack
 ├── Makefile                 make setup / up / test / prod-up / ...
 └── .env.example              Compose-level env vars (ports, DB creds, shared URLs)
 ```
 
-Two independent apps, each with its own `.env.example`:
+Three independent apps, each with its own `.env.example`:
 
-- **frontend/** — the Next.js app. `NEXT_PUBLIC_*` vars are read by the browser;
+- **servio-admin/** — the admin panel. Talks only to the Laravel admin API
+  (server-side, token in an httpOnly cookie) and, after each edit, asks the
+  public site to refresh its cache via `POST /api/revalidate` with the shared
+  `REVALIDATE_SECRET`. See `servio-admin/README.md`.
+- **servio-front/** — the public Next.js site. `/admin/*` redirects to `ADMIN_URL`. `NEXT_PUBLIC_*` vars are read by the browser;
   `NEXT_INTERNAL_API_URL` is server-only, used for Server Component data
   fetching over the Docker network.
 - **backend/** — the Laravel API. Serves `/api/v1/categories`, `/api/v1/services`,
@@ -72,6 +77,7 @@ make setup
 
 When it finishes:
 - Frontend: http://localhost:3000 (redirects to `/hy`)
+- Admin: http://localhost:3001 (redirects to `/admin`)
 - API health check: http://localhost:8080/api/health
 - API: http://localhost:8080/api/v1/categories
 
@@ -189,7 +195,10 @@ docker compose -f compose.prod.yaml exec backend php artisan db:seed --force
 ```
 
 Postgres is **not** exposed to the host in production — only `api` (on
-`API_PORT`) and `frontend` (on `FRONTEND_PORT`) are.
+`API_PORT`), `frontend` (on `FRONTEND_PORT`) and `admin` (on `ADMIN_PORT`) are.
+
+Production also requires `ADMIN_URL` (e.g. `https://admin.servio.am`) and a
+random `REVALIDATE_SECRET` (`openssl rand -hex 32`) in the root `.env`.
 
 ### 5. Point the domain at it — host nginx + SSL
 
@@ -202,7 +211,7 @@ sudo mkdir -p /var/www/certbot
 sudo nginx -t && sudo systemctl reload nginx
 
 # Get a certificate (certbot edits the 443 server block for you)
-sudo certbot --nginx -d servio.am -d www.servio.am
+sudo certbot --nginx -d servio.am -d www.servio.am -d admin.servio.am
 
 sudo systemctl reload nginx
 ```

@@ -7,3 +7,7 @@ vendor/
 .DS_Store
 *.log
 .claude/settings.local.json
+# Local tool caches / build artifacts
+.phpunit.result.cache
+tsconfig.tsbuildinfo
+.impeccable/hook.cache.json

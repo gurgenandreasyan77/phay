@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-16T14:49:01Z",
+  "title": "Design System: Servio Admin",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Deep Muted Green", "canonical": "#3F6F62", "tonalRamp": ["#13211C", "#1F3830", "#2C4F44", "#345D52", "#3F6F62", "#5E897D", "#8CAEA4", "#E1EBE7"] },
+      "background": { "role": "neutral", "displayName": "Warm Paper", "canonical": "#F5F6F3", "tonalRamp": ["#202623", "#45504A", "#68716D", "#929A96", "#C8CEC9", "#DCE1DD", "#ECEFEB", "#F5F6F3"] },
+      "sidebar": { "role": "neutral", "displayName": "Graphite Green", "canonical": "#202925", "tonalRamp": ["#0E1210", "#151B18", "#202925", "#2B3732", "#3B4A43", "#5A6B63", "#929C97", "#D8DEDA"] },
+      "danger": { "role": "danger", "displayName": "Quiet Clay Red", "canonical": "#B85D5D", "tonalRamp": ["#3E1E1E", "#60302F", "#854140", "#A94F4F", "#B85D5D", "#C87F7E", "#DDAAA9", "#F7E6E5"] },
+      "success": { "role": "success", "displayName": "Muted Fern", "canonical": "#3F7658", "tonalRamp": ["#15271C", "#1F3B2B", "#2C523C", "#356248", "#3F7658", "#5F9273", "#92B6A2", "#E5F1E9"] },
+      "warning": { "role": "warning", "displayName": "Dusty Amber", "canonical": "#B98232", "tonalRamp": ["#3D2B11", "#5E421A", "#7F5A23", "#9C6E2A", "#B98232", "#CB9F5F", "#E0C194", "#F8EEDC"] },
+      "info": { "role": "info", "displayName": "Slate Blue", "canonical": "#527589", "tonalRamp": ["#1C2730", "#283843", "#374D5B", "#446071", "#527589", "#7595A7", "#A3BCC8", "#E5EEF2"] },
+      "pending": { "role": "pending", "displayName": "Taupe Brown", "canonical": "#88715C", "tonalRamp": ["#2E2520", "#453930", "#5D4B3F", "#735D4D", "#88715C", "#A3907F", "#C4B6A9", "#F1EBE5"] }
+    },
+    "typographyMeta": {
+      "body": { "displayName": "Body / UI", "purpose": "Table cells, form values, nav labels, default running text." },
+      "label": { "displayName": "Label", "purpose": "Field labels, table headers, sidebar group headings." }
+    },
+    "shadows": [
+      { "name": "floating", "value": "0 12px 28px -12px rgba(32,38,35,0.22)", "purpose": "Reserved for surfaces that float above content: the user menu dropdown, the mobile nav drawer." }
+    ],
+    "motion": [],
+    "breakpoints": [
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single primary action per view (e.g. page-header \"Add\" action, form submit).",
+      "html": "<button class=\"ds-btn-primary\">Ավելացնել</button>",
+      "css": ".ds-btn-primary { background: #3F6F62; color: #FFFFFF; height: 40px; padding: 0 16px; border-radius: 8px; border: none; font-size: 14px; font-weight: 500; font-family: ui-sans-serif, system-ui, 'Segoe UI', sans-serif; transition: background 0.15s; } .ds-btn-primary:hover { background: #345D52; } .ds-btn-primary:focus-visible { outline: 2px solid #3F6F62; outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Default button for every non-primary action, including delete triggers (danger red is reserved for the confirmation step, not this resting state).",
+      "html": "<button class=\"ds-btn-secondary\">Ջնջել</button>",
+      "css": ".ds-btn-secondary { background: #FFFFFF; color: #202623; height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid #DCE1DD; font-size: 14px; font-weight: 500; font-family: ui-sans-serif, system-ui, 'Segoe UI', sans-serif; transition: background 0.15s; } .ds-btn-secondary:hover { background: #ECEFEB; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Standard single-line field used across every form in the admin.",
+      "html": "<input class=\"ds-input\" placeholder=\"Փնտրել...\" />",
+      "css": ".ds-input { width: 100%; height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid #DCE1DD; background: #FFFFFF; color: #202623; font-size: 14px; font-family: ui-sans-serif, system-ui, 'Segoe UI', sans-serif; } .ds-input::placeholder { color: #929A96; } .ds-input:focus-visible { outline: none; border-color: #3F6F62; box-shadow: 0 0 0 2px #E1EBE7; } .ds-input:disabled { background: #ECEFEB; color: #929A96; cursor: not-allowed; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Compact status indicator for leads, orders, products, fulfillment type — light tint background, never a saturated fill.",
+      "html": "<span class=\"ds-badge\">Ակտիվ</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 500; background: #E5F1E9; color: #3F7658; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Resting container for forms, stat tiles, and grouped content. Flat, bordered, no shadow.",
+      "html": "<div class=\"ds-card\">Card content</div>",
+      "css": ".ds-card { background: #FFFFFF; border: 1px solid #DCE1DD; border-radius: 10px; padding: 20px; }"
+    },
+    {
+      "name": "Sidebar Nav Item",
+      "kind": "nav",
+      "refersTo": "sidebar-nav-item",
+      "description": "The signature component: active state carries a 2px primary-green indicator bar, the one hard-edged color accent in the system.",
+      "html": "<a class=\"ds-nav-item ds-nav-item--active\"><span class=\"ds-nav-indicator\"></span>Պատվերներ</a>",
+      "css": ".ds-nav-item { position: relative; display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; color: #929C97; font-size: 14px; text-decoration: none; } .ds-nav-item:hover { background: #2B3732; color: #D8DEDA; } .ds-nav-item--active { background: #2B3732; color: #D8DEDA; font-weight: 500; } .ds-nav-indicator { position: absolute; left: -12px; top: 6px; bottom: 6px; width: 2px; border-radius: 999px; background: #3F6F62; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Instrument Panel",
+    "overview": "Servio Admin is being built as a white-label CRM product, not a single business's branded tool — the visual system has to work for any service company it gets relabeled for, so nothing in it is allowed to read as \"AI-generated SaaS\" or as one company's personality. It is an Operate-mode surface: an operator opens it for hours a day to scan leads, prices, and content, so clarity and low visual noise outrank expression. The system explicitly rejects the current-generation AI-app default — purple/blue gradients, neon glow, heavy glassmorphism, oversized rounded corners, loud status pills — in favor of a quieter instrument-panel language: a dark, informationally-neutral sidebar frames a warm, paper-light work surface, and a single muted green stands in for \"this matters\" wherever it appears.",
+    "keyCharacteristics": [
+      "Warm light ground, not cold gray or pure white, so long sessions don't feel clinical.",
+      "One accent color, used sparingly, never decoratively.",
+      "Flat surfaces separated by hairline borders, not shadows.",
+      "Compact, information-dense tables and forms over card grids.",
+      "Status communicated by small, muted-background badges, never saturated color blocks."
+    ],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "The primary green is reserved for primary actions, the active nav indicator, selected rows, and headline metrics. It never fills a whole card, a whole table row, or a decorative background.", "section": "colors" },
+      { "name": "The Quiet Danger Rule", "body": "Destructive actions (delete) render as a neutral secondary button by default; red is earned only inside an explicit confirmation step, never worn as a standing toolbar color.", "section": "colors" },
+      { "name": "The Border-Not-Shadow Rule", "body": "Resting surfaces (cards, tables, inputs) separate from the page with a 1px border. Shadow is reserved for things that float above content (menus, drawers), never for resting cards.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep every color, radius, and spacing value as a CSS custom property in servio-admin/src/app/admin/admin.css, isolated from the public site's globals.css, so a tenant's brand color and a future dark theme can override them without touching component markup.",
+      "Do use the secondary button style for delete triggers; reserve solid danger-red for the moment inside a confirmation step.",
+      "Do use badges (light tint + semantic text color) for every status value, never a raw colored <span>.",
+      "Do render an unbuilt CRM module as a disabled, tagged sidebar row rather than omitting it or faking a working screen."
+    ],
+    "donts": [
+      "Don't introduce gradients, glow, or glassmorphism anywhere in the admin — the brief explicitly refuses the \"AI app\" look.",
+      "Don't give cards or buttons large/pill radii; the system caps at 10px except true pill badges and tags.",
+      "Don't use pure black (#000) or the public site's teal-family tokens inside /admin — the two token systems are intentionally decoupled.",
+      "Don't stack shadows on resting surfaces; depth comes from a 1px border, not elevation."
+    ]
+  }
+}

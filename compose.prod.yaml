@@ -112,6 +112,8 @@ services:
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?NEXT_PUBLIC_SITE_URL must be set}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL must be set}
       NEXT_INTERNAL_API_URL: http://api/api/v1
+      ADMIN_URL: ${ADMIN_URL:?ADMIN_URL must be set (e.g. https://admin.servio.am)}
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:?REVALIDATE_SECRET must be set}
       NEXT_PUBLIC_CONTACT_PHONE: ${NEXT_PUBLIC_CONTACT_PHONE:-+374 55 337633}
       NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL:-info@servio.am}
       NEXT_PUBLIC_CONTACT_CITY: ${NEXT_PUBLIC_CONTACT_CITY:-Yerevan, Armenia}
@@ -137,5 +139,22 @@ services:
       - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
       - api
+    networks:
+      - servio
+
+  admin:
+    build:
+      context: ./servio-admin
+      target: runner
+    restart: unless-stopped
+    environment:
+      NEXT_INTERNAL_API_URL: http://api/api/v1
+      SITE_REVALIDATE_URL: http://frontend:3000/api/revalidate
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:?REVALIDATE_SECRET must be set}
+    ports:
+      - "${ADMIN_PORT:-3001}:3001"
+    depends_on:
+      - api
+      - frontend
     networks:
       - servio
