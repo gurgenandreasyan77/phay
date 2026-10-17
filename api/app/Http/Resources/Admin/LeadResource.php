@@ -57,6 +57,8 @@ class LeadResource extends JsonResource
             'adminComment' => $this->admin_comment,
             'estimatedPriceMin' => $this->estimated_price_min,
             'estimatedPriceMax' => $this->estimated_price_max,
+            'finalPrice' => $this->final_price,
+            'completedAt' => $this->completed_at?->toIso8601String(),
 
             'createdAt' => $this->created_at?->toIso8601String(),
             'updatedAt' => $this->updated_at?->toIso8601String(),

@@ -3,6 +3,8 @@
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\V1\AdditionalServiceController;
 use App\Http\Controllers\Api\V1\Admin\AdditionalServiceController as AdminAdditionalServiceController;
+use App\Http\Controllers\Api\V1\Admin\AnalyticsController as AdminAnalyticsController;
+use App\Http\Controllers\Api\V1\Admin\AssistantController as AdminAssistantController;
 use App\Http\Controllers\Api\V1\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Api\V1\Admin\CalculatorSettingController as AdminCalculatorSettingController;
 use App\Http\Controllers\Api\V1\Admin\ContactChannelController as AdminContactChannelController;
@@ -104,6 +106,9 @@ Route::prefix('v1')->group(function () {
             });
 
             Route::get('/dashboard', AdminDashboardController::class);
+            Route::get('/analytics', AdminAnalyticsController::class);
+            Route::get('/assistant', [AdminAssistantController::class, 'show']);
+            Route::post('/assistant', [AdminAssistantController::class, 'store'])->middleware('throttle:assistant');
             Route::get('/leads', [AdminLeadController::class, 'index']);
             Route::post('/leads', [AdminLeadController::class, 'store']);
             Route::get('/leads/{lead}', [AdminLeadController::class, 'show']);

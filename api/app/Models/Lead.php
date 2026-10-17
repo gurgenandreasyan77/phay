@@ -58,6 +58,8 @@ class Lead extends Model
         'admin_comment',
         'estimated_price_min',
         'estimated_price_max',
+        'final_price',
+        'completed_at',
     ];
 
     protected $casts = [
@@ -82,11 +84,27 @@ class Lead extends Model
         'photos' => 'array',
         'estimated_price_min' => 'integer',
         'estimated_price_max' => 'integer',
+        'final_price' => 'integer',
+        'completed_at' => 'datetime',
     ];
 
     protected $attributes = [
         'status' => LeadStatus::New,
     ];
+
+    protected static function booted(): void
+    {
+        // Revenue is counted on the day an order is completed.
+        static::saving(function (Lead $lead) {
+            if (! $lead->isDirty('status')) {
+                return;
+            }
+
+            $lead->completed_at = $lead->status === LeadStatus::Completed
+                ? ($lead->completed_at ?? now())
+                : null;
+        });
+    }
 
     public function service(): BelongsTo
     {

@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Assistant\AnthropicAssistantClient;
+use App\Assistant\AssistantClient;
 use App\Features\FeatureFlag;
 use App\Models\User;
 use App\Tenancy\TenantContext;
@@ -23,6 +25,13 @@ class AppServiceProvider extends ServiceProvider
         // One tenant per request, command or queued job ("scoped" resets
         // between Octane requests and queue jobs).
         $this->app->scoped(TenantContext::class);
+
+        $this->app->bind(AssistantClient::class, fn () => new AnthropicAssistantClient(
+            apiKey: config('services.anthropic.api_key'),
+            model: config('services.anthropic.model'),
+            effort: config('services.anthropic.effort'),
+            maxTokens: config('services.anthropic.max_tokens'),
+        ));
     }
 
     /**
@@ -45,6 +54,11 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('admin-login', function (Request $request) {
             return Limit::perMinute((int) config('services.admin_login.rate_limit_per_minute'))
                 ->by($request->ip());
+        });
+
+        // Each question to the AI assistant is a paid model call.
+        RateLimiter::for('assistant', function (Request $request) {
+            return Limit::perMinute(10)->by('user:'.$request->user()?->id);
         });
 
         // Feature flags belong to a business: Feature::active('market')

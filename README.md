@@ -126,6 +126,8 @@ make artisan cmd="queue:work"  # run an arbitrary artisan command
 | `NEXT_PUBLIC_CONTACT_PHONE` / `_EMAIL` / `_CITY` | Contact details shown site-wide — **placeholders, replace before launch** |
 | `NEXT_PUBLIC_INSTAGRAM_URL` / `_FACEBOOK_URL` / `_WHATSAPP_URL` / `_TELEGRAM_URL` / `_VIBER_URL` | Optional — fallback for the footer/contacts page when no matching admin-managed contact channel exists |
 | `NEXT_PUBLIC_GA_ID` | Optional — Google Analytics only loads when set |
+| `ANTHROPIC_API_KEY` | Production: key for the AI assistant in each business's admin. In development put it in `servio-back/.env` instead. Without it the assistant page says it is not connected |
+| `ASSISTANT_MONTHLY_LIMIT` | AI assistant questions per business per month (default 100) |
 
 `backend/.env.example` and `frontend/.env.example` document the same
 variables from each app's own point of view (useful if you ever run either
@@ -348,6 +350,24 @@ curl -H "X-Site-Key: site_pk_..." localhost:8080/api/v1/services   # [] for a ne
 The site key is publishable (the browser needs it for the lead form), like a
 Stripe publishable key. `--origin` limits which browser origins may use it;
 without it any origin may.
+
+### Analytics and the AI assistant
+
+Every business's admin has **Վերլուծություն** (analytics) and **AI օգնական**
+(AI assistant), built on that business's own orders:
+
+- An order counts on the day it was created; revenue counts on the day it was
+  completed, from its **final price** (the «Վերջնական գին» column in
+  Պատվերներ). Completed orders without a price are flagged on the page.
+- The assistant (`POST /api/v1/admin/assistant`) sends the model a snapshot of
+  the business's services, its 30-day and 365-day figures and its last 30
+  orders without client names or phones, plus the conversation. It uses
+  `claude-opus-5-5` through the official `anthropic-ai/sdk`, with server-side
+  fallbacks (`fallbacks: "default"`) for declined requests. Each business has
+  a monthly question limit; usage and tokens are kept in `assistant_usages`.
+- Settings (`servio-back/.env`): `ANTHROPIC_API_KEY`, `ASSISTANT_MONTHLY_LIMIT`,
+  and optionally `ASSISTANT_MODEL`, `ASSISTANT_EFFORT` (default `low`),
+  `ASSISTANT_MAX_TOKENS`.
 
 ## Extending the site
 

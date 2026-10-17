@@ -62,6 +62,8 @@ class UpdateLeadRequest extends FormRequest
             'admin_comment' => ['nullable', 'string', 'max:2000'],
             'estimated_price_min' => ['nullable', 'integer', 'min:0'],
             'estimated_price_max' => ['nullable', 'integer', 'min:0', 'gte:estimated_price_min'],
+            // What the client actually paid; analytics revenue is built on it.
+            'final_price' => ['nullable', 'integer', 'min:0', 'max:1000000000'],
         ];
     }
 }
