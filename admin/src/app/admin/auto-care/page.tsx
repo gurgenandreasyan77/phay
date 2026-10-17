@@ -51,13 +51,13 @@ export default async function AdminAutoCarePage() {
 
       {!autoCareEnabled ? (
         <SectionCard
-          title="Ավտոխնամքի բաժինը անջատված է"
-          description="«Ավտոխնամք» feature flag-ն անջատված է Feature Flags-ում, ուստի /services/auto-care էջը և դրա տվյալները ժամանակավորապես անհասանելի են կայքում։ Տվյալները պահված են և նորից կհասանելի դառնան flag-ը միացնելուց հետո։"
+          title="Ավտոխնամքի մոդուլը անջատված է"
+          description="Այս բիզնեսի «Ավտոխնամք» մոդուլն անջատված է, ուստի /services/auto-care էջը և դրա տվյալները ժամանակավորապես անհասանելի են կայքում։ Տվյալները պահված են և նորից հասանելի կդառնան մոդուլը միացնելուց հետո։"
         >
           <p className="text-sm text-ink-muted">
-            Կրկին միացնելու համար այցելեք{" "}
-            <Link href="/admin/feature-flags" className="font-medium text-primary underline-offset-2 hover:underline">
-              Feature Flags
+            Մոդուլը միացնում է պլատֆորմի ադմինը՝{" "}
+            <Link href="/admin/platform" className="font-medium text-primary underline-offset-2 hover:underline">
+              Բիզնեսներ → Մոդուլներ
             </Link>
             ։
           </p>

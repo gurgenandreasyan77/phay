@@ -5,39 +5,40 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\SiteResource;
 use App\Models\Site;
-use App\Tenancy\TenantContext;
+use App\Models\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Validation\Rule;
 
 /**
- * Sites connected to the current business. Site is a platform model (not
- * BelongsToTenant, the public API looks keys up across all businesses), so
- * every action here checks the site belongs to the current business itself.
+ * Sites of every business on the platform (super admin only, see routes).
+ * Site is a platform model (not BelongsToTenant): the public API looks keys
+ * up across all businesses.
  */
 class SiteController extends Controller
 {
-    public function __construct(private readonly TenantContext $context) {}
-
     public function index(): AnonymousResourceCollection
     {
-        return SiteResource::collection($this->context->current()->sites()->orderBy('id')->get());
+        return SiteResource::collection(Site::query()->with('tenant')->orderBy('tenant_id')->orderBy('id')->get());
     }
 
     public function store(Request $request): JsonResponse
     {
-        $site = $this->context->current()->sites()->create($this->validated($request, creating: true));
+        $tenantId = $request->validate([
+            'tenant_id' => ['required', 'integer', Rule::exists('tenants', 'id')],
+        ])['tenant_id'];
 
-        return (new SiteResource($site->fresh()))->response()->setStatusCode(201);
+        $site = Tenant::query()->findOrFail($tenantId)->sites()->create($this->validated($request, creating: true));
+
+        return (new SiteResource($site->fresh('tenant')))->response()->setStatusCode(201);
     }
 
     public function update(Request $request, Site $site): SiteResource
     {
-        $this->authorizeSite($site);
-
         $site->update($this->validated($request, creating: false));
 
-        return new SiteResource($site->fresh());
+        return new SiteResource($site->fresh('tenant'));
     }
 
     /**
@@ -46,16 +47,9 @@ class SiteController extends Controller
      */
     public function rotateKey(Site $site): SiteResource
     {
-        $this->authorizeSite($site);
-
         $site->update(['public_key' => Site::generateKey()]);
 
-        return new SiteResource($site->fresh());
-    }
-
-    private function authorizeSite(Site $site): void
-    {
-        abort_unless($site->tenant_id === $this->context->id(), 404);
+        return new SiteResource($site->fresh('tenant'));
     }
 
     private function validated(Request $request, bool $creating): array

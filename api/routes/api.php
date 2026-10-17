@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\Admin\SettingsController as AdminSettingsControl
 use App\Http\Controllers\Api\V1\Admin\SiteController as AdminSiteController;
 use App\Http\Controllers\Api\V1\Admin\TaskPageController as AdminTaskPageController;
 use App\Http\Controllers\Api\V1\Admin\TenantController as AdminTenantController;
+use App\Http\Controllers\Api\V1\Admin\TenantFeatureController as AdminTenantFeatureController;
 use App\Http\Controllers\Api\V1\Admin\TenantUserController as AdminTenantUserController;
 use App\Http\Controllers\Api\V1\Admin\UploadController as AdminUploadController;
 use App\Http\Controllers\Api\V1\CalculatorSettingController;
@@ -88,6 +89,8 @@ Route::prefix('v1')->group(function () {
                 Route::post('/tenants/{tenant}/users', [AdminTenantUserController::class, 'store']);
                 Route::patch('/tenants/{tenant}/users/{user}', [AdminTenantUserController::class, 'update']);
                 Route::delete('/tenants/{tenant}/users/{user}', [AdminTenantUserController::class, 'destroy']);
+                Route::get('/tenants/{tenant}/features', [AdminTenantFeatureController::class, 'index']);
+                Route::patch('/tenants/{tenant}/features/{key}', [AdminTenantFeatureController::class, 'update']);
                 Route::get('/sites', [AdminSiteController::class, 'index']);
                 Route::post('/sites', [AdminSiteController::class, 'store']);
                 Route::patch('/sites/{site}', [AdminSiteController::class, 'update']);

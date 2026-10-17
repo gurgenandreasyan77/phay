@@ -303,21 +303,27 @@ business, and every query is limited to the current one automatically
 - **Admin API:** the signed-in user's business (`tenant_user`). A super admin
   without a business works on the default one.
 
-In the admin (as a super admin): **Բիզնեսներ** creates a business,
-**Կայքեր** connects a site to the current business and shows its key (copy,
-rotate, allowed origins, on/off), and the business switcher in the top bar
-changes which business the admin works on.
+The admin has two levels:
 
-**Business owners.** On **Բիզնեսներ**, the **Մուտքեր** button of a business
-creates its logins (name, email, password; the password is shown once to hand
-over). Such an owner signs in to the same admin panel and sees only their
-business and its basic sections (dashboard, orders, services, settings). The
-platform screens (businesses, sites, feature flags, the business switcher) are
-super-admin only, and the API answers 403 to an owner there. A new business
-starts with optional modules (Auto Care, Market) off; turn them on for it in
-Feature Flags after switching to it. A suspended business locks its owners out.
+- **Platform** (`/admin/platform`, super admin only; where a super admin
+  lands after signing in): **Բիզնեսներ** lists every business with its
+  **Մուտքեր** (logins: name, email, password shown once to hand over),
+  **Մոդուլներ** (optional modules such as Auto Care and Market, per
+  business) and **Մտնել** (work inside that business). **Կայքեր** lists the
+  sites of every business with their keys (copy, rotate, allowed origins,
+  on/off) and connects a new site to a chosen business.
+- **Business** (`/admin`): what an owner always sees, and a super admin after
+  **Մտնել** or the business switcher in the top bar (with a "← Պլատֆորմ" link
+  back): dashboard, orders, services, settings, plus the modules this business
+  has on. Sales import, analytics and an AI assistant are next (shown as
+  "soon" to a super admin only).
 
-If your own login isn't a super admin (no **Պլատֆորմ** group in the menu):
+An owner signs in to the same panel and sees only their business. Platform
+endpoints answer 403 to an owner, not just a hidden menu. A new business
+starts with every optional module off. A suspended business locks its owners
+out.
+
+If your own login isn't a super admin (no "← Պլատֆորմ" link in the menu, /admin/platform is 404):
 
 ```bash
 make artisan cmd="platform:super-admin you@example.com"

@@ -16,6 +16,7 @@ class SiteResource extends JsonResource
             'publicKey' => $this->public_key,
             'allowedOrigins' => $this->allowed_origins ?? [],
             'isActive' => $this->is_active,
+            'tenant' => $this->whenLoaded('tenant', fn () => ['id' => $this->tenant->id, 'name' => $this->tenant->name]),
             'createdAt' => $this->created_at?->toIso8601String(),
         ];
     }

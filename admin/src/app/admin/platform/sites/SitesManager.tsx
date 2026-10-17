@@ -3,21 +3,30 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, KeyRound } from "lucide-react";
-import type { AdminSiteDto } from "@/lib/adminApi";
-import { Badge, Button, Card, EmptyCard, FieldLabel, FormStatus, Input, Textarea } from "../_components/ui";
+import type { AdminSiteDto, AdminTenantDto } from "@/lib/adminApi";
+import { Badge, Button, Card, EmptyCard, FieldLabel, FormStatus, Input, Select, Textarea } from "../../_components/ui";
 
-export function SitesManager({ sites }: { sites: AdminSiteDto[] }) {
+export function SitesManager({
+  sites,
+  tenants,
+  initialTenantId,
+}: {
+  sites: AdminSiteDto[];
+  tenants: AdminTenantDto[];
+  /** Preselected in the new-site form (e.g. right after creating a business). */
+  initialTenantId: number | null;
+}) {
   const router = useRouter();
 
   return (
     <div className="space-y-6">
+      <NewSiteForm tenants={tenants} initialTenantId={initialTenantId} onCreated={() => router.refresh()} />
+
       {sites.length === 0 ? (
-        <EmptyCard>Այս բիզնեսին դեռ ոչ մի կայք միացված չէ։ Ավելացրեք առաջինը ներքևում։</EmptyCard>
+        <EmptyCard>Դեռ ոչ մի կայք միացված չէ։</EmptyCard>
       ) : (
         sites.map((site) => <SiteCard key={site.id} site={site} onChanged={() => router.refresh()} />)
       )}
-
-      <NewSiteForm onCreated={() => router.refresh()} />
     </div>
   );
 }
@@ -93,6 +102,7 @@ function SiteCard({ site, onChanged }: { site: AdminSiteDto; onChanged: () => vo
     <Card className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-base font-semibold text-ink">{site.name}</h2>
+        {site.tenant ? <Badge tone="primary">{site.tenant.name}</Badge> : null}
         {site.isActive ? <Badge tone="success">Ակտիվ</Badge> : <Badge tone="warning">Անջատված</Badge>}
         {site.domain ? <span className="text-sm text-ink-muted">{site.domain}</span> : null}
       </div>
@@ -213,7 +223,16 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
-function NewSiteForm({ onCreated }: { onCreated: () => void }) {
+function NewSiteForm({
+  tenants,
+  initialTenantId,
+  onCreated,
+}: {
+  tenants: AdminTenantDto[];
+  initialTenantId: number | null;
+  onCreated: () => void;
+}) {
+  const [tenantId, setTenantId] = useState(String(initialTenantId ?? tenants[0]?.id ?? ""));
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
@@ -227,7 +246,7 @@ function NewSiteForm({ onCreated }: { onCreated: () => void }) {
       const response = await fetch("/api/admin/sites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), domain: domain.trim() || null }),
+        body: JSON.stringify({ tenant_id: Number(tenantId), name: name.trim(), domain: domain.trim() || null }),
       });
 
       if (!response.ok) {
@@ -246,6 +265,16 @@ function NewSiteForm({ onCreated }: { onCreated: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface p-4">
+      <div className="space-y-1.5">
+        <FieldLabel>Բիզնես</FieldLabel>
+        <Select value={tenantId} onChange={(e) => setTenantId(e.target.value)} required>
+          {tenants.map((tenant) => (
+            <option key={tenant.id} value={tenant.id}>
+              {tenant.name}
+            </option>
+          ))}
+        </Select>
+      </div>
       <div className="min-w-56 flex-1 space-y-1.5">
         <FieldLabel>Նոր կայքի անվանում</FieldLabel>
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Օրինակ՝ shop.am" required />

@@ -3,22 +3,27 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { FeatureFlags } from "@/lib/api";
-import { visibleNavGroups } from "./nav";
+import { ArrowLeft } from "lucide-react";
+import { PLATFORM_HOME, isActiveHref, isPlatformPath, visibleNavGroups } from "./nav";
 import { cn } from "./ui";
 
 export function Sidebar({
   features,
   isSuperAdmin = false,
+  businessName,
   onNavigate,
   className,
 }: {
   features: FeatureFlags;
   isSuperAdmin?: boolean;
+  /** The business this admin works on (shown in business mode). */
+  businessName?: string;
   onNavigate?: () => void;
   className?: string;
 }) {
   const pathname = usePathname();
-  const navGroups = visibleNavGroups(features, isSuperAdmin);
+  const navGroups = visibleNavGroups(features, isSuperAdmin, pathname);
+  const onPlatform = isSuperAdmin && isPlatformPath(pathname);
 
   return (
     <nav className={cn("flex h-full flex-col bg-sidebar text-sidebar-text", className)}>
@@ -26,11 +31,26 @@ export function Sidebar({
         <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
           S
         </span>
-        <div className="leading-tight">
-          <p className="text-sm font-semibold text-sidebar-text">Servio</p>
-          <p className="text-xs text-sidebar-text-muted">Ադմին վահանակ</p>
+        <div className="min-w-0 leading-tight">
+          <p className="truncate text-sm font-semibold text-sidebar-text">
+            {onPlatform ? "Servio" : (businessName ?? "Servio")}
+          </p>
+          <p className="text-xs text-sidebar-text-muted">{onPlatform ? "Պլատֆորմ" : "Ադմին վահանակ"}</p>
         </div>
       </div>
+
+      {isSuperAdmin && !onPlatform ? (
+        <div className="px-3 pb-3">
+          <Link
+            href={PLATFORM_HOME}
+            onClick={onNavigate}
+            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-sidebar-text-muted hover:bg-sidebar-hover hover:text-sidebar-text"
+          >
+            <ArrowLeft className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+            Պլատֆորմ
+          </Link>
+        </div>
+      ) : null}
 
       <div className="flex-1 overflow-y-auto px-3 pb-4">
         {navGroups.map((group) => (
@@ -40,7 +60,7 @@ export function Sidebar({
             </p>
             <ul className="space-y-0.5">
               {group.items.map((item) => {
-                const isActive = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+                const isActive = isActiveHref(item.href, pathname);
                 const Icon = item.icon;
 
                 if (item.soon) {

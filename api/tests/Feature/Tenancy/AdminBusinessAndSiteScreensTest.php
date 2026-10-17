@@ -92,23 +92,33 @@ class AdminBusinessAndSiteScreensTest extends TestCase
             ->assertJsonPath('data.0.usersCount', 1);
     }
 
-    public function test_sites_are_listed_and_created_for_the_current_business(): void
+    public function test_a_super_admin_lists_every_site_and_creates_one_for_a_chosen_business(): void
     {
         $shop = $this->createTenant('test-shop');
-        Sanctum::actingAs(User::factory()->forTenant($shop)->superAdmin()->create());
+        $this->superAdmin();
 
-        $this->getJson('/api/v1/admin/sites')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/v1/admin/sites')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.tenant.name', 'Servio');
+
+        $this->postJson('/api/v1/admin/sites', ['name' => 'shop.am'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('tenant_id');
 
         $response = $this->postJson('/api/v1/admin/sites', [
+            'tenant_id' => $shop->id,
             'name' => 'shop.am',
             'domain' => 'shop.am',
             'allowed_origins' => ['https://shop.am', 'https://shop.am'],
         ])->assertCreated()
             ->assertJsonPath('data.allowedOrigins', ['https://shop.am'])
-            ->assertJsonPath('data.isActive', true);
+            ->assertJsonPath('data.isActive', true)
+            ->assertJsonPath('data.tenant.id', $shop->id);
 
         $this->assertStringStartsWith(Site::KEY_PREFIX, $response->json('data.publicKey'));
         $this->assertSame($shop->id, Site::query()->where('name', 'shop.am')->sole()->tenant_id);
+        $this->getJson('/api/v1/admin/sites')->assertJsonCount(2, 'data');
 
         // The new key works against the public API right away.
         $this->getJson('/api/v1/services', ['X-Site-Key' => $response->json('data.publicKey')])->assertOk();
@@ -119,6 +129,7 @@ class AdminBusinessAndSiteScreensTest extends TestCase
         $this->superAdmin();
 
         $this->postJson('/api/v1/admin/sites', [
+            'tenant_id' => Tenant::default()->id,
             'name' => 'x',
             'domain' => 'https://shop.am/path',
             'allowed_origins' => ['https://shop.am/path'],
@@ -142,16 +153,18 @@ class AdminBusinessAndSiteScreensTest extends TestCase
         $this->getJson('/api/v1/services', ['X-Site-Key' => $oldKey])->assertUnauthorized();
     }
 
-    public function test_another_business_sites_cannot_be_seen_or_changed(): void
+    public function test_a_super_admin_manages_the_site_of_any_business(): void
     {
         $shop = $this->createTenant('test-shop');
         $shopSite = $this->createSite($shop);
-        Sanctum::actingAs(User::factory()->superAdmin()->create()); // works on the default business
+        $this->superAdmin(); // works on the default business
 
-        $this->getJson('/api/v1/admin/sites')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.name', 'servio.am');
-        $this->patchJson("/api/v1/admin/sites/{$shopSite->id}", ['name' => 'hacked'])->assertNotFound();
-        $this->postJson("/api/v1/admin/sites/{$shopSite->id}/rotate-key")->assertNotFound();
+        $this->patchJson("/api/v1/admin/sites/{$shopSite->id}", ['name' => 'shop-renamed.am'])
+            ->assertOk()
+            ->assertJsonPath('data.tenant.id', $shop->id);
+        $this->postJson("/api/v1/admin/sites/{$shopSite->id}/rotate-key")->assertOk();
 
-        $this->assertSame($shopSite->public_key, $shopSite->fresh()->public_key);
+        $this->assertSame('shop-renamed.am', $shopSite->fresh()->name);
+        $this->assertNotSame($shopSite->public_key, $shopSite->fresh()->public_key);
     }
 }
