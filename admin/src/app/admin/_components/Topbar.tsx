@@ -12,7 +12,7 @@ import { cn } from "./ui";
 
 const EXTRA_SEGMENT_LABELS: Record<string, string> = {
   new: "Նոր",
-  tables: "Աղյուսակ",
+  tables: "Աղյուսակներ",
   settings: "Կարգավորումներ",
   import: "Ներմուծում",
 };

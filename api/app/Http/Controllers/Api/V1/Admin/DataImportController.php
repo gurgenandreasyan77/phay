@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\DataTables\Import\ColumnMatcher;
+use App\DataTables\Moment;
+use App\Enums\DataTableSection;
 use App\DataTables\Import\DataImporter;
 use App\DataTables\Import\FileReader;
 use App\DataTables\Import\Sheet;
@@ -15,6 +17,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -48,6 +51,8 @@ class DataImportController extends Controller
         $request->validate([
             'file' => ['required', 'file', 'max:10240'],
             'data_table_id' => ['nullable', 'integer'],
+            // A file for a new table: tables of this section it could go into instead.
+            'section' => ['nullable', Rule::enum(DataTableSection::class)],
         ]);
 
         $table = $this->table($request->input('data_table_id'));
@@ -82,7 +87,12 @@ class DataImportController extends Controller
             'total_rows' => count($sheet->rows),
         ]);
 
-        return response()->json(['data' => $this->preview($import, $sheet, $table)], 201);
+        $preview = $this->preview($import, $sheet, $table);
+        if (! $table && $request->filled('section')) {
+            $preview['matchingTables'] = $this->matchingTables(DataTableSection::from($request->input('section')), $sheet);
+        }
+
+        return response()->json(['data' => $preview], 201);
     }
 
     /** The upload again, mapped to a table (e.g. one just made from this file). */
@@ -103,6 +113,7 @@ class DataImportController extends Controller
             'data_table_id' => ['required', 'integer'],
             'mapping' => ['required', 'array'],
             'mapping.*' => ['nullable', 'integer', 'min:0'],
+            'default_date' => ['nullable', 'string', 'max:20'],
         ]);
 
         abort_unless($dataImport->status === DataImport::STATUS_UPLOADED, 409, 'Այս ֆայլն արդեն ներմուծված է։');
@@ -123,7 +134,16 @@ class DataImportController extends Controller
             throw ValidationException::withMessages(['mapping' => ['Ընտրեք առնվազն մեկ սյունակ ներմուծելու համար։']]);
         }
 
-        $import = $importer->run($dataImport, $table, $this->sheet($dataImport), $mapping);
+        $defaultDate = null;
+        if (filled($validated['default_date'] ?? null)) {
+            $moment = Moment::parse($validated['default_date']);
+            if (! $moment) {
+                throw ValidationException::withMessages(['default_date' => ['Ամսաթիվը չի ճանաչվել։']]);
+            }
+            $defaultDate = $moment['date'].($moment['time'] ? ' '.$moment['time'] : '');
+        }
+
+        $import = $importer->run($dataImport, $table, $this->sheet($dataImport), $mapping, $defaultDate);
 
         Storage::disk(self::DISK)->delete($import->path);
         $import->update(['path' => null]);
@@ -166,14 +186,46 @@ class DataImportController extends Controller
         return $this->reader->read($disk->path($import->path), $import->format);
     }
 
+    /**
+     * Tables whose columns the file's headers match well: a daily file is
+     * better added to the table of the previous days than made a new table.
+     *
+     * @return list<array{id: int, name: string, matched: int, columns: int}>
+     */
+    private function matchingTables(DataTableSection $section, Sheet $sheet): array
+    {
+        if (! DataTableController::moduleActive($section)) {
+            return [];
+        }
+
+        return DataTable::query()->where('section', $section)->latest('id')->limit(200)->get()
+            ->map(function (DataTable $table) use ($sheet) {
+                $columns = $table->columnDefinitions();
+                $matched = count(array_filter(ColumnMatcher::suggest($columns, $sheet->headers), fn ($i) => $i !== null));
+
+                return ['id' => $table->id, 'name' => $table->name, 'matched' => $matched, 'columns' => count($columns)];
+            })
+            ->filter(fn (array $t) => $t['matched'] >= 2 && $t['matched'] >= 0.6 * max($t['columns'], count($sheet->headers)))
+            ->sortByDesc(fn (array $t) => [$t['matched'] / max($t['columns'], 1), $t['id']])
+            ->take(3)
+            ->values()
+            ->all();
+    }
+
     private function preview(DataImport $import, Sheet $sheet, ?DataTable $table): array
     {
+        $mapping = $table ? ColumnMatcher::suggest($table->columnDefinitions(), $sheet->headers) : null;
+        $dateColumn = $table?->dateColumn();
+
         return [
             ...$this->summary($import),
             'sampleRows' => array_slice($sheet->rows, 0, 5),
+            // The table's date column: when the file has none, the person gives
+            // one date for all rows (a day's sales).
+            'dateColumn' => $dateColumn ? ['key' => $dateColumn->key, 'label' => $dateColumn->label] : null,
             'truncated' => $sheet->truncated,
             'maxRows' => FileReader::MAX_ROWS,
-            'mapping' => $table ? ColumnMatcher::suggest($table->columnDefinitions(), $sheet->headers) : null,
+            'mapping' => $mapping,
             'guessedColumns' => ColumnMatcher::guessColumns($sheet->headers, $sheet->rows),
         ];
     }

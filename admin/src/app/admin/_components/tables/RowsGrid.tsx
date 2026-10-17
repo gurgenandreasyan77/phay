@@ -12,9 +12,19 @@ type Column = AdminDataTableDto["columns"][number];
 /** What the inputs hold while a row is edited: always strings. */
 type Draft = Record<string, string>;
 
+/** Now, as a date or date-and-time column stores it ("Y-m-d" / "Y-m-d H:i"). */
+function now(type: Column["type"]): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return type === "datetime" ? `${date} ${pad(d.getHours())}:${pad(d.getMinutes())}` : date;
+}
+
 function toDraft(table: AdminDataTableDto, row?: AdminDataTableRowDto): Draft {
   return Object.fromEntries(
     table.columns.map((column) => {
+      // A new row happens now, unless changed.
+      if (!row && column.key === table.dateColumn) return [column.key, now(column.type)];
       const value = row?.values[column.key];
       return [column.key, value === null || value === undefined ? "" : String(value)];
     }),
@@ -92,7 +102,7 @@ export function RowsGrid({
           {table.columns.map((column) => (
             <Th key={column.key} className="whitespace-nowrap">
               {column.label}
-              {column.required ? <span className="text-danger"> *</span> : null}
+              {column.required || column.key === table.dateColumn ? <span className="text-danger"> *</span> : null}
             </Th>
           ))}
           <Th className="w-24" />
@@ -271,6 +281,15 @@ function CellInput({ column, value, onChange }: { column: Column; value: string;
       );
     case "date":
       return <Input type="date" value={value} onChange={(e) => onChange(e.target.value)} />;
+    case "datetime":
+      // Stored as "Y-m-d H:i"; the input works with "Y-m-dTH:i".
+      return (
+        <Input
+          type="datetime-local"
+          value={value.replace(" ", "T")}
+          onChange={(e) => onChange(e.target.value.replace("T", " "))}
+        />
+      );
     case "number":
     case "money":
       return (

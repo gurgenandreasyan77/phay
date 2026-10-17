@@ -3,6 +3,8 @@
 namespace App\DataTables\Import;
 
 use App\DataTables\DataTableSchema;
+use App\DataTables\Moment;
+use App\DataTables\RowMetrics;
 use App\Models\DataImport;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
@@ -12,6 +14,8 @@ use Illuminate\Support\Facades\DB;
  * Puts the rows of an uploaded file into a table: each file column goes to
  * the table column it's mapped to, values are parsed by column type, and a
  * row with an invalid value is skipped and reported (not half-imported).
+ * Each date column is read in the day/month order the whole file uses, and
+ * a file without dates can get one date for all its rows (a day's sales).
  */
 final class DataImporter
 {
@@ -22,16 +26,20 @@ final class DataImporter
 
     /**
      * @param  array<string, ?int>  $mapping  table column key → file column index
+     * @param  ?string  $defaultDate  for the table's date column where the file has none (Y-m-d or Y-m-d H:i)
      */
-    public function run(DataImport $import, DataTable $table, Sheet $sheet, array $mapping): DataImport
+    public function run(DataImport $import, DataTable $table, Sheet $sheet, array $mapping, ?string $defaultDate = null): DataImport
     {
         $labels = collect($table->columnDefinitions())->mapWithKeys(fn ($c) => [$c->key => $c->label]);
+        $dateOrders = self::dateOrders($table, $sheet, $mapping);
+        $dateKey = $table->dateColumn()?->key;
+        $metrics = RowMetrics::for($table);
         $errors = [];
         $skipped = 0;
         $imported = 0;
         $now = now();
 
-        DB::transaction(function () use ($import, $table, $sheet, $mapping, $labels, $now, &$errors, &$skipped, &$imported) {
+        DB::transaction(function () use ($import, $table, $sheet, $mapping, $labels, $dateOrders, $dateKey, $defaultDate, $metrics, $now, &$errors, &$skipped, &$imported) {
             $batch = [];
 
             foreach ($sheet->rows as $index => $cells) {
@@ -40,7 +48,11 @@ final class DataImporter
                     $input[$key] = $column === null ? null : ($cells[$column] ?? null);
                 }
 
-                [$data, $rowErrors] = DataTableSchema::parseRow($table, $input);
+                if ($dateKey && $defaultDate !== null && trim((string) ($input[$dateKey] ?? '')) === '') {
+                    $input[$dateKey] = $defaultDate;
+                }
+
+                [$data, $rowErrors] = DataTableSchema::parseRow($table, $input, $dateOrders);
 
                 if ($rowErrors !== []) {
                     $skipped++;
@@ -61,6 +73,7 @@ final class DataImporter
                     'tenant_id' => $table->tenant_id,
                     'data_table_id' => $table->id,
                     'data' => json_encode($data, JSON_UNESCAPED_UNICODE),
+                    ...$metrics($data),
                     'source' => DataTableRow::SOURCE_IMPORT,
                     'data_import_id' => $import->id,
                     'created_by_id' => $import->user_id,
@@ -90,5 +103,19 @@ final class DataImporter
         ]);
 
         return $import;
+    }
+
+    /**
+     * The day/month order of each mapped date column, from all its values.
+     *
+     * @param  array<string, ?int>  $mapping
+     * @return array<string, string>
+     */
+    public static function dateOrders(DataTable $table, Sheet $sheet, array $mapping): array
+    {
+        return collect($table->columnDefinitions())
+            ->filter(fn ($c) => $c->type->isTemporal() && ($mapping[$c->key] ?? null) !== null)
+            ->mapWithKeys(fn ($c) => [$c->key => Moment::detectOrder(array_column($sheet->rows, $mapping[$c->key]))])
+            ->all();
     }
 }

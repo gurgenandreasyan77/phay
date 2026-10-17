@@ -68,17 +68,25 @@ final class DataTableSchema
 
     /**
      * A row's values, keyed by column key, parsed by column type. Values of
-     * keys that aren't columns of the table are dropped.
+     * keys that aren't columns of the table are dropped. The table's date
+     * column is always required: a row without a date can't be counted in
+     * any period.
      *
+     * @param  array<string, string>  $dateOrders  column key → Moment::DAY_FIRST / MONTH_FIRST
      * @return array{0: array<string, mixed>, 1: array<string, string>} the data and the errors per column key
      */
-    public static function parseRow(DataTable $table, array $input): array
+    public static function parseRow(DataTable $table, array $input, array $dateOrders = []): array
     {
         $data = [];
         $errors = [];
+        $dateKey = $table->dateColumn()?->key;
 
         foreach ($table->columnDefinitions() as $column) {
-            [$value, $error] = $column->parse($input[$column->key] ?? null);
+            [$value, $error] = $column->parse($input[$column->key] ?? null, $dateOrders[$column->key] ?? null);
+
+            if ($error === null && $value === null && $column->key === $dateKey) {
+                $error = 'Պարտադիր դաշտ է։';
+            }
 
             if ($error !== null) {
                 $errors[$column->key] = $error;
@@ -88,6 +96,41 @@ final class DataTableSchema
         }
 
         return [$data, $errors];
+    }
+
+    /** Validation rules for the date, amount and quantity column choices. */
+    public static function metricRules(): array
+    {
+        return [
+            'date_column' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'amount_column' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'quantity_column' => ['sometimes', 'nullable', 'string', 'max:20'],
+        ];
+    }
+
+    /**
+     * Applies the choices sent with a table: a column may be named by its key
+     * or, for a column that is new in this request, by its label.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    public static function applyMetrics(DataTable $table, array $validated): void
+    {
+        $explicit = [];
+
+        foreach (['date_column', 'amount_column', 'quantity_column'] as $field) {
+            if (! array_key_exists($field, $validated)) {
+                continue;
+            }
+
+            $explicit[] = $field;
+            $wanted = $validated[$field];
+            $table->{$field} = $wanted === null || $wanted === ''
+                ? null
+                : collect($table->columnDefinitions())->first(fn (DataColumn $c) => $c->key === $wanted || mb_strtolower($c->label) === mb_strtolower(trim($wanted)))?->key;
+        }
+
+        $table->fillMetricColumns($explicit);
     }
 
     private static function newKey(): string

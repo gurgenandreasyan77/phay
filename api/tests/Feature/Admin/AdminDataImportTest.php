@@ -146,10 +146,12 @@ class AdminDataImportTest extends TestCase
 
     public function test_an_import_can_be_taken_back(): void
     {
+        // A day's file without dates: one date for all its rows.
         $preview = $this->upload($this->csv("Ապրանք\nՄոմ\nՕճառ\n"));
         $this->postJson("/api/v1/admin/data-imports/{$preview['id']}/run", [
-            'data_table_id' => $this->table['id'], 'mapping' => $preview['mapping'],
-        ])->assertOk();
+            'data_table_id' => $this->table['id'], 'mapping' => $preview['mapping'], 'default_date' => '16.10.2026',
+        ])->assertOk()->assertJsonPath('data.importedRows', 2);
+        $this->assertSame(['2026-10-16', '2026-10-16'], DataTableRow::withoutTenancy()->get()->pluck('data.'.$this->key(3))->all());
         $this->postJson("/api/v1/admin/data-tables/{$this->table['id']}/rows", ['values' => [$this->key(0) => 'Ձեռքով']])->assertCreated();
 
         $this->getJson("/api/v1/admin/data-tables/{$this->table['id']}/imports")
@@ -244,6 +246,80 @@ class AdminDataImportTest extends TestCase
         $this->postJson("/api/v1/admin/data-imports/{$preview['id']}/run", [
             'data_table_id' => $table['id'], 'mapping' => $mapped,
         ])->assertOk()->assertJsonPath('data.importedRows', 12)->assertJsonPath('data.skippedRows', 0);
+    }
+
+    public function test_order_dates_and_times_are_read_in_the_order_the_file_uses(): void
+    {
+        // Exported from a spreadsheet with US settings: month first, 12-hour clock.
+        $preview = $this->upload($this->csv(implode("\n", [
+            'Order date;Client;Phone;Service;Sum',
+            '10/09/2026 14:06;Anna;+374 55 000001;Sofa;9 900',
+            '10/17/2026 9:30 AM;Aram;055000002;Mattress;5900',
+            '10/02/2026 2:05 PM;Lilit;+37455000003;Sofa;11900',
+        ]), 'orders.csv'), forTable: false);
+
+        $this->assertSame(['datetime', 'text', 'text', 'text', 'money'], array_column($preview['guessedColumns'], 'type'));
+
+        $table = $this->postJson('/api/v1/admin/data-tables', [
+            'section' => 'sales', 'name' => 'Orders', 'columns' => $preview['guessedColumns'],
+        ])->assertCreated()->json('data');
+        [$date, , $phone, , $sum] = array_column($table['columns'], 'key');
+        // The date and the money of a row are picked for analytics.
+        $this->assertSame([$date, $sum], [$table['dateColumn'], $table['amountColumn']]);
+
+        $mapping = $this->getJson("/api/v1/admin/data-imports/{$preview['id']}?data_table_id={$table['id']}")->json('data.mapping');
+        $this->postJson("/api/v1/admin/data-imports/{$preview['id']}/run", ['data_table_id' => $table['id'], 'mapping' => $mapping])
+            ->assertOk()->assertJsonPath('data.importedRows', 3);
+
+        $rows = DataTableRow::withoutTenancy()->where('data_table_id', $table['id'])->orderBy('id')->get();
+        $this->assertSame(['2026-10-09 14:06', '2026-10-17 09:30', '2026-10-02 14:05'], $rows->pluck("data.{$date}")->all());
+        $this->assertSame('+374 55 000001', $rows[0]->data[$phone]);
+        $this->assertSame('2026-10-09 14:06:00', $rows[0]->getRawOriginal('occurred_at'));
+        $this->assertSame([9900.0, 5900.0, 11900.0], $rows->pluck('amount')->all());
+    }
+
+    public function test_ambiguous_dates_are_read_day_first(): void
+    {
+        $preview = $this->upload($this->csv("Ապրանք,Ամսաթիվ\nՄոմ,01/02/2026\nՕճառ,03.04.2026\n"));
+        $mapping = $preview['mapping'];
+
+        $this->postJson("/api/v1/admin/data-imports/{$preview['id']}/run", ['data_table_id' => $this->table['id'], 'mapping' => $mapping])
+            ->assertOk();
+
+        $this->assertSame(['2026-02-01', '2026-04-03'], DataTableRow::withoutTenancy()->orderBy('id')->get()->pluck('data.'.$this->key(3))->all());
+    }
+
+    public function test_rows_without_a_date_are_skipped_unless_the_file_gets_one(): void
+    {
+        $preview = $this->upload($this->csv("Ապրանք,Ամսաթիվ\nՄոմ,\nՕճառ,2026-10-01\n"));
+
+        $this->postJson("/api/v1/admin/data-imports/{$preview['id']}/run", ['data_table_id' => $this->table['id'], 'mapping' => $preview['mapping']])
+            ->assertOk()
+            ->assertJsonPath('data.importedRows', 1)
+            ->assertJsonPath('data.errors.0', ['line' => 2, 'errors' => ['Ամսաթիվ' => 'Պարտադիր դաշտ է։']]);
+    }
+
+    public function test_an_xlsx_date_with_a_time_keeps_the_time(): void
+    {
+        $preview = $this->upload($this->xlsx([
+            ['Ապրանք', 'Ամսաթիվ'],
+            ['Մոմ', ['date' => 46312.6]],
+        ]));
+
+        $this->assertSame(['Մոմ', '2026-10-17 14:24'], $preview['sampleRows'][0]);
+    }
+
+    public function test_a_file_for_a_new_table_is_offered_the_table_of_previous_days(): void
+    {
+        $preview = $this->post('/api/v1/admin/data-imports', [
+            'file' => $this->csv("Ապրանք,Քանակ,Գին,Ամսաթիվ\nՄոմ,1,4500,2026-10-17\n"),
+            'section' => 'sales',
+        ], ['Accept' => 'application/json'])->assertCreated()->json('data');
+
+        $this->assertSame(
+            [['id' => $this->table['id'], 'name' => 'Վաճառքներ', 'matched' => 4, 'columns' => 4]],
+            $preview['matchingTables'],
+        );
     }
 
     public function test_unsupported_or_broken_files_are_refused(): void

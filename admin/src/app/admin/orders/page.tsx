@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/adminAuth";
-import { can } from "@/lib/roles";
 import { getDataTables, getLeads } from "@/lib/adminApi";
 import { StatusFilter } from "./StatusFilter";
 import { SearchBox } from "./SearchBox";
@@ -8,7 +7,7 @@ import { OrderStatusSelect } from "./OrderStatusSelect";
 import { OrderPriceInput } from "./OrderPriceInput";
 import { LEAD_STATUS_LABELS } from "../_components/leadStatus";
 import { Badge, buttonClasses, EmptyRow, PageHeader, TableWrap, Th, Thead, Td, Tr } from "../_components/ui";
-import { SectionTabs } from "../_components/tables/SectionTabs";
+import { OrdersTabs } from "../_components/tables/SectionTabs";
 import { requireSectionModule } from "../_components/tables/views";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +17,7 @@ function first(value: string | string[] | undefined): string | undefined {
 }
 
 export default async function AdminOrdersPage(props: PageProps<"/admin/orders">) {
-  const me = await requirePermission("orders");
+  await requirePermission("orders");
   await requireSectionModule("orders");
 
   const searchParams = await props.searchParams;
@@ -38,7 +37,7 @@ export default async function AdminOrdersPage(props: PageProps<"/admin/orders">)
         }
       />
 
-      <SectionTabs section="orders" tables={tables} active="home" canDesign={can(me, "catalog")} />
+      <OrdersTabs active="site" tablesCount={tables.length} />
 
       <div className="flex flex-wrap items-center gap-3">
         <StatusFilter statusLabels={LEAD_STATUS_LABELS} />

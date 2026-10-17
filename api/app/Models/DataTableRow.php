@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\DataTables\RowMetrics;
 use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,7 +19,18 @@ class DataTableRow extends Model
 
     protected $casts = [
         'data' => 'array',
+        'amount' => 'float',
     ];
+
+    protected static function booted(): void
+    {
+        // occurred_at and amount always follow the row's data.
+        static::saving(function (DataTableRow $row) {
+            if ($row->isDirty('data') || ! $row->exists) {
+                $row->forceFill(RowMetrics::for($row->getRelationValue('table'))($row->data ?? []));
+            }
+        });
+    }
 
     public function table(): BelongsTo
     {

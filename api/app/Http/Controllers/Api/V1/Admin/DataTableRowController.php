@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\DataTables\DataTableSchema;
+use App\Enums\DataColumnType;
+use App\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\DataTableRowResource;
 use App\Models\DataTable;
@@ -43,11 +45,12 @@ class DataTableRowController extends Controller
     {
         DataTableController::ensureReachable($dataTable);
 
-        $row = $dataTable->rows()->create([
-            'data' => $this->validatedData($request, $dataTable),
+        $row = $dataTable->rows()->make([
+            'data' => $this->validatedData($request, $dataTable, fillDate: true),
             'source' => DataTableRow::SOURCE_MANUAL,
             'created_by_id' => $request->user()->id,
         ]);
+        $row->setRelation('table', $dataTable)->save();
 
         return (new DataTableRowResource($row))->response()->setStatusCode(201);
     }
@@ -56,7 +59,7 @@ class DataTableRowController extends Controller
     {
         DataTableController::ensureReachable($dataTable);
 
-        $row->update(['data' => $this->validatedData($request, $dataTable)]);
+        $row->setRelation('table', $dataTable)->update(['data' => $this->validatedData($request, $dataTable)]);
 
         return new DataTableRowResource($row);
     }
@@ -70,11 +73,21 @@ class DataTableRowController extends Controller
         return response()->noContent();
     }
 
-    private function validatedData(Request $request, DataTable $dataTable): array
+    /**
+     * @param  bool  $fillDate  a new row without a date happened now
+     */
+    private function validatedData(Request $request, DataTable $dataTable, bool $fillDate = false): array
     {
         $request->validate(['values' => ['present', 'array']]);
+        $values = $request->input('values', []);
+        $date = $dataTable->dateColumn();
 
-        [$data, $errors] = DataTableSchema::parseRow($dataTable, $request->input('values', []));
+        if ($fillDate && $date && trim((string) ($values[$date->key] ?? '')) === '') {
+            $values[$date->key] = now(app(TenantContext::class)->current()->timezone ?: config('app.timezone'))
+                ->format($date->type === DataColumnType::DateTime ? 'Y-m-d H:i' : 'Y-m-d');
+        }
+
+        [$data, $errors] = DataTableSchema::parseRow($dataTable, $values);
 
         if ($errors !== []) {
             throw ValidationException::withMessages(

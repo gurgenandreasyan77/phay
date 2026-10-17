@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\DataTables\DataTableSchema;
+use App\DataTables\RowMetrics;
 use App\Enums\DataTableSection;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\DataTableResource;
@@ -34,7 +35,11 @@ class DataTableController extends Controller
 
         $tables = DataTable::query()
             ->whereIn('section', $sections)
-            ->withCount('rows')
+            ->withCount(['rows', 'rows as rows_without_date_count' => fn ($q) => $q->whereNull('occurred_at')])
+            ->withMin('rows', 'occurred_at')
+            ->withMax('rows', 'occurred_at')
+            ->withSum('rows', 'amount')
+            ->withMax('imports', 'created_at')
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
@@ -49,18 +54,21 @@ class DataTableController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:1000'],
             ...DataTableSchema::rules(),
+            ...DataTableSchema::metricRules(),
         ]);
 
         $section = DataTableSection::from($validated['section']);
         abort_unless(self::moduleActive($section), 404);
 
-        $table = DataTable::create([
+        $table = new DataTable([
             'section' => $section,
             'name' => trim($validated['name']),
             'description' => $validated['description'] ?? null,
             'columns' => DataTableSchema::columns($validated['columns']),
             'sort_order' => (DataTable::query()->where('section', $section)->max('sort_order') ?? 0) + 1,
         ]);
+        DataTableSchema::applyMetrics($table, $validated);
+        $table->save();
 
         return (new DataTableResource($table->loadCount('rows')))->response()->setStatusCode(201);
     }
@@ -82,6 +90,7 @@ class DataTableController extends Controller
             ...collect(DataTableSchema::rules())
                 ->map(fn (array $rules, string $field) => $field === 'columns' ? ['sometimes', ...$rules] : $rules)
                 ->all(),
+            ...DataTableSchema::metricRules(),
         ]);
 
         if (array_key_exists('columns', $validated)) {
@@ -92,7 +101,16 @@ class DataTableController extends Controller
             $validated['name'] = trim($validated['name']);
         }
 
-        $dataTable->update($validated);
+        $dataTable->fill(collect($validated)->except(['date_column', 'amount_column', 'quantity_column'])->all());
+        DataTableSchema::applyMetrics($dataTable, $validated);
+        $recompute = $dataTable->isDirty(['columns', 'date_column', 'amount_column', 'quantity_column']);
+        $dataTable->save();
+
+        // New date or amount column (or a retyped one): every row is read again,
+        // so analytics follow at once.
+        if ($recompute) {
+            RowMetrics::recompute($dataTable);
+        }
 
         return new DataTableResource($dataTable->fresh()->loadCount('rows'));
     }
@@ -102,6 +120,21 @@ class DataTableController extends Controller
         self::ensureReachable($dataTable);
 
         $dataTable->delete();
+
+        return response()->noContent();
+    }
+
+    /** Deletes several tables at once (e.g. a month of daily files), with their rows and imports. */
+    public function bulkDestroy(Request $request): Response
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:200'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $tables = DataTable::query()->whereIn('id', $validated['ids'])->get();
+        $tables->each(fn (DataTable $table) => self::ensureReachable($table));
+        $tables->each->delete();
 
         return response()->noContent();
     }

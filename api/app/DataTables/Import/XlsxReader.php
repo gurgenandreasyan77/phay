@@ -10,7 +10,7 @@ use ZipArchive;
 /**
  * The first worksheet of an .xlsx file (Excel, Google Sheets, Numbers,
  * LibreOffice). Rows are streamed, so large sheets don't load at once.
- * Cells formatted as dates come out as Y-m-d.
+ * Cells formatted as dates come out as Y-m-d, or "Y-m-d H:i" with a time.
  */
 final class XlsxReader
 {
@@ -189,8 +189,11 @@ final class XlsxReader
 
         if ($isDate) {
             $days = (int) floor((float) $value);
+            $minutes = (int) round(((float) $value - $days) * 1440);
+            $moment = (new DateTimeImmutable('1899-12-30'))->modify("+{$days} days +{$minutes} minutes");
 
-            return (new DateTimeImmutable('1899-12-30'))->modify("+{$days} days")->format('Y-m-d');
+            // A date with a time of day (an order at 14:35) keeps the time.
+            return $minutes > 0 && $minutes < 1440 ? $moment->format('Y-m-d H:i') : $moment->format('Y-m-d');
         }
 
         if (ctype_digit(ltrim($value, '-'))) {

@@ -3,7 +3,6 @@
 namespace App\DataTables;
 
 use App\Enums\DataColumnType;
-use DateTimeImmutable;
 
 /**
  * One column of a business's own table, and how a raw value typed in the
@@ -45,10 +44,11 @@ final readonly class DataColumn
     }
 
     /**
+     * @param  ?string  $dateOrder  Moment::DAY_FIRST or MONTH_FIRST, for dates like 10/09/2026
      * @return array{0: mixed, 1: ?string} the stored value and, when the raw
      *                                     value can't be used, why (Armenian, shown in the admin)
      */
-    public function parse(mixed $raw): array
+    public function parse(mixed $raw, ?string $dateOrder = null): array
     {
         if (is_string($raw)) {
             $raw = trim($raw);
@@ -61,7 +61,7 @@ final readonly class DataColumn
         return match ($this->type) {
             DataColumnType::Text => [mb_substr(is_scalar($raw) ? (string) $raw : json_encode($raw), 0, 5000), null],
             DataColumnType::Number, DataColumnType::Money => $this->parseNumber($raw),
-            DataColumnType::Date => $this->parseDate($raw),
+            DataColumnType::Date, DataColumnType::DateTime => $this->parseDate($raw, $dateOrder),
             DataColumnType::Boolean => $this->parseBoolean($raw),
             DataColumnType::Select => $this->parseOption($raw),
         };
@@ -104,30 +104,17 @@ final readonly class DataColumn
         return [is_float($number) && floor($number) == $number && abs($number) < PHP_INT_MAX ? (int) $number : $number, null];
     }
 
-    private function parseDate(mixed $raw): array
+    private function parseDate(mixed $raw, ?string $order): array
     {
-        // Spreadsheet serial day number (days since 1899-12-30).
-        if (is_int($raw) || is_float($raw) || (is_string($raw) && preg_match('/^\d{5}(\.\d+)?$/', $raw))) {
-            $days = (int) floor((float) $raw);
+        $moment = Moment::parse($raw, $order);
 
-            if ($days > 0 && $days < 2958466) {
-                return [(new DateTimeImmutable('1899-12-30'))->modify("+{$days} days")->format('Y-m-d'), null];
-            }
+        if ($moment === null) {
+            return [null, $this->type === DataColumnType::DateTime
+                ? 'Ամսաթիվը չի ճանաչվել (օր.՝ 17.10.2026 14:30)։'
+                : 'Ամսաթիվը չի ճանաչվել (օր.՝ 2026-10-17 կամ 17.10.2026)։'];
         }
 
-        if (is_string($raw)) {
-            $value = preg_replace('/[T\s].*$/', '', $raw);
-
-            foreach (['Y-m-d', 'd.m.Y', 'd/m/Y', 'd-m-Y', 'Y/m/d', 'Y.m.d', 'd.m.y'] as $format) {
-                $date = DateTimeImmutable::createFromFormat('!'.$format, $value);
-
-                if ($date && $date->format($format) === $value) {
-                    return [$date->format('Y-m-d'), null];
-                }
-            }
-        }
-
-        return [null, 'Ամսաթիվը չի ճանաչվել (օր.՝ 2026-10-17 կամ 17.10.2026)։'];
+        return [$this->type === DataColumnType::DateTime ? $moment['date'].' '.($moment['time'] ?? '00:00') : $moment['date'], null];
     }
 
     private function parseBoolean(mixed $raw): array
