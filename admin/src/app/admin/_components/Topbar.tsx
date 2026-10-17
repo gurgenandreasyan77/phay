@@ -14,6 +14,7 @@ const EXTRA_SEGMENT_LABELS: Record<string, string> = {
   new: "Նոր",
   tables: "Աղյուսակ",
   settings: "Կարգավորումներ",
+  import: "Ներմուծում",
 };
 
 function useBreadcrumbs(pathname: string) {

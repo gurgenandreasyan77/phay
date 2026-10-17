@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Api\V1\Admin\CalculatorSettingController as AdminCalculatorSettingController;
 use App\Http\Controllers\Api\V1\Admin\ContactChannelController as AdminContactChannelController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Api\V1\Admin\DataImportController as AdminDataImportController;
 use App\Http\Controllers\Api\V1\Admin\DataTableController as AdminDataTableController;
 use App\Http\Controllers\Api\V1\Admin\DataTableRowController as AdminDataTableRowController;
 use App\Http\Controllers\Api\V1\Admin\FeatureFlagController as AdminFeatureFlagController;
@@ -142,6 +143,13 @@ Route::prefix('v1')->group(function () {
                     Route::patch('/data-tables/{dataTable}/rows/{row}', [AdminDataTableRowController::class, 'update']);
                     Route::delete('/data-tables/{dataTable}/rows/{row}', [AdminDataTableRowController::class, 'destroy']);
                 });
+
+                // Filling a table from a CSV, XLSX or XML file.
+                Route::get('/data-tables/{dataTable}/imports', [AdminDataImportController::class, 'index']);
+                Route::post('/data-imports', [AdminDataImportController::class, 'store'])->middleware('throttle:data-imports');
+                Route::get('/data-imports/{dataImport}', [AdminDataImportController::class, 'show']);
+                Route::post('/data-imports/{dataImport}/run', [AdminDataImportController::class, 'run']);
+                Route::post('/data-imports/{dataImport}/undo', [AdminDataImportController::class, 'undo']);
             });
 
             Route::middleware('business.can:insights')->group(function () {

@@ -61,6 +61,11 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by('user:'.$request->user()?->id);
         });
 
+        // Reading a big spreadsheet is heavy: a few uploads a minute is plenty.
+        RateLimiter::for('data-imports', function (Request $request) {
+            return Limit::perMinute(10)->by('user:'.$request->user()?->id);
+        });
+
         // Feature flags belong to a business: Feature::active('market')
         // answers for the current tenant, not for the signed-in user.
         Feature::resolveScopeUsing(fn () => app(TenantContext::class)->current());

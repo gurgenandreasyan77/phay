@@ -50,12 +50,24 @@ const STARTER_COLUMNS: Record<DataTableSection, AdminDataColumnDto[]> = {
 };
 
 /** Create a table (no `table`) or change its name and columns. */
-export function TableDesigner({ section, table }: { section: DataTableSection; table?: AdminDataTableDto }) {
+export function TableDesigner({
+  section,
+  table,
+  initial,
+  afterCreate,
+}: {
+  section: DataTableSection;
+  table?: AdminDataTableDto;
+  /** A new table's starting name and columns (e.g. read from a file). */
+  initial?: { name: string; columns: AdminDataColumnDto[] };
+  /** Where to go once a new table is created (default: the table). */
+  afterCreate?: (saved: AdminDataTableDto) => string;
+}) {
   const router = useRouter();
-  const [name, setName] = useState(table?.name ?? "");
+  const [name, setName] = useState(table?.name ?? initial?.name ?? "");
   const [description, setDescription] = useState(table?.description ?? "");
   const [columns, setColumns] = useState<ColumnDraft[]>(() =>
-    (table?.columns ?? STARTER_COLUMNS[section]).map(toDraft),
+    (table?.columns ?? initial?.columns ?? STARTER_COLUMNS[section]).map(toDraft),
   );
   const [pending, setPending] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -110,7 +122,7 @@ export function TableDesigner({ section, table }: { section: DataTableSection; t
       }
 
       const saved = (json as { data: AdminDataTableDto }).data;
-      router.push(tablePath(section, saved.id));
+      router.push(!table && afterCreate ? afterCreate(saved) : tablePath(section, saved.id));
       router.refresh();
     } catch {
       setFailed(true);

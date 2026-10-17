@@ -14,7 +14,7 @@ class DataTableRow extends Model
 
     public const SOURCE_IMPORT = 'import';
 
-    protected $fillable = ['data_table_id', 'data', 'source', 'created_by_id'];
+    protected $fillable = ['data_table_id', 'data', 'source', 'data_import_id', 'created_by_id'];
 
     protected $casts = [
         'data' => 'array',

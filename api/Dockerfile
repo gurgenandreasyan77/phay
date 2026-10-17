@@ -4,10 +4,11 @@
 FROM php:8.3-fpm-alpine AS php-base
 WORKDIR /var/www/html
 
-RUN apk add --no-cache libpq fcgi libpng libjpeg-turbo freetype \
-    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS postgresql-dev libpng-dev libjpeg-turbo-dev freetype-dev \
+# zip: reading .xlsx files imported into a business's tables.
+RUN apk add --no-cache libpq fcgi libpng libjpeg-turbo freetype libzip \
+    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS postgresql-dev libpng-dev libjpeg-turbo-dev freetype-dev libzip-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo_pgsql pgsql bcmath opcache gd \
+    && docker-php-ext-install pdo_pgsql pgsql bcmath opcache gd zip \
     && apk del .build-deps
 
 COPY --from=configs php/php.ini /usr/local/etc/php/conf.d/99-servio.ini
