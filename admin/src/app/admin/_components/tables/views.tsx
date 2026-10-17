@@ -5,6 +5,8 @@ import { notFound } from "next/navigation";
 import { requirePermission } from "@/lib/adminAuth";
 import { can } from "@/lib/roles";
 import {
+  getDataImport,
+  getDataImports,
   getDataTable,
   getDataTableRows,
   getDataTables,
@@ -14,6 +16,8 @@ import {
 import { buttonClasses, PageHeader } from "../ui";
 import { RowsGrid } from "./RowsGrid";
 import { SectionTabs } from "./SectionTabs";
+import { ImportWizard } from "./ImportWizard";
+import { NewTableForm } from "./NewTableForm";
 import { TableDesigner } from "./TableDesigner";
 import { SECTIONS, tablePath } from "./shared";
 
@@ -57,11 +61,16 @@ export async function TableView({
       <PageHeader
         title={SECTIONS[section].label}
         actions={
-          canDesign ? (
-            <Link href={tablePath(section, table.id, "/settings")} className={buttonClasses("secondary")}>
-              Սյունակներ և կարգավորումներ
+          <>
+            <Link href={tablePath(section, table.id, "/import")} className={buttonClasses("secondary")}>
+              Ներմուծել ֆայլից
             </Link>
-          ) : null
+            {canDesign ? (
+              <Link href={tablePath(section, table.id, "/settings")} className={buttonClasses("secondary")}>
+                Սյունակներ և կարգավորումներ
+              </Link>
+            ) : null}
+          </>
         }
       />
       <SectionTabs section={section} tables={tables} active={table.id} canDesign={canDesign} />
@@ -83,7 +92,7 @@ export async function NewTableView({ section }: { section: DataTableSection }) {
         description="Ստեղծեք ձեր աղյուսակը՝ ձեր բիզնեսի դաշտերով։ Հետո տողերը կարելի է ավելացնել ձեռքով կամ ներմուծել ֆայլից։"
       />
       <SectionTabs section={section} tables={tables} active="new" canDesign />
-      <TableDesigner section={section} />
+      <NewTableForm section={section} />
     </div>
   );
 }
@@ -104,6 +113,43 @@ export async function TableSettingsView({ section, id }: { section: DataTableSec
         }
       />
       <TableDesigner key={table.updatedAt} section={section} table={table} />
+    </div>
+  );
+}
+
+export async function ImportView({
+  section,
+  id,
+  searchParams,
+}: {
+  section: DataTableSection;
+  id: string;
+  searchParams: Record<string, string | string[] | undefined>;
+}) {
+  await requirePermission("orders");
+  await requireSectionModule(section);
+  const table = await loadTable(section, id);
+
+  // ?import=: a file already uploaded (a table just made from it).
+  const importId = Number(first(searchParams.import));
+  const [history, pending] = await Promise.all([
+    getDataImports(table.id),
+    importId ? getDataImport(importId, table.id) : Promise.resolve(null),
+  ]);
+  const initialPreview = pending && pending.status === "uploaded" && "sampleRows" in pending ? pending : null;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title={`Ներմուծում «${table.name}» աղյուսակ`}
+        description="Ավելացրեք տողեր CSV, Excel (XLSX) կամ XML ֆայլից։ Սխալ արժեքներով տողերը բաց կթողնվեն, և դուք կտեսնեք՝ ինչու։"
+        actions={
+          <Link href={tablePath(section, table.id)} className={buttonClasses("ghost")}>
+            ← Վերադառնալ աղյուսակին
+          </Link>
+        }
+      />
+      <ImportWizard key={initialPreview?.id ?? "upload"} table={table} initialPreview={initialPreview} history={history} />
     </div>
   );
 }

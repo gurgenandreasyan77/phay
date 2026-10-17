@@ -149,6 +149,34 @@ export type PaginatedDataRowsDto = {
   meta: { currentPage: number; lastPage: number; total: number };
 };
 
+/** An uploaded file and its import into a table (see the API's DataImportController). */
+export type AdminDataImportDto = {
+  id: number;
+  tableId: number | null;
+  fileName: string;
+  format: "csv" | "xlsx" | "xml";
+  headers: string[];
+  totalRows: number;
+  status: "uploaded" | "done" | "undone";
+  importedRows: number;
+  skippedRows: number;
+  /** Skipped rows (the first 200): the file's line and, per table column, why. */
+  errors: { line: number; errors: Record<string, string> }[];
+  user: string | null;
+  createdAt: string | null;
+};
+
+/** Right after the upload: what the file holds and how it maps to the table. */
+export type AdminDataImportPreviewDto = AdminDataImportDto & {
+  sampleRows: string[][];
+  truncated: boolean;
+  maxRows: number;
+  /** Table column key → file column index; null when no table was given. */
+  mapping: Record<string, number | null> | null;
+  /** Columns for a new table made from this file. */
+  guessedColumns: AdminDataColumnDto[];
+};
+
 export type AssistantStatusDto = { configured: boolean; used: number; limit: number };
 
 /** A person's role inside one business (see the API's BusinessRole). */
@@ -728,4 +756,14 @@ export async function getDataTableRows(
       ? { currentPage: json.meta.current_page, lastPage: json.meta.last_page, total: json.meta.total }
       : empty.meta,
   };
+}
+
+export async function getDataImports(tableId: number): Promise<AdminDataImportDto[]> {
+  const result = await adminApiFetch<AdminDataImportDto[]>(`/admin/data-tables/${tableId}/imports`);
+  return result.data ?? [];
+}
+
+export async function getDataImport(id: number, tableId: number): Promise<AdminDataImportPreviewDto | null> {
+  const result = await adminApiFetch<AdminDataImportPreviewDto>(`/admin/data-imports/${id}?data_table_id=${tableId}`);
+  return result.data;
 }
