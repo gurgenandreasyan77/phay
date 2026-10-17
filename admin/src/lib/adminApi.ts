@@ -177,6 +177,29 @@ export type AdminDataImportPreviewDto = AdminDataImportDto & {
   guessedColumns: AdminDataColumnDto[];
 };
 
+/** Figures of one of the business's own tables (see the API's TableAnalytics). */
+export type TableAnalyticsDto = {
+  table: { id: number; name: string; section: DataTableSection };
+  columns: { label: string; type: DataColumnType }[];
+  dateColumn: string | null;
+  amountColumn: string | null;
+  period: { days: AnalyticsPeriod; from: string; to: string };
+  rows: { total: number; withoutDate: number | null; current: number; previous: number | null };
+  amount: { current: number; previous: number | null; average: number | null } | null;
+  numbers: {
+    label: string;
+    type: "number" | "money";
+    sum: number;
+    previousSum: number | null;
+    average: number | null;
+    min: number | null;
+    max: number | null;
+    filled: number;
+  }[];
+  series: { date: string; rows: number; amount: number }[];
+  breakdowns: { label: string; distinct: number; values: { value: string; rows: number; amount: number | null }[] }[];
+};
+
 export type AssistantStatusDto = { configured: boolean; used: number; limit: number };
 
 /** A person's role inside one business (see the API's BusinessRole). */
@@ -570,6 +593,11 @@ export async function adminApiFetchRaw(
 export async function getAnalytics(period: AnalyticsPeriod): Promise<AnalyticsDto | null> {
   const result = await adminApiFetch<AnalyticsDto>(`/admin/analytics?period=${period}`);
   return result.data;
+}
+
+export async function getTableAnalytics(period: AnalyticsPeriod): Promise<TableAnalyticsDto[]> {
+  const result = await adminApiFetch<TableAnalyticsDto[]>(`/admin/analytics/tables?period=${period}`);
+  return result.data ?? [];
 }
 
 export async function getAssistantStatus(): Promise<AssistantStatusDto | null> {

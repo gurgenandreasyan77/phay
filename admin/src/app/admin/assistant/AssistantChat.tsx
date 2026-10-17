@@ -3,15 +3,9 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Send, Sparkles } from "lucide-react";
 import { Button, Card, cn, Textarea } from "../_components/ui";
+import { SUGGESTIONS } from "./suggestions";
 
 type Message = { role: "user" | "assistant"; content: string };
-
-const SUGGESTIONS = [
-  "Ինչպե՞ս են գնում վաճառքներս այս ամիս՝ նախորդի համեմատ",
-  "Ո՞ր ծառայություններն են բերում ամենաշատ եկամուտը",
-  "Ի՞նչ անեմ, որ հաջորդ շաբաթ պատվերներն ավելանան",
-  "Որտեղի՞ց են գալիս իմ հաճախորդները",
-];
 
 const ERRORS: Record<string, string> = {
   not_configured: "AI օգնականը դեռ միացված չէ։",
@@ -62,10 +56,12 @@ function Formatted({ text }: { text: string }) {
 }
 
 export function AssistantChat({
+  suggestions = SUGGESTIONS.orders,
   configured,
   initialUsed,
   limit,
 }: {
+  suggestions?: string[];
   configured: boolean;
   initialUsed: number;
   limit: number;
@@ -146,7 +142,7 @@ export function AssistantChat({
               <p className="text-sm">Սկսեք հարցով կամ ընտրեք օրինակներից մեկը։</p>
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
-              {SUGGESTIONS.map((suggestion) => (
+              {suggestions.map((suggestion) => (
                 <button
                   key={suggestion}
                   type="button"
