@@ -7,6 +7,7 @@ use App\Enums\CompositionType;
 use App\Enums\ProductRelationType;
 use App\Enums\ProductStatus;
 use App\Enums\SeoRobots;
+use App\Models\Concerns\BelongsToTenant;
 use App\Models\Concerns\HasLocaleSlug;
 use App\Models\Concerns\HasTranslations;
 use Illuminate\Database\Eloquent\Model;
@@ -15,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
-    use HasLocaleSlug;
+    use BelongsToTenant, HasLocaleSlug;
     use HasTranslations;
 
     protected $fillable = [

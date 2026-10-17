@@ -12,6 +12,7 @@ use App\Enums\PropertyType;
 use App\Enums\SoilingLevel;
 use App\Models\Product;
 use App\Rules\Phone;
+use App\Tenancy\TenantRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -28,8 +29,8 @@ class StoreLeadRequest extends FormRequest
             'name' => ['required', 'string', 'min:2', 'max:100'],
             'phone' => ['required', 'string', 'max:30', new Phone],
             'email' => ['nullable', 'email', 'max:255'],
-            'service_slug' => ['nullable', 'string', 'exists:services,slug'],
-            'package_slug' => ['nullable', 'string', 'exists:service_packages,slug'],
+            'service_slug' => ['nullable', 'string', TenantRule::exists('services', 'slug')],
+            'package_slug' => ['nullable', 'string', TenantRule::exists('service_packages', 'slug')],
             // Matched against slug OR any locale-specific slug column — the
             // frontend sends whichever slug is showing on the visitor's
             // current locale, which may differ from the legacy `slug` value

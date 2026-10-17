@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\CarBodyType;
+use App\Tenancy\TenantRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -16,7 +17,7 @@ class StoreServiceGalleryItemRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'service_id' => ['nullable', 'integer', 'exists:services,id'],
+            'service_id' => ['nullable', 'integer', TenantRule::exists('services', 'id')],
             'car_type' => ['nullable', Rule::enum(CarBodyType::class)],
             'label' => ['nullable', 'array'],
             'description' => ['nullable', 'array'],

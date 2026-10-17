@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Tenancy\TenantRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class UpdateProductCategoryRequest extends FormRequest
 {
@@ -17,9 +17,9 @@ class UpdateProductCategoryRequest extends FormRequest
         $category = $this->route('productCategory');
 
         return [
-            'slug_hy' => ['sometimes', 'string', 'max:255', Rule::unique('product_categories', 'slug_hy')->ignore($category)],
-            'slug_ru' => ['sometimes', 'string', 'max:255', Rule::unique('product_categories', 'slug_ru')->ignore($category)],
-            'slug_en' => ['sometimes', 'string', 'max:255', Rule::unique('product_categories', 'slug_en')->ignore($category)],
+            'slug_hy' => ['sometimes', 'string', 'max:255', TenantRule::unique('product_categories', 'slug_hy')->ignore($category)],
+            'slug_ru' => ['sometimes', 'string', 'max:255', TenantRule::unique('product_categories', 'slug_ru')->ignore($category)],
+            'slug_en' => ['sometimes', 'string', 'max:255', TenantRule::unique('product_categories', 'slug_en')->ignore($category)],
             'icon' => ['sometimes', 'nullable', 'string', 'max:255'],
             'sort_order' => ['sometimes', 'integer', 'min:0'],
             'name' => ['sometimes', 'array'],

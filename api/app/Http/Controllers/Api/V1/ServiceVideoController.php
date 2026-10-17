@@ -19,7 +19,7 @@ class ServiceVideoController extends Controller
             ->when($request->query('service'), function ($query, $serviceSlug) {
                 $query->whereHas('service', fn ($q) => $q->where('slug', $serviceSlug));
             })
-            ->when(! Feature::globally()->active(FeatureFlag::AutoCare->value), function ($query) {
+            ->when(! Feature::active(FeatureFlag::AutoCare->value), function ($query) {
                 $query->whereDoesntHave('service.category', fn ($q) => $q->where('slug', FeatureFlag::AutoCare->value));
             })
             ->orderBy('sort_order')

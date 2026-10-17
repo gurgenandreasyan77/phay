@@ -11,6 +11,7 @@ use App\Enums\LeadStatus;
 use App\Enums\PropertyType;
 use App\Enums\SoilingLevel;
 use App\Rules\Phone;
+use App\Tenancy\TenantRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -28,9 +29,9 @@ class UpdateLeadRequest extends FormRequest
             'name' => ['sometimes', 'string', 'min:2', 'max:100'],
             'phone' => ['sometimes', 'string', 'max:30', new Phone],
             'email' => ['nullable', 'email', 'max:255'],
-            'service_slug' => ['nullable', 'string', 'exists:services,slug'],
-            'product_slug' => ['nullable', 'string', 'exists:products,slug'],
-            'package_slug' => ['nullable', 'string', 'exists:service_packages,slug'],
+            'service_slug' => ['nullable', 'string', TenantRule::exists('services', 'slug')],
+            'product_slug' => ['nullable', 'string', TenantRule::exists('products', 'slug')],
+            'package_slug' => ['nullable', 'string', TenantRule::exists('service_packages', 'slug')],
             'property_type' => ['nullable', Rule::enum(PropertyType::class)],
             'area_sqm' => ['nullable', 'integer', 'min:1', 'max:100000'],
             'fulfillment_type' => ['nullable', Rule::enum(LeadFulfillmentType::class)],

@@ -3,8 +3,9 @@
 namespace App\Features;
 
 /**
- * Registry of every global (app-wide, not per-user) feature flag backed by
- * Laravel Pennant. Adding a new flag only needs a new case here plus its
+ * Registry of every feature flag backed by Laravel Pennant. Flags are per
+ * business: Pennant's default scope is the current tenant (see
+ * AppServiceProvider), so Feature::active() answers for that business. Adding a new flag only needs a new case here plus its
  * metadata below — no bespoke controller/middleware logic per flag.
  */
 enum FeatureFlag: string

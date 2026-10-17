@@ -10,11 +10,14 @@ use App\Enums\LeadStatus;
 use App\Enums\Locale;
 use App\Enums\PropertyType;
 use App\Enums\SoilingLevel;
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Lead extends Model
 {
+    use BelongsToTenant;
+
     protected $fillable = [
         'name',
         'phone',

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\PageStatus;
+use App\Models\Concerns\BelongsToTenant;
 use App\Models\Concerns\HasLocaleSlug;
 use App\Models\Concerns\HasTranslations;
 use Illuminate\Database\Eloquent\Model;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class MarketTaskPage extends Model
 {
-    use HasLocaleSlug;
+    use BelongsToTenant, HasLocaleSlug;
     use HasTranslations;
 
     protected $fillable = [

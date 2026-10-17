@@ -4,6 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use App\Enums\PageStatus;
 use App\Rules\RequiredForPublishedProduct;
+use App\Tenancy\TenantRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -19,9 +20,9 @@ class StoreTaskPageRequest extends FormRequest
         $status = (string) $this->input('status', PageStatus::Draft->value);
 
         return [
-            'slug_hy' => ['required', 'string', 'max:255', 'unique:market_task_pages,slug_hy'],
-            'slug_ru' => ['required', 'string', 'max:255', 'unique:market_task_pages,slug_ru'],
-            'slug_en' => ['required', 'string', 'max:255', 'unique:market_task_pages,slug_en'],
+            'slug_hy' => ['required', 'string', 'max:255', TenantRule::unique('market_task_pages', 'slug_hy')],
+            'slug_ru' => ['required', 'string', 'max:255', TenantRule::unique('market_task_pages', 'slug_ru')],
+            'slug_en' => ['required', 'string', 'max:255', TenantRule::unique('market_task_pages', 'slug_en')],
             'status' => ['required', Rule::enum(PageStatus::class)],
             'sort_order' => ['nullable', 'integer', 'min:0'],
 
@@ -38,9 +39,9 @@ class StoreTaskPageRequest extends FormRequest
             'seo_title' => ['nullable', 'array'],
             'seo_description' => ['nullable', 'array'],
 
-            'related_service_id' => ['nullable', 'integer', 'exists:services,id'],
+            'related_service_id' => ['nullable', 'integer', TenantRule::exists('services', 'id')],
             'product_ids' => ['nullable', 'array'],
-            'product_ids.*' => ['integer', 'exists:products,id'],
+            'product_ids.*' => ['integer', TenantRule::exists('products', 'id')],
         ];
     }
 }

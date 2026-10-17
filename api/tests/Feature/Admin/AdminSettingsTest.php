@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -37,6 +38,8 @@ class AdminSettingsTest extends TestCase
 
         $response->assertOk()->assertJsonPath('data.address.en', 'Yerevan, Komitas 1');
 
-        $this->assertDatabaseHas('site_settings', ['id' => 1]);
+        // One settings row per business.
+        $this->assertDatabaseCount('site_settings', 1);
+        $this->assertDatabaseHas('site_settings', ['tenant_id' => Tenant::default()->id]);
     }
 }

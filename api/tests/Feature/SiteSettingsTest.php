@@ -19,7 +19,7 @@ class SiteSettingsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.features.autoCare', true);
 
-        Feature::globally()->deactivate(FeatureFlag::AutoCare->value);
+        Feature::deactivate(FeatureFlag::AutoCare->value);
 
         $this->getJson('/api/v1/settings?lang=en')
             ->assertOk()

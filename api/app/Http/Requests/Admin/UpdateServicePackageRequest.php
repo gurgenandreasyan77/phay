@@ -4,6 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use App\Enums\PriceType;
 use App\Enums\ServiceStatus;
+use App\Tenancy\TenantRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -19,8 +20,8 @@ class UpdateServicePackageRequest extends FormRequest
         $package = $this->route('servicePackage');
 
         return [
-            'category_id' => ['nullable', 'integer', 'exists:service_categories,id'],
-            'slug' => ['sometimes', 'string', 'max:255', Rule::unique('service_packages', 'slug')->ignore($package?->id)],
+            'category_id' => ['nullable', 'integer', TenantRule::exists('service_categories', 'id')],
+            'slug' => ['sometimes', 'string', 'max:255', TenantRule::unique('service_packages', 'slug')->ignore($package?->id)],
             'status' => ['sometimes', Rule::enum(ServiceStatus::class)],
 
             'name' => ['sometimes', 'array'],

@@ -9,6 +9,7 @@ use App\Enums\PriceType;
 use App\Enums\SeoRobots;
 use App\Enums\ServiceStatus;
 use App\Rules\RequiredForPublishedProduct;
+use App\Tenancy\TenantRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,8 +25,8 @@ class StoreServiceRequest extends FormRequest
         $status = (string) $this->input('status', ServiceStatus::Draft->value);
 
         return [
-            'category_id' => ['required', 'integer', 'exists:service_categories,id'],
-            'slug' => ['required', 'string', 'max:255', 'unique:services,slug'],
+            'category_id' => ['required', 'integer', TenantRule::exists('service_categories', 'id')],
+            'slug' => ['required', 'string', 'max:255', TenantRule::unique('services', 'slug')],
             'icon' => ['nullable', 'string', 'max:100'],
             'image' => ['nullable', 'string', 'max:255'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
@@ -84,7 +85,7 @@ class StoreServiceRequest extends FormRequest
             'seo_robots' => ['nullable', Rule::enum(SeoRobots::class)],
 
             'product_ids' => ['nullable', 'array'],
-            'product_ids.*' => ['integer', 'exists:products,id'],
+            'product_ids.*' => ['integer', TenantRule::exists('products', 'id')],
         ];
     }
 }

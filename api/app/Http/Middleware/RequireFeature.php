@@ -8,18 +8,19 @@ use Laravel\Pennant\Feature;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Gates a route group behind a global (app-wide) Pennant feature flag.
- * When the flag is off, the route behaves as if it doesn't exist.
+ * Gates a route group behind a feature flag of the current tenant (Pennant's
+ * default scope, see AppServiceProvider). When the flag is off, the route
+ * behaves as if it doesn't exist.
  *
- *     Route::middleware('feature.global:auto-care')->group(function () {
+ *     Route::middleware('feature:auto-care')->group(function () {
  *         // ...
  *     });
  */
-class RequireGlobalFeature
+class RequireFeature
 {
     public function handle(Request $request, Closure $next, string $feature): Response
     {
-        abort_unless(Feature::globally()->active($feature), 404);
+        abort_unless(Feature::active($feature), 404);
 
         return $next($request);
     }

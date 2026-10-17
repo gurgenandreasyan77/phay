@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Tenancy\TenantContext;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -17,7 +18,7 @@ class AdminUserSeeder extends Seeder
             return;
         }
 
-        User::updateOrCreate(
+        $user = User::updateOrCreate(
             ['email' => $email],
             [
                 'name' => env('ADMIN_NAME', 'Admin'),
@@ -25,5 +26,10 @@ class AdminUserSeeder extends Seeder
                 'is_super_admin' => true,
             ],
         );
+
+        // Owner of the business being seeded (the default one).
+        $user->tenants()->syncWithoutDetaching([
+            app(TenantContext::class)->id() => ['role' => 'owner'],
+        ]);
     }
 }

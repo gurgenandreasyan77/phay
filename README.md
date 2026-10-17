@@ -34,6 +34,7 @@ Three independent apps, each with its own `.env.example`:
   fetching over the Docker network.
 - **backend/** — the Laravel API. Serves `/api/v1/categories`, `/api/v1/services`,
   `/api/v1/services/{slug}`, `POST /api/v1/leads`, and `/api/health`.
+  It is multi-tenant: see [Businesses and sites](#businesses-and-sites).
 
 In Docker, the Laravel API is actually two containers: **backend** (PHP-FPM,
 no HTTP of its own) and **api** (nginx, serves `backend/public` and proxies
@@ -288,6 +289,33 @@ make restore-db file=backups/servio-20260101-120000.sql
 Both targets work against whichever stack is currently up (`compose.yaml` by
 default — pass `-f compose.prod.yaml` manually, or adapt the Makefile
 targets, if restoring in production).
+
+## Businesses and sites
+
+The API serves several businesses (tenants) from one database. Every content
+row (services, products, leads, settings, feature flags...) belongs to one
+business, and every query is limited to the current one automatically
+(`BelongsToTenant` trait).
+
+- **Public API:** the `X-Site-Key` header picks the business. No header means
+  the default business (`servio`, `PLATFORM_DEFAULT_TENANT`), which owns all
+  data created before multi-tenancy, so servio.am works without a key.
+- **Admin API:** the signed-in user's business (`tenant_user`). A super admin
+  without a business works on the default one.
+
+Create a business and connect a site from the console (screens for this come
+next):
+
+```bash
+make artisan cmd="platform:tenant:create 'Test Shop' --owner=you@example.com"
+make artisan cmd="platform:site:create test-shop shop.am --domain=shop.am --origin=https://shop.am"
+# prints: Site key: site_pk_...
+curl -H "X-Site-Key: site_pk_..." localhost:8080/api/v1/services   # [] for a new business
+```
+
+The site key is publishable (the browser needs it for the lead form), like a
+Stripe publishable key. `--origin` limits which browser origins may use it;
+without it any origin may.
 
 ## Extending the site
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Tenancy\TenantRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreServiceVideoRequest extends FormRequest
@@ -14,7 +15,7 @@ class StoreServiceVideoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'service_id' => ['nullable', 'integer', 'exists:services,id'],
+            'service_id' => ['nullable', 'integer', TenantRule::exists('services', 'id')],
             'title' => ['nullable', 'array'],
             'video_path' => ['required', 'string', 'max:255'],
             'poster_image' => ['nullable', 'string', 'max:255'],

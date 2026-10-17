@@ -4,6 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use App\Enums\PriceType;
 use App\Enums\ServiceStatus;
+use App\Tenancy\TenantRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -17,8 +18,8 @@ class StoreServicePackageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'category_id' => ['nullable', 'integer', 'exists:service_categories,id'],
-            'slug' => ['required', 'string', 'max:255', 'unique:service_packages,slug'],
+            'category_id' => ['nullable', 'integer', TenantRule::exists('service_categories', 'id')],
+            'slug' => ['required', 'string', 'max:255', TenantRule::unique('service_packages', 'slug')],
             'status' => ['required', Rule::enum(ServiceStatus::class)],
 
             'name' => ['required', 'array'],

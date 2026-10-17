@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -37,7 +38,11 @@ class UploadController extends Controller
         ]);
 
         $filename = Str::uuid()->toString().'.'.$request->file('file')->extension();
-        $path = $request->file('file')->storeAs('uploads/'.$folder, $filename, 'public');
+        // One folder per business, so files can be listed, moved or deleted
+        // per business later (files uploaded before multi-tenancy stay where
+        // they are; their stored URLs don't change).
+        $directory = 'uploads/'.app(TenantContext::class)->id().'/'.$folder;
+        $path = $request->file('file')->storeAs($directory, $filename, 'public');
 
         return response()->json([
             'path' => Storage::disk('public')->url($path),

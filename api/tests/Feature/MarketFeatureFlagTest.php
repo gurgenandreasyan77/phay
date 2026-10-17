@@ -62,7 +62,7 @@ class MarketFeatureFlagTest extends TestCase
 
     public function test_when_disabled_market_endpoints_return_404(): void
     {
-        Feature::globally()->deactivate(FeatureFlag::Market->value);
+        Feature::deactivate(FeatureFlag::Market->value);
 
         $this->getJson('/api/v1/products')->assertNotFound();
         $this->getJson('/api/v1/products/floor-cleaners/floor-cleaner-concentrate')->assertNotFound();
@@ -74,7 +74,7 @@ class MarketFeatureFlagTest extends TestCase
 
     public function test_disabling_market_does_not_affect_unrelated_catalog_endpoints(): void
     {
-        Feature::globally()->deactivate(FeatureFlag::Market->value);
+        Feature::deactivate(FeatureFlag::Market->value);
 
         $this->getJson('/api/v1/categories')->assertOk();
         $this->getJson('/api/v1/services')->assertOk();
@@ -82,7 +82,7 @@ class MarketFeatureFlagTest extends TestCase
 
     public function test_disabling_does_not_delete_any_data(): void
     {
-        Feature::globally()->deactivate(FeatureFlag::Market->value);
+        Feature::deactivate(FeatureFlag::Market->value);
 
         $this->assertDatabaseHas('products', ['id' => $this->product->id]);
         $this->assertDatabaseHas('product_categories', ['id' => $this->category->id]);
@@ -90,10 +90,10 @@ class MarketFeatureFlagTest extends TestCase
 
     public function test_re_enabling_restores_access_to_the_same_data(): void
     {
-        Feature::globally()->deactivate(FeatureFlag::Market->value);
+        Feature::deactivate(FeatureFlag::Market->value);
         $this->getJson('/api/v1/products')->assertNotFound();
 
-        Feature::globally()->activate(FeatureFlag::Market->value);
+        Feature::activate(FeatureFlag::Market->value);
 
         $this->getJson('/api/v1/products')
             ->assertOk()

@@ -79,7 +79,7 @@ class AutoCareFeatureFlagTest extends TestCase
 
     public function test_when_disabled_auto_care_endpoints_return_404_or_hide_the_data(): void
     {
-        Feature::globally()->deactivate(FeatureFlag::AutoCare->value);
+        Feature::deactivate(FeatureFlag::AutoCare->value);
 
         $this->getJson('/api/v1/categories')->assertOk()->assertJsonMissing(['slug' => 'auto-care']);
         $this->getJson('/api/v1/services?category=auto-care')->assertNotFound();
@@ -93,7 +93,7 @@ class AutoCareFeatureFlagTest extends TestCase
 
     public function test_disabling_does_not_delete_any_data(): void
     {
-        Feature::globally()->deactivate(FeatureFlag::AutoCare->value);
+        Feature::deactivate(FeatureFlag::AutoCare->value);
 
         $this->assertDatabaseHas('service_categories', ['id' => $this->category->id]);
         $this->assertDatabaseHas('services', ['id' => $this->service->id]);
@@ -102,10 +102,10 @@ class AutoCareFeatureFlagTest extends TestCase
 
     public function test_re_enabling_restores_access_to_the_same_data(): void
     {
-        Feature::globally()->deactivate(FeatureFlag::AutoCare->value);
+        Feature::deactivate(FeatureFlag::AutoCare->value);
         $this->getJson('/api/v1/services/car-interior-cleaning')->assertNotFound();
 
-        Feature::globally()->activate(FeatureFlag::AutoCare->value);
+        Feature::activate(FeatureFlag::AutoCare->value);
 
         $this->getJson('/api/v1/services/car-interior-cleaning')
             ->assertOk()

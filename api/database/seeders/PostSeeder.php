@@ -6,7 +6,6 @@ use App\Models\Post;
 use App\Models\Service;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Article bodies use a literal "{locale}" token in internal links
@@ -40,7 +39,7 @@ class PostSeeder extends Seeder
         ];
 
         foreach ($slugRenames as $old => $new) {
-            DB::table('posts')->where('slug', $old)->update(['slug' => $new]);
+            Post::query()->where('slug', $old)->toBase()->update(['slug' => $new]);
         }
 
         // The rename above only touches the slug, but below the matching
@@ -1074,7 +1073,7 @@ HTML,
         }
 
         foreach ($preservedUpdatedAt as $slug => $updatedAt) {
-            DB::table('posts')->where('slug', $slug)->update(['updated_at' => $updatedAt]);
+            Post::query()->where('slug', $slug)->toBase()->update(['updated_at' => $updatedAt]);
         }
     }
 }

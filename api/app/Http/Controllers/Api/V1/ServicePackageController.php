@@ -17,7 +17,7 @@ class ServicePackageController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $categorySlug = $request->query('category');
-        $autoCareActive = Feature::globally()->active(FeatureFlag::AutoCare->value);
+        $autoCareActive = Feature::active(FeatureFlag::AutoCare->value);
 
         if ($categorySlug === FeatureFlag::AutoCare->value && ! $autoCareActive) {
             throw new NotFoundHttpException;
@@ -39,7 +39,7 @@ class ServicePackageController extends Controller
 
     public function show(string $slug): ServicePackageResource
     {
-        $autoCareActive = Feature::globally()->active(FeatureFlag::AutoCare->value);
+        $autoCareActive = Feature::active(FeatureFlag::AutoCare->value);
 
         $package = ServicePackage::query()
             ->where('slug', $slug)

@@ -34,13 +34,13 @@ class FeatureFlagController extends Controller
             'active' => ['required', 'boolean'],
         ]);
 
-        $oldValue = Feature::globally()->active($flag->value);
+        $oldValue = Feature::active($flag->value);
         $newValue = $validated['active'];
 
         if ($newValue) {
-            Feature::globally()->activate($flag->value);
+            Feature::activate($flag->value);
         } else {
-            Feature::globally()->deactivate($flag->value);
+            Feature::deactivate($flag->value);
         }
 
         if ($oldValue !== $newValue) {
@@ -68,7 +68,7 @@ class FeatureFlagController extends Controller
             'label' => $flag->label(),
             'description' => $flag->description(),
             'category' => $flag->category(),
-            'active' => Feature::globally()->active($flag->value),
+            'active' => Feature::active($flag->value),
             'lastChangedAt' => $lastLog?->created_at?->toIso8601String(),
             'lastChangedBy' => $lastLog?->changedBy?->name,
         ];

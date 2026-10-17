@@ -21,7 +21,7 @@ class SiteSettingsResource extends JsonResource
             // Only the on/off status is public — no metadata, history or
             // who-changed-it, since this endpoint is unauthenticated.
             'features' => collect(FeatureFlag::cases())->mapWithKeys(
-                fn (FeatureFlag $flag) => [Str::camel($flag->value) => Feature::globally()->active($flag->value)]
+                fn (FeatureFlag $flag) => [Str::camel($flag->value) => Feature::active($flag->value)]
             ),
         ];
     }
