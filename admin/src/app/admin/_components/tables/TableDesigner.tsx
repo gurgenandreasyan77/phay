@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import type { AdminDataColumnDto, AdminDataTableDto, DataColumnType, DataTableSection } from "@/lib/adminApi";
 import { Button, Card, FieldLabel, Input, Select, Textarea } from "../ui";
-import { COLUMN_TYPE_LABELS, COLUMN_TYPES, SECTIONS, tablePath, validationErrors } from "./shared";
+import { COLUMN_TYPE_LABELS, COLUMN_TYPES, tablePath, tablesPath, validationErrors } from "./shared";
 
 type ColumnDraft = {
   /** Local id for React keys; the saved key (if any) is in `key`. */
@@ -19,6 +19,27 @@ type ColumnDraft = {
 };
 
 let nextUid = 1;
+
+const QUANTITY_LABELS = /քանակ|հատ|qty|quantity|pcs|count|кол-?во|количество|шт/iu;
+
+/** Which columns say when a row happened and what it's worth (uids of drafts). */
+type Metrics = { date: number | null; amount: number | null; quantity: number | null };
+
+const fits = {
+  date: (c: ColumnDraft) => c.type === "date" || c.type === "datetime",
+  amount: (c: ColumnDraft) => c.type === "money" || c.type === "number",
+  quantity: (c: ColumnDraft) => c.type === "number",
+};
+
+/** The same guess the API makes for a table nobody chose for. */
+function guessMetrics(columns: ColumnDraft[]): Metrics {
+  const amount = columns.find((c) => c.type === "money")?.uid ?? null;
+  return {
+    date: (columns.find((c) => c.type === "datetime") ?? columns.find((c) => c.type === "date"))?.uid ?? null,
+    amount,
+    quantity: amount ? (columns.find((c) => c.type === "number" && QUANTITY_LABELS.test(c.label))?.uid ?? null) : null,
+  };
+}
 
 function toDraft(column?: AdminDataColumnDto): ColumnDraft {
   return {
@@ -37,7 +58,7 @@ const STARTER_COLUMNS: Record<DataTableSection, AdminDataColumnDto[]> = {
     { label: "Հաճախորդ", type: "text", required: true, options: [] },
     { label: "Հեռախոս", type: "text", required: false, options: [] },
     { label: "Ծառայություն", type: "text", required: false, options: [] },
-    { label: "Ամսաթիվ", type: "date", required: false, options: [] },
+    { label: "Ամսաթիվ և ժամ", type: "datetime", required: false, options: [] },
     { label: "Գումար", type: "money", required: false, options: [] },
   ],
   sales: [
@@ -69,6 +90,13 @@ export function TableDesigner({
   const [columns, setColumns] = useState<ColumnDraft[]>(() =>
     (table?.columns ?? initial?.columns ?? STARTER_COLUMNS[section]).map(toDraft),
   );
+  const [metrics, setMetrics] = useState<Metrics>(() => {
+    if (!table) return guessMetrics(columns);
+    const uid = (key: string | null) => columns.find((c) => key !== null && c.key === key)?.uid ?? null;
+    return { date: uid(table.dateColumn), amount: uid(table.amountColumn), quantity: uid(table.quantityColumn) };
+  });
+  // A choice that no longer fits (column removed or retyped) reads as none.
+  const chosen = (field: keyof Metrics) => columns.find((c) => c.uid === metrics[field] && fits[field](c)) ?? null;
   const [pending, setPending] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failed, setFailed] = useState(false);
@@ -103,6 +131,13 @@ export function TableDesigner({
           required: c.required,
           options: c.type === "select" ? c.options.split("\n").map((o) => o.trim()).filter(Boolean) : [],
         })),
+        // A column not saved yet has no key: the API finds it by its label.
+        ...Object.fromEntries(
+          (["date", "amount", "quantity"] as const).map((field) => {
+            const column = chosen(field);
+            return [`${field}_column`, column ? (column.key ?? column.label) : null];
+          }),
+        ),
       };
 
       const response = await fetch(table ? `/api/admin/data-tables/${table.id}` : "/api/admin/data-tables", {
@@ -143,7 +178,7 @@ export function TableDesigner({
       setFailed(true);
       return;
     }
-    router.push(SECTIONS[section].base);
+    router.push(tablesPath(section));
     router.refresh();
   }
 
@@ -255,6 +290,49 @@ export function TableDesigner({
           + Ավելացնել սյունակ
         </Button>
       </div>
+
+      <Card className="space-y-4">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Վերլուծության համար</h2>
+          <p className="mt-1 max-w-2xl text-sm text-ink-muted">
+            Ըստ այս սյունակների են հաշվվում օրերի և ամիսների թվերը վերլուծությունում և AI օգնականում։ Ամսաթիվը պարտադիր է
+            յուրաքանչյուր տողում։
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {(
+            [
+              ["date", section === "orders" ? "Պատվերի ամսաթիվը" : "Վաճառքի ամսաթիվը", "Ամսաթիվ կամ Ամսաթիվ և ժամ տեսակի"],
+              ["amount", "Գումարը", "Գումար կամ Թիվ տեսակի"],
+              ["quantity", "Քանակը (ըստ ցանկության)", "Գումարը կբազմապատկվի քանակով"],
+            ] as const
+          ).map(([field, label, hint]) => (
+            <label key={field} className="space-y-1.5">
+              <FieldLabel>{label}</FieldLabel>
+              <Select
+                value={chosen(field)?.uid ?? ""}
+                onChange={(e) => setMetrics((m) => ({ ...m, [field]: e.target.value === "" ? null : Number(e.target.value) }))}
+              >
+                <option value="">—</option>
+                {columns
+                  .filter((c) => fits[field](c) && c.label.trim() !== "" && (field !== "quantity" || c.uid !== chosen("amount")?.uid))
+                  .map((c) => (
+                    <option key={c.uid} value={c.uid}>
+                      {c.label}
+                    </option>
+                  ))}
+              </Select>
+              <p className="text-xs text-ink-faint">{hint}</p>
+            </label>
+          ))}
+        </div>
+        {!chosen("date") ? (
+          <p className="text-sm text-warning">
+            Առանց ամսաթվի սյունակի տողերը չեն երևա օրերի և ամիսների վերլուծությունում։ Ավելացրեք «Ամսաթիվ» կամ «Ամսաթիվ և
+            ժամ» սյունակ։
+          </p>
+        ) : null}
+      </Card>
 
       <div className="flex flex-wrap items-center gap-3">
         <Button onClick={save} disabled={pending}>

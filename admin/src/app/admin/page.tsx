@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/adminAuth";
-import { getDashboard, getDataTables, getFeatureFlagsAdmin } from "@/lib/adminApi";
-import { SECTIONS, tablePath } from "./_components/tables/shared";
+import { getDashboard, getDataTables, getFeatureFlagsAdmin, type DataTableSection } from "@/lib/adminApi";
+import { formatMoment, formatMoney, SECTIONS, tablesPath } from "./_components/tables/shared";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_TONES, LEAD_STATUSES } from "./_components/leadStatus";
 import { Badge, buttonClasses, Card, EmptyCard, EmptyRow, PageHeader, TableWrap, Th, Thead, Td, Tr } from "./_components/ui";
 
@@ -94,24 +94,37 @@ export default async function AdminDashboardPage() {
 
 async function TablesHome() {
   const tables = await getDataTables();
+  // One card per section, however many tables (a file a day is thirty a month).
+  const sections = (Object.keys(SECTIONS) as DataTableSection[])
+    .map((section) => ({ section, tables: tables.filter((t) => t.section === section) }))
+    .filter((s) => s.tables.length > 0);
 
   return (
     <div className="space-y-6">
       <PageHeader title="Վահանակ" />
-      {tables.length === 0 ? (
+      {sections.length === 0 ? (
         <EmptyCard>Աղյուսակներ դեռ չկան։ Ստեղծեք առաջինը «Վաճառքներ» բաժնում։</EmptyCard>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tables.map((table) => (
-            <Link key={table.id} href={tablePath(table.section, table.id)}>
-              <Card className="h-full transition-colors hover:border-primary">
-                <p className="text-xs text-ink-faint">{SECTIONS[table.section].label}</p>
-                <p className="mt-1 font-medium text-ink">{table.name}</p>
-                <p className="mt-3 text-3xl font-semibold text-ink">{table.rowsCount ?? 0}</p>
-                <p className="text-xs text-ink-muted">տող</p>
-              </Card>
-            </Link>
-          ))}
+          {sections.map(({ section, tables }) => {
+            const latest = [...tables].sort((a, b) => (b.lastAt ?? "").localeCompare(a.lastAt ?? ""))[0];
+            const amount = tables.some((t) => t.amountColumn) ? tables.reduce((sum, t) => sum + (t.amountTotal ?? 0), 0) : null;
+            return (
+              <Link key={section} href={tablesPath(section)}>
+                <Card className="h-full transition-colors hover:border-primary">
+                  <p className="text-xs text-ink-faint">{tables.length} աղյուսակ</p>
+                  <p className="mt-1 font-medium text-ink">{SECTIONS[section].label}</p>
+                  <p className="mt-3 text-3xl font-semibold text-ink">
+                    {tables.reduce((sum, t) => sum + (t.rowsCount ?? 0), 0)}
+                  </p>
+                  <p className="text-xs text-ink-muted">
+                    տող{amount !== null ? ` · ${formatMoney(amount)}` : ""}
+                    {latest?.lastAt ? ` · վերջինը՝ ${formatMoment(latest.lastAt)}` : ""}
+                  </p>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

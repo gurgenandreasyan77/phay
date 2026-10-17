@@ -4,20 +4,22 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Upload } from "lucide-react";
-import type { AdminDataImportDto, AdminDataImportPreviewDto, AdminDataTableDto } from "@/lib/adminApi";
-import { Badge, Button, buttonClasses, Card, EmptyRow, Select, TableWrap, Td, Th, Thead, Tr } from "../ui";
-import { COLUMN_TYPE_LABELS, tablePath, validationErrors } from "./shared";
+import type { AdminDataImportDto, AdminDataImportPreviewDto, AdminDataTableDto, DataTableSection } from "@/lib/adminApi";
+import { Badge, Button, buttonClasses, Card, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "../ui";
+import { COLUMN_TYPE_LABELS, formatDateTime, tablePath, validationErrors } from "./shared";
 
 export const IMPORT_ACCEPT = ".csv,.tsv,.txt,.xlsx,.xml";
 
 /** Sends a file to the import endpoint; resolves to the preview or an error to show. */
 export async function uploadImportFile(
   file: File,
-  tableId?: number,
+  target: { tableId: number } | { section: DataTableSection },
 ): Promise<{ preview: AdminDataImportPreviewDto } | { error: string }> {
   const form = new FormData();
   form.append("file", file);
-  if (tableId) form.append("data_table_id", String(tableId));
+  // For a new table, the API also finds the section's tables the file fits.
+  if ("tableId" in target) form.append("data_table_id", String(target.tableId));
+  else form.append("section", target.section);
 
   try {
     const response = await fetch("/api/admin/data-imports", { method: "POST", body: form });
@@ -57,11 +59,13 @@ export function ImportWizard({
   const [report, setReport] = useState<AdminDataImportDto | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // One date for the rows when the file has no date column (a day's file).
+  const [defaultDate, setDefaultDate] = useState(() => new Date().toLocaleDateString("sv-SE"));
 
   async function upload(file: File) {
     setPending(true);
     setError(null);
-    const result = await uploadImportFile(file, table.id);
+    const result = await uploadImportFile(file, { tableId: table.id });
     setPending(false);
 
     if ("error" in result) {
@@ -80,12 +84,13 @@ export function ImportWizard({
       const response = await fetch(`/api/admin/data-imports/${preview.id}/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data_table_id: table.id, mapping }),
+        body: JSON.stringify({ data_table_id: table.id, mapping, default_date: dateMissing ? defaultDate : null }),
       });
       const json = await response.json().catch(() => null);
       if (!response.ok) {
         setError(
           validationErrors(json).mapping ??
+            validationErrors(json).default_date ??
             (json as { message?: string } | null)?.message ??
             "Չհաջողվեց ներմուծել։",
         );
@@ -111,6 +116,9 @@ export function ImportWizard({
   }
 
   const mappedCount = Object.values(mapping).filter((index) => index !== null && index !== undefined).length;
+  const dateKey = table.dateColumn;
+  const dateLabel = table.columns.find((c) => c.key === dateKey)?.label;
+  const dateMissing = dateKey !== null && (mapping[dateKey] ?? null) === null;
   const usedHeaders = new Set(Object.values(mapping));
   const unusedHeaders = preview ? preview.headers.filter((_, index) => !usedHeaders.has(index)) : [];
 
@@ -195,8 +203,21 @@ export function ImportWizard({
             </p>
           ) : null}
 
+          {dateMissing ? (
+            <Card className="space-y-2 border-warning/30 bg-warning-light">
+              <p className="text-sm text-warning">
+                Ֆայլում «{dateLabel}» սյունակը ընտրված չէ։ Առանց ամսաթվի տողերը չեն երևա վերլուծությունում, ուստի նշեք՝ որ
+                օրվա տվյալներն են։
+              </p>
+              <label className="block max-w-56 space-y-1.5">
+                <FieldLabel>Բոլոր տողերի ամսաթիվը</FieldLabel>
+                <Input type="date" value={defaultDate} onChange={(e) => setDefaultDate(e.target.value)} />
+              </label>
+            </Card>
+          ) : null}
+
           <div className="flex flex-wrap items-center gap-3">
-            <Button onClick={run} disabled={pending || mappedCount === 0}>
+            <Button onClick={run} disabled={pending || mappedCount === 0 || (dateMissing && !defaultDate)}>
               {pending ? "Ներմուծվում է…" : `Ներմուծել ${preview.totalRows} տող`}
             </Button>
             {error ? <span className="text-sm text-danger">{error}</span> : null}
@@ -243,7 +264,7 @@ export function ImportWizard({
             {history.map((item) => (
               <Tr key={item.id}>
                 <Td className="whitespace-nowrap text-ink-muted">
-                  {item.createdAt ? new Date(item.createdAt).toLocaleString("hy-AM") : "—"}
+                  {formatDateTime(item.createdAt)}
                 </Td>
                 <Td>{item.fileName}</Td>
                 <Td className="text-ink-muted">{item.user ?? "—"}</Td>
@@ -331,6 +352,9 @@ function ImportReport({
       <div className="flex flex-wrap gap-3">
         <Link href={tablePath(table.section, table.id)} className={buttonClasses("primary")}>
           Բացել աղյուսակը
+        </Link>
+        <Link href="/admin/analytics" className={buttonClasses("secondary")}>
+          Տեսնել վերլուծությունը
         </Link>
         <Button variant="secondary" onClick={onAgain}>
           Ներմուծել ևս մեկ ֆայլ

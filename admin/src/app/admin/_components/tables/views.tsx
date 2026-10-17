@@ -13,13 +13,14 @@ import {
   getFeatureFlagsAdmin,
   type DataTableSection,
 } from "@/lib/adminApi";
-import { buttonClasses, PageHeader } from "../ui";
+import { buttonClasses, EmptyCard, PageHeader } from "../ui";
 import { RowsGrid } from "./RowsGrid";
-import { SectionTabs } from "./SectionTabs";
+import { OrdersTabs } from "./SectionTabs";
+import { TablesList } from "./TablesList";
 import { ImportWizard } from "./ImportWizard";
 import { NewTableForm } from "./NewTableForm";
 import { TableDesigner } from "./TableDesigner";
-import { SECTIONS, tablePath } from "./shared";
+import { SECTIONS, tablePath, tablesPath } from "./shared";
 
 /** 404 while the section's module (orders, sales) is off for this business. */
 export async function requireSectionModule(section: DataTableSection): Promise<void> {
@@ -38,6 +39,54 @@ async function loadTable(section: DataTableSection, rawId: string) {
   return table;
 }
 
+/** All tables of a section: the sales page, and the orders' "Աղյուսակներ" tab. */
+export async function TablesListView({ section }: { section: DataTableSection }) {
+  const me = await requirePermission("orders");
+  await requireSectionModule(section);
+  const tables = await getDataTables(section);
+  const canDesign = can(me, "catalog");
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title={SECTIONS[section].label}
+        description={
+          section === "sales"
+            ? "Ձեր վաճառքների աղյուսակները՝ ձեր դաշտերով։ Լրացրեք ձեռքով կամ ներմուծեք ֆայլից, իսկ վերլուծությունը և AI օգնականը կհաշվեն բոլորը միասին։"
+            : "Ձեր պատվերների աղյուսակները՝ ձեռքով լրացված կամ ֆայլից ներմուծված։ Վերլուծությունը հաշվում է բոլորը միասին՝ կայքի պատվերների հետ։"
+        }
+        actions={
+          canDesign ? (
+            <Link href={tablePath(section)} className={buttonClasses("primary")}>
+              + Ներմուծել ֆայլ կամ նոր աղյուսակ
+            </Link>
+          ) : null
+        }
+      />
+      {section === "orders" ? <OrdersTabs active="tables" tablesCount={tables.length} /> : null}
+      {tables.length === 0 ? (
+        <EmptyCard>
+          {canDesign
+            ? section === "sales"
+              ? "Աղյուսակներ դեռ չկան։ Ստեղծեք առաջինը՝ ձեր վաճառքների դաշտերով (ապրանք, քանակ, գին, ամսաթիվ...) կամ Excel ֆայլից։"
+              : "Աղյուսակներ դեռ չկան։ Ստեղծեք առաջինը ձեռքով կամ Excel ֆայլից։"
+            : "Աղյուսակներ դեռ չկան։ Դրանք ստեղծում է բիզնեսի սեփականատերը կամ ադմինիստրատորը։"}
+        </EmptyCard>
+      ) : (
+        <TablesList section={section} tables={tables} canDesign={canDesign} />
+      )}
+    </div>
+  );
+}
+
+function BackToTables({ section }: { section: DataTableSection }) {
+  return (
+    <Link href={tablesPath(section)} className={buttonClasses("ghost", "sm")}>
+      ← Բոլոր աղյուսակները
+    </Link>
+  );
+}
+
 export async function TableView({
   section,
   id,
@@ -53,13 +102,14 @@ export async function TableView({
   const search = first(searchParams.search);
   const page = Number(first(searchParams.page)) || undefined;
   const table = await loadTable(section, id);
-  const [tables, rows] = await Promise.all([getDataTables(section), getDataTableRows(table.id, { search, page })]);
+  const rows = await getDataTableRows(table.id, { search, page });
   const canDesign = can(me, "catalog");
 
   return (
     <div className="space-y-6">
+      <BackToTables section={section} />
       <PageHeader
-        title={SECTIONS[section].label}
+        title={table.name}
         actions={
           <>
             <Link href={tablePath(section, table.id, "/import")} className={buttonClasses("secondary")}>
@@ -73,7 +123,6 @@ export async function TableView({
           </>
         }
       />
-      <SectionTabs section={section} tables={tables} active={table.id} canDesign={canDesign} />
       {table.description ? <p className="text-sm text-ink-muted">{table.description}</p> : null}
       <RowsGrid key={`${table.id}-${search ?? ""}-${page ?? 1}`} table={table} rows={rows.items} meta={rows.meta} />
     </div>
@@ -83,15 +132,14 @@ export async function TableView({
 export async function NewTableView({ section }: { section: DataTableSection }) {
   await requirePermission("catalog");
   await requireSectionModule(section);
-  const tables = await getDataTables(section);
 
   return (
     <div className="space-y-6">
+      <BackToTables section={section} />
       <PageHeader
-        title={SECTIONS[section].label}
-        description="Ստեղծեք ձեր աղյուսակը՝ ձեր բիզնեսի դաշտերով։ Հետո տողերը կարելի է ավելացնել ձեռքով կամ ներմուծել ֆայլից։"
+        title="Նոր աղյուսակ"
+        description="Ընտրեք Excel կամ CSV ֆայլ, կամ կազմեք աղյուսակը ձեռքով՝ ձեր բիզնեսի դաշտերով։"
       />
-      <SectionTabs section={section} tables={tables} active="new" canDesign />
       <NewTableForm section={section} />
     </div>
   );

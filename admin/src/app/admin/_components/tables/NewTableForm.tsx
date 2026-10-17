@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { FileSpreadsheet } from "lucide-react";
 import type { AdminDataImportPreviewDto, DataTableSection } from "@/lib/adminApi";
-import { Card } from "../ui";
+import { buttonClasses, Card } from "../ui";
 import { IMPORT_ACCEPT, uploadImportFile } from "./ImportWizard";
 import { TableDesigner } from "./TableDesigner";
 import { tablePath } from "./shared";
@@ -11,7 +12,8 @@ import { tablePath } from "./shared";
 /**
  * A new table, designed by hand or made from a file: the file's headers
  * become the columns (with guessed types), and once the table is saved the
- * same file goes straight to import.
+ * same file goes straight to import. A file whose columns match a table the
+ * business already has (yesterday's file) is offered to that table instead.
  */
 export function NewTableForm({ section }: { section: DataTableSection }) {
   const [preview, setPreview] = useState<AdminDataImportPreviewDto | null>(null);
@@ -21,7 +23,7 @@ export function NewTableForm({ section }: { section: DataTableSection }) {
   async function upload(file: File) {
     setPending(true);
     setError(null);
-    const result = await uploadImportFile(file);
+    const result = await uploadImportFile(file, { section });
     setPending(false);
     if ("error" in result) setError(result.error);
     else setPreview(result.preview);
@@ -64,6 +66,30 @@ export function NewTableForm({ section }: { section: DataTableSection }) {
           />
         </label>
       </Card>
+
+      {preview?.matchingTables?.length ? (
+        <Card className="space-y-3 border-primary-light bg-primary-light">
+          <div>
+            <p className="font-medium text-primary">Այս ֆայլը համընկնում է արդեն եղած աղյուսակին</p>
+            <p className="mt-1 text-sm text-primary/80">
+              Եթե սա նույն տվյալներն են այլ օրվա համար, ավելացրեք տողերը նույն աղյուսակում․ վերլուծությունն ու AI-ը
+              ամեն դեպքում կհաշվեն բոլոր աղյուսակները միասին, բայց մեկ աղյուսակը ավելի հեշտ է վարել։
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {preview.matchingTables.map((match) => (
+              <Link
+                key={match.id}
+                href={`${tablePath(section, match.id, "/import")}?import=${preview.id}`}
+                className={buttonClasses("primary")}
+              >
+                Ավելացնել «{match.name}» աղյուսակում ({match.matched}/{match.columns} սյունակ)
+              </Link>
+            ))}
+          </div>
+          <p className="text-xs text-primary/70">Կամ ստեղծեք նոր աղյուսակ ստորև։</p>
+        </Card>
+      ) : null}
 
       <TableDesigner
         key={preview?.id ?? "manual"}

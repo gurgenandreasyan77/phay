@@ -112,7 +112,7 @@ export type AnalyticsDto = {
 /** A business's own table (orders, sales): see the API's DataTableController. */
 export type DataTableSection = "orders" | "sales";
 
-export type DataColumnType = "text" | "number" | "money" | "date" | "select" | "boolean";
+export type DataColumnType = "text" | "number" | "money" | "date" | "datetime" | "select" | "boolean";
 
 export type AdminDataColumnDto = {
   /** Stable key the rows' values are stored under; absent for a column not saved yet. */
@@ -129,7 +129,17 @@ export type AdminDataTableDto = {
   name: string;
   description: string | null;
   columns: Required<AdminDataColumnDto>[];
+  /** Keys of the columns that say when a row happened and what it's worth. */
+  dateColumn: string | null;
+  amountColumn: string | null;
+  quantityColumn: string | null;
   rowsCount?: number;
+  /** In the list only: rows with no date, first and last date ("Y-m-d H:i"), money of all rows, last import. */
+  rowsWithoutDate?: number;
+  firstAt?: string | null;
+  lastAt?: string | null;
+  amountTotal?: number | null;
+  lastImportAt?: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -175,29 +185,41 @@ export type AdminDataImportPreviewDto = AdminDataImportDto & {
   mapping: Record<string, number | null> | null;
   /** Columns for a new table made from this file. */
   guessedColumns: AdminDataColumnDto[];
+  /** The table's date column: without it in the file, one date is given for all rows. */
+  dateColumn?: { key: string; label: string } | null;
+  /** A file for a new table: tables whose columns it matches (a daily file goes to the same table). */
+  matchingTables?: { id: number; name: string; matched: number; columns: number }[];
 };
 
-/** Figures of one of the business's own tables (see the API's TableAnalytics). */
+/** Figures of all tables of a section together (see the API's TableAnalytics). */
 export type TableAnalyticsDto = {
-  table: { id: number; name: string; section: DataTableSection };
-  columns: { label: string; type: DataColumnType }[];
-  dateColumn: string | null;
-  amountColumn: string | null;
+  section: DataTableSection;
   period: { days: AnalyticsPeriod; from: string; to: string };
-  rows: { total: number; withoutDate: number | null; current: number; previous: number | null };
-  amount: { current: number; previous: number | null; average: number | null } | null;
-  numbers: {
-    label: string;
-    type: "number" | "money";
-    sum: number;
-    previousSum: number | null;
-    average: number | null;
-    min: number | null;
-    max: number | null;
-    filled: number;
-  }[];
+  rows: { total: number; withoutDate: number; current: number; previous: number };
+  amount: { current: number; previous: number; average: number | null } | null;
   series: { date: string; rows: number; amount: number }[];
   breakdowns: { label: string; distinct: number; values: { value: string; rows: number; amount: number | null }[] }[];
+  numbers: { label: string; sum: number; filled: number }[];
+  tables: {
+    id: number;
+    name: string;
+    dateColumn: string | null;
+    amountColumn: string | null;
+    rows: number;
+    amount: number | null;
+    total: number;
+    withoutDate: number;
+    firstAt: string | null;
+    lastAt: string | null;
+  }[];
+  /** Orders only: the tables' orders and the site's together. */
+  withSite?: {
+    orders: number;
+    previousOrders: number;
+    revenue: number;
+    previousRevenue: number;
+    series: { date: string; rows: number; amount: number }[];
+  };
 };
 
 export type AssistantStatusDto = { configured: boolean; used: number; limit: number };

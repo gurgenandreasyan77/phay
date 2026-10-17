@@ -9,7 +9,7 @@ import {
   type AnalyticsTotalsDto,
   type TableAnalyticsDto,
 } from "@/lib/adminApi";
-import { SECTIONS, tablePath } from "../_components/tables/shared";
+import { formatMoment, tablePath, tablesPath } from "../_components/tables/shared";
 import { LEAD_STATUS_LABELS, LEAD_STATUSES } from "../_components/leadStatus";
 import {
   buttonClasses,
@@ -152,6 +152,7 @@ export default async function AdminAnalyticsPage(props: {
   ]);
   // A shop without the orders module has no site orders to show.
   const ordersOn = flags.find((f) => f.key === "orders")?.active ?? true;
+  const orderTables = tables.find((t) => t.section === "orders");
 
   return (
     <div className="space-y-8">
@@ -159,8 +160,8 @@ export default async function AdminAnalyticsPage(props: {
         title="Վերլուծություն"
         description={
           ordersOn
-            ? "Ձեր պատվերների, եկամտի և ձեր աղյուսակների ամփոփումը։ Կայքի պատվերների եկամուտը հաշվվում է կատարված պատվերների վերջնական գնից։"
-            : "Ձեր աղյուսակների ամփոփումը ընտրված ժամանակահատվածի համար։"
+            ? "Ձեր պատվերների, եկամտի և ձեր աղյուսակների ամփոփումը։ Կայքի պատվերների եկամուտը հաշվվում է կատարված պատվերների վերջնական գնից, աղյուսակներինը՝ յուրաքանչյուր տողի ամսաթվով և գումարով։"
+            : "Ձեր բոլոր աղյուսակների ամփոփումը ընտրված ժամանակահատվածի համար՝ ըստ յուրաքանչյուր տողի ամսաթվի։"
         }
         actions={
           <Link href="/admin/assistant" className={buttonClasses("secondary")}>
@@ -185,9 +186,11 @@ export default async function AdminAnalyticsPage(props: {
         ))}
       </div>
 
+      {orderTables?.withSite ? <AllOrders summary={orderTables} period={period} /> : null}
+
       {!ordersOn ? null : analytics ? (
         <>
-          {tables.length > 0 ? <h2 className="text-lg font-semibold text-ink">Կայքի պատվերներ</h2> : null}
+          {orderTables ? <h2 className="border-t border-border pt-8 text-lg font-semibold text-ink">Կայքի պատվերներ</h2> : null}
           <Totals totals={analytics.totals} previous={analytics.previous} />
 
           {analytics.totals.completedWithoutPrice > 0 ? (
@@ -278,7 +281,7 @@ export default async function AdminAnalyticsPage(props: {
       )}
 
       {tables.map((summary) => (
-        <TableFigures key={summary.table.id} summary={summary} />
+        <SectionFigures key={summary.section} summary={summary} />
       ))}
 
       {!ordersOn && tables.length === 0 ? (
@@ -291,66 +294,93 @@ export default async function AdminAnalyticsPage(props: {
   );
 }
 
-/** One of the business's own tables: rows and money in the period, by day/month, top values. */
-function TableFigures({ summary }: { summary: TableAnalyticsDto }) {
-  const { table, rows, amount, series, breakdowns, period } = summary;
+/** Orders of the order tables and of the site together: how many and how much. */
+function AllOrders({ summary, period }: { summary: TableAnalyticsDto; period: AnalyticsPeriod }) {
+  const all = summary.withSite!;
+  const byMonth = period > 90;
+
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold text-ink">Բոլոր պատվերները</h2>
+        <p className="mt-1 max-w-2xl text-sm text-ink-muted">Կայքի պատվերները և ձեր աղյուսակների պատվերները միասին։</p>
+      </div>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Kpi label="Եկամուտ" value={money(all.revenue)} current={all.revenue} previous={all.previousRevenue} highlight />
+        <Kpi label="Պատվերներ" value={String(all.orders)} current={all.orders} previous={all.previousOrders} />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SectionCard title={byMonth ? "Պատվերներ ըստ ամիսների" : "Պատվերներ ըստ օրերի"}>
+          <Card>
+            <BarChart points={all.series} value={(i) => all.series[i].rows} format={(n) => `${n} պատվեր`} />
+          </Card>
+        </SectionCard>
+        <SectionCard title={byMonth ? "Եկամուտ ըստ ամիսների" : "Եկամուտ ըստ օրերի"}>
+          <Card>
+            <BarChart points={all.series} value={(i) => all.series[i].amount} format={money} />
+          </Card>
+        </SectionCard>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * All tables of a section together (thirty daily files read as one month):
+ * rows and money in the period, by day/month, top values, and each table.
+ */
+function SectionFigures({ summary }: { summary: TableAnalyticsDto }) {
+  const { section, rows, amount, series, breakdowns, period, tables } = summary;
   const byMonth = period.days > 90;
-  const hasDate = summary.dateColumn !== null;
+  const label = section === "orders" ? "Պատվերներ աղյուսակներից" : "Վաճառքներ";
+  const unit = section === "orders" ? "պատվեր" : "վաճառք";
 
   return (
     <section className="space-y-4 border-t border-border pt-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs text-ink-faint">{SECTIONS[table.section].label}</p>
-          <h2 className="text-lg font-semibold text-ink">{table.name}</h2>
+          <h2 className="text-lg font-semibold text-ink">{label}</h2>
           <p className="mt-1 max-w-2xl text-sm text-ink-muted">
-            {hasDate
-              ? `Ըստ «${summary.dateColumn}» սյունակի։${rows.withoutDate ? ` ${rows.withoutDate} տող առանց ամսաթվի հաշվված չէ։` : ""}`
-              : "Աղյուսակում ամսաթվի սյունակ չկա, ուստի ցույց են տրված բոլոր տողերը։ Ավելացրեք ամսաթիվ՝ ժամանակահատվածներ համեմատելու համար։"}
+            {tables.length === 1 ? "1 աղյուսակ" : `${tables.length} աղյուսակ միասին`}, ըստ յուրաքանչյուր տողի ամսաթվի։
           </p>
         </div>
-        <Link href={tablePath(table.section, table.id)} className={buttonClasses("ghost", "sm")}>
-          Բացել աղյուսակը
+        <Link href={tablesPath(section)} className={buttonClasses("ghost", "sm")}>
+          Բոլոր աղյուսակները
         </Link>
       </div>
 
+      {rows.withoutDate > 0 ? (
+        <p className="rounded-md border border-warning/30 bg-warning-light px-4 py-3 text-sm text-warning">
+          {rows.withoutDate} տող առանց ամսաթվի է և չի հաշվվում ոչ մի ժամանակահատվածում։ Լրացրեք ամսաթիվը աղյուսակում կամ
+          ընտրեք ամսաթվի սյունակը աղյուսակի կարգավորումներում։
+        </p>
+      ) : null}
+
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {amount ? (
-          <Kpi
-            label={summary.amountColumn ?? "Գումար"}
-            value={money(amount.current)}
-            current={amount.current}
-            previous={amount.previous}
-            highlight
-          />
+          <Kpi label="Գումար" value={money(amount.current)} current={amount.current} previous={amount.previous} highlight />
         ) : null}
-        <Kpi label="Տողեր" value={String(rows.current)} current={rows.current} previous={rows.previous} />
-        {amount ? <Kpi label="Միջինը մեկ տողում" value={money(amount.average)} current={null} previous={null} /> : null}
-        {summary.numbers
-          .filter((n) => n.type === "number")
-          .slice(0, amount ? 1 : 3)
-          .map((n) => (
-            <Kpi
-              key={n.label}
-              label={`${n.label} (ընդամենը)`}
-              value={new Intl.NumberFormat("hy-AM").format(n.sum)}
-              current={n.sum}
-              previous={n.previousSum}
-            />
-          ))}
+        <Kpi label={section === "orders" ? "Պատվերներ" : "Վաճառքներ"} value={String(rows.current)} current={rows.current} previous={rows.previous} />
+        {amount ? <Kpi label={`Միջինը մեկ ${unit}ում`} value={money(amount.average)} current={null} previous={null} /> : null}
+        {summary.numbers.slice(0, amount ? 1 : 3).map((n) => (
+          <Kpi key={n.label} label={`${n.label} (ընդամենը)`} value={new Intl.NumberFormat("hy-AM").format(n.sum)} current={null} previous={null} />
+        ))}
       </div>
 
-      {hasDate ? (
-        <SectionCard title={`${amount ? (summary.amountColumn ?? "Գումար") : "Տողեր"} ըստ ${byMonth ? "ամիսների" : "օրերի"}`}>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {amount ? (
+          <SectionCard title={`Գումար ըստ ${byMonth ? "ամիսների" : "օրերի"}`}>
+            <Card>
+              <BarChart points={series} value={(i) => series[i].amount} format={money} />
+            </Card>
+          </SectionCard>
+        ) : null}
+        <SectionCard title={`${section === "orders" ? "Պատվերներ" : "Վաճառքներ"} ըստ ${byMonth ? "ամիսների" : "օրերի"}`}>
           <Card>
-            <BarChart
-              points={series}
-              value={(i) => (amount ? series[i].amount : series[i].rows)}
-              format={amount ? money : (n) => `${n} տող`}
-            />
+            <BarChart points={series} value={(i) => series[i].rows} format={(n) => `${n} ${unit}`} />
           </Card>
         </SectionCard>
-      ) : null}
+      </div>
 
       {breakdowns.length > 0 ? (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -381,6 +411,46 @@ function TableFigures({ summary }: { summary: TableAnalyticsDto }) {
           ))}
         </div>
       ) : null}
+
+      <SectionCard title="Ըստ աղյուսակների">
+        <TableWrap>
+          <Thead>
+            <Th>Աղյուսակ</Th>
+            <Th className="text-right">Տողեր ժամանակահատվածում</Th>
+            {amount ? <Th className="text-right">Գումար</Th> : null}
+            <Th>Ամսաթվերը</Th>
+          </Thead>
+          <tbody>
+            {tables.slice(0, 15).map((table) => (
+              <Tr key={table.id}>
+                <Td>
+                  <Link href={tablePath(section, table.id)} className="font-medium text-ink hover:text-primary">
+                    {table.name}
+                  </Link>
+                  {!table.dateColumn ? <span className="block text-xs text-warning">Ամսաթվի սյունակ ընտրված չէ</span> : null}
+                </Td>
+                <Td className="text-right">
+                  {table.rows} <span className="text-ink-faint">/ {table.total}</span>
+                </Td>
+                {amount ? <Td className="whitespace-nowrap text-right">{money(table.amount)}</Td> : null}
+                <Td className="whitespace-nowrap text-ink-muted">
+                  {table.firstAt && table.lastAt
+                    ? `${formatMoment(table.firstAt.slice(0, 10))} – ${formatMoment(table.lastAt.slice(0, 10))}`
+                    : "—"}
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </TableWrap>
+        {tables.length > 15 ? (
+          <p className="text-xs text-ink-muted">
+            Ցույց են տրված առաջին 15-ը {tables.length}-ից։{" "}
+            <Link href={tablesPath(section)} className="underline">
+              Բոլոր աղյուսակները
+            </Link>
+          </p>
+        ) : null}
+      </SectionCard>
     </section>
   );
 }
