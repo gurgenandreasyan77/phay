@@ -308,14 +308,16 @@ The admin has two levels:
 - **Platform** (`/admin/platform`, super admin only; where a super admin
   lands after signing in): **Բիզնեսներ** lists every business with its
   **Մուտքեր** (logins: name, email, password shown once to hand over),
-  **Մոդուլներ** (optional modules such as Auto Care and Market, per
+  **Մոդուլներ** (optional modules: Dry cleaning, Auto Care, Market, per
   business) and **Մտնել** (work inside that business). **Կայքեր** lists the
   sites of every business with their keys (copy, rotate, allowed origins,
   on/off) and connects a new site to a chosen business.
 - **Business** (`/admin`): what an owner always sees, and a super admin after
   **Մտնել** or the business switcher in the top bar (with a "← Պլատֆորմ" link
   back): dashboard, orders, services, settings, plus the modules this business
-  has on. Sales import, analytics and an AI assistant are next (shown as
+  has on. **Ծառայություններ** is the same for every business (name,
+  description, price, photo, status); trade-specific screens such as the
+  upholstery calculator live in a module. Sales import, analytics and an AI assistant are next (shown as
   "soon" to a super admin only).
 
 An owner signs in to the same panel and sees only their business. Platform

@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminServiceDto, AdminServiceVideoDto, AdminTranslated } from "@/lib/adminApi";
-import { TranslatedFields, emptyTranslated, toTranslated, fieldClasses, labelClasses } from "./shared";
-import { ImageUploadField } from "./ImageUploadField";
+import { TranslatedFields, emptyTranslated, toTranslated, fieldClasses, labelClasses } from "../services/shared";
+import { ImageUploadField } from "../services/ImageUploadField";
 import { buttonClasses } from "../_components/ui";
 
 type FormState = {

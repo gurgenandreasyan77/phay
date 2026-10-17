@@ -12,12 +12,14 @@ enum FeatureFlag: string
 {
     case AutoCare = 'auto-care';
     case Market = 'market';
+    case DryCleaning = 'dry-cleaning';
 
     public function label(): string
     {
         return match ($this) {
             self::AutoCare => 'Ավտոխնամք',
             self::Market => 'Խանութ',
+            self::DryCleaning => 'Քիմմաքրում',
         };
     }
 
@@ -26,13 +28,14 @@ enum FeatureFlag: string
         return match ($this) {
             self::AutoCare => 'Ակտիվացնում կամ ամբողջովին անջատում է ավտոմեքենայի խնամքի բաժինը ողջ հավելվածում։',
             self::Market => 'Ակտիվացնում կամ ամբողջովին անջատում է Խանութ (Market) բաժինը ողջ հավելվածում։',
+            self::DryCleaning => 'Փափուկ կահույքի քիմմաքրման հաշվիչը, դրա սակագները և լրացուցիչ ծառայությունները։',
         };
     }
 
     public function category(): string
     {
         return match ($this) {
-            self::AutoCare, self::Market => 'Կատալոգ',
+            self::AutoCare, self::Market, self::DryCleaning => 'Կատալոգ',
         };
     }
 
@@ -44,6 +47,8 @@ enum FeatureFlag: string
     {
         return match ($this) {
             self::AutoCare, self::Market => true,
+            // Servio has it on by a migration; anyone else starts without it.
+            self::DryCleaning => false,
         };
     }
 }

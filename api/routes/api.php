@@ -50,7 +50,13 @@ Route::prefix('v1')->group(function () {
         Route::get('/service-packages/{slug}', [ServicePackageController::class, 'show']);
         Route::get('/service-gallery', [ServiceGalleryItemController::class, 'index']);
         Route::get('/service-videos', [ServiceVideoController::class, 'index']);
-        Route::get('/additional-services', [AdditionalServiceController::class, 'index']);
+
+        // Servio's upholstery dry cleaning: the calculator and its
+        // add-on services exist only for a business with this module on.
+        Route::middleware('feature:dry-cleaning')->group(function () {
+            Route::get('/additional-services', [AdditionalServiceController::class, 'index']);
+            Route::get('/calculator-settings', [CalculatorSettingController::class, 'show']);
+        });
 
         // Products, their categories and SEO task pages are exclusively the
         // "Market" section — unlike auto-care (a ServiceCategory shared with
@@ -65,7 +71,6 @@ Route::prefix('v1')->group(function () {
             Route::get('/task-pages/{slug}', [TaskPageController::class, 'show']);
         });
 
-        Route::get('/calculator-settings', [CalculatorSettingController::class, 'show']);
         Route::get('/posts', [PostController::class, 'index']);
         Route::get('/posts/{post:slug}', [PostController::class, 'show']);
         Route::get('/settings', [SettingsController::class, 'show']);

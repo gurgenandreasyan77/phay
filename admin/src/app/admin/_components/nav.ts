@@ -6,6 +6,7 @@ import {
   Users,
   Wrench,
   Car,
+  Sofa,
   ShoppingBag,
   FolderTree,
   FileSearch,
@@ -66,6 +67,7 @@ export const BUSINESS_NAV_GROUPS: NavGroup[] = [
   {
     label: "Մոդուլներ",
     items: [
+      { href: "/admin/dry-cleaning", label: "Քիմմաքրում", icon: Sofa, requiresFeature: "dryCleaning" },
       { href: "/admin/auto-care", label: "Ավտոխնամք", icon: Car, requiresFeature: "autoCare" },
       { href: "/admin/products", label: "Խանութ", icon: ShoppingBag, requiresFeature: "market" },
       { href: "/admin/market/categories", label: "Կատեգորիաներ", icon: FolderTree, requiresFeature: "market" },

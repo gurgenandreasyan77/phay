@@ -1,38 +1,36 @@
 import { requireAdmin } from "@/lib/adminAuth";
-import { getAdditionalServicesAdmin, getCalculatorSettingsAdmin } from "@/lib/adminApi";
-import { AdditionalServicesManager } from "./AdditionalServicesManager";
-import { CalculatorSettingsForm } from "./CalculatorSettingsForm";
+import { getServiceCategoriesAdmin, getServicesAdmin } from "@/lib/adminApi";
+import { ServiceCategoriesManager } from "./ServiceCategoriesManager";
+import { ServicesCatalog } from "./ServicesCatalog";
 import { PageHeader, SectionCard } from "../_components/ui";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * The business's own services: what it does, for how much. The same for
+ * every business; anything trade-specific (a calculator, car types...) lives
+ * in a module.
+ */
 export default async function AdminServicesPage() {
   await requireAdmin();
-  const [items, calculatorSettings] = await Promise.all([
-    getAdditionalServicesAdmin(),
-    getCalculatorSettingsAdmin(),
-  ]);
+  const [services, categories] = await Promise.all([getServicesAdmin(), getServiceCategoriesAdmin()]);
 
   return (
     <div className="space-y-10">
-      <PageHeader title="Ծառայություններ և գներ" />
+      <PageHeader
+        title="Ծառայություններ"
+        description="Ձեր բիզնեսի ծառայություններն ու գները։ «Ակտիվ» ծառայությունները երևում են կայքում, «Սևագիր»-ը՝ միայն այստեղ։"
+      />
 
-      <SectionCard
-        title="Լրացուցիչ ծառայություններ"
-        description="Գլխավոր էջի սլայդերում ցուցադրվող ծառայություններն ու գները։ «Ակտիվ»-ի հանումը թաքցնում է ծառայությունը կայքից՝ առանց ջնջելու. հետ միացնելով այն նորից հայտնվում է կայքում։"
-      >
-        <AdditionalServicesManager items={items} />
+      <SectionCard title="Ծառայություններ">
+        <ServicesCatalog services={services} categories={categories} />
       </SectionCard>
 
       <SectionCard
-        title="Հաշվիչի սակագներ"
-        description="Կիրառվում են գնահատման հաշվիչում և ստանդարտ մաքրման 3 տեսակների էջում ցուցադրվող «-ից» գներում։"
+        title="Կատեգորիաներ"
+        description="Ծառայությունների խմբերը, որոնցով դրանք դասավորվում են կայքում։"
       >
-        {calculatorSettings ? (
-          <CalculatorSettingsForm settings={calculatorSettings} />
-        ) : (
-          <p className="text-sm text-danger">Չհաջողվեց բեռնել հաշվիչի կարգավորումները։</p>
-        )}
+        <ServiceCategoriesManager items={categories} />
       </SectionCard>
     </div>
   );
