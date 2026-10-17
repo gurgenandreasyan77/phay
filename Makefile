@@ -55,13 +55,15 @@ key-generate:
 test-backend:
 	docker compose exec backend php artisan test
 
+# `npm run typecheck` drops .next/types first: route types left by an old
+# `next build` (e.g. for pages that have since moved) would otherwise fail tsc.
 test-frontend:
 	docker compose exec frontend npm run lint
-	docker compose exec frontend npx tsc --noEmit
+	docker compose exec frontend npm run typecheck
 
 test-admin:
 	docker compose exec admin npm run lint
-	docker compose exec admin npx tsc --noEmit
+	docker compose exec admin npm run typecheck
 
 test: test-backend test-frontend test-admin
 
@@ -70,8 +72,8 @@ lint:
 	docker compose exec admin npm run lint
 
 typecheck:
-	docker compose exec frontend npx tsc --noEmit
-	docker compose exec admin npx tsc --noEmit
+	docker compose exec frontend npm run typecheck
+	docker compose exec admin npm run typecheck
 
 ## Production. `build` is a plain alias for `prod-build` — `up`/`down`/`logs`
 ## intentionally keep their dev meaning above; use `prod-up`/`prod-down`/
