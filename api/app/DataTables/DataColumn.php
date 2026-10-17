@@ -2,6 +2,7 @@
 
 namespace App\DataTables;
 
+use App\Enums\ColumnRole;
 use App\Enums\DataColumnType;
 
 /**
@@ -19,6 +20,8 @@ final readonly class DataColumn
         public DataColumnType $type,
         public bool $required = false,
         public array $options = [],
+        /** What the column means (price, quantity...), whatever its label. */
+        public ?ColumnRole $role = null,
     ) {}
 
     public static function fromArray(array $column): self
@@ -29,6 +32,7 @@ final readonly class DataColumn
             type: DataColumnType::from($column['type']),
             required: (bool) ($column['required'] ?? false),
             options: array_values($column['options'] ?? []),
+            role: ColumnRole::tryFrom((string) ($column['role'] ?? '')),
         );
     }
 
@@ -40,6 +44,7 @@ final readonly class DataColumn
             'type' => $this->type->value,
             'required' => $this->required,
             'options' => $this->type === DataColumnType::Select ? $this->options : [],
+            'role' => $this->role?->value,
         ];
     }
 

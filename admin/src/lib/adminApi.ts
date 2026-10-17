@@ -114,6 +114,22 @@ export type DataTableSection = "orders" | "sales";
 
 export type DataColumnType = "text" | "number" | "money" | "date" | "datetime" | "select" | "boolean";
 
+/** What a column means, whatever it's called (see the API's ColumnRole). */
+export type ColumnRole =
+  | "date"
+  | "item"
+  | "quantity"
+  | "unit"
+  | "unit_price"
+  | "amount"
+  | "payment"
+  | "channel"
+  | "status"
+  | "customer"
+  | "phone"
+  | "address"
+  | "note";
+
 export type AdminDataColumnDto = {
   /** Stable key the rows' values are stored under; absent for a column not saved yet. */
   key?: string;
@@ -121,6 +137,7 @@ export type AdminDataColumnDto = {
   type: DataColumnType;
   required: boolean;
   options: string[];
+  role?: ColumnRole | null;
 };
 
 export type AdminDataTableDto = {
@@ -129,10 +146,11 @@ export type AdminDataTableDto = {
   name: string;
   description: string | null;
   columns: Required<AdminDataColumnDto>[];
-  /** Keys of the columns that say when a row happened and what it's worth. */
+  /** Keys of the columns (found by role) a row's date and money come from. */
   dateColumn: string | null;
   amountColumn: string | null;
-  quantityColumn: string | null;
+  /** How a row's money is counted, e.g. "Գին × Քանակ". */
+  amountLabel: string | null;
   rowsCount?: number;
   /** In the list only: rows with no date, first and last date ("Y-m-d H:i"), money of all rows, last import. */
   rowsWithoutDate?: number;
@@ -199,7 +217,8 @@ export type TableAnalyticsDto = {
   amount: { current: number; previous: number; average: number | null } | null;
   series: { date: string; rows: number; amount: number }[];
   breakdowns: { label: string; distinct: number; values: { value: string; rows: number; amount: number | null }[] }[];
-  numbers: { label: string; sum: number; filled: number }[];
+  /** Sums of number columns; quantities per unit (kg, pieces...). */
+  numbers: { label: string; unit: string | null; sum: number; filled: number }[];
   tables: {
     id: number;
     name: string;

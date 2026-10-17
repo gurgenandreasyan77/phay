@@ -1,5 +1,5 @@
 // Shared by server and client components of the business's own tables.
-import type { AdminDataColumnDto, DataCellValue, DataColumnType, DataTableSection } from "@/lib/adminApi";
+import type { AdminDataColumnDto, ColumnRole, DataCellValue, DataColumnType, DataTableSection } from "@/lib/adminApi";
 
 export const SECTIONS: Record<DataTableSection, { label: string; base: string; feature: "orders" | "sales" }> = {
   orders: { label: "Պատվերներ", base: "/admin/orders", feature: "orders" },
@@ -25,6 +25,99 @@ export const COLUMN_TYPE_LABELS: Record<DataColumnType, string> = {
   select: "Ցանկից ընտրություն",
   boolean: "Այո / Ոչ",
 };
+
+type RoleInfo = {
+  /** The column's name in Armenian, Russian and English. */
+  labels: { hy: string; ru: string; en: string };
+  /** Types the role allows; the first is the default. */
+  types: DataColumnType[];
+  options?: string[];
+  hint: string;
+};
+
+/**
+ * Ready-made columns: what a column means for analytics, whatever it's
+ * called. Mirrors the API's ColumnRole (labels, types, default options).
+ */
+export const COLUMN_ROLES: Record<ColumnRole, RoleInfo> = {
+  date: {
+    labels: { hy: "Ամսաթիվ", ru: "Дата", en: "Date" },
+    types: ["datetime", "date"],
+    hint: "Երբ է եղել պատվերը կամ վաճառքը",
+  },
+  item: {
+    labels: { hy: "Ապրանք", ru: "Товар", en: "Product" },
+    types: ["text", "select"],
+    hint: "Ինչ է վաճառվել",
+  },
+  quantity: {
+    labels: { hy: "Քանակ", ru: "Количество", en: "Quantity" },
+    types: ["number"],
+    hint: "Քանի հատ, կգ, լ… (0,5 կգ)",
+  },
+  unit: {
+    labels: { hy: "Չափման միավոր", ru: "Единица", en: "Unit" },
+    types: ["select", "text"],
+    options: ["հատ", "կգ", "գ", "լ", "մ", "մ²"],
+    hint: "Քանակի միավորը",
+  },
+  unit_price: {
+    labels: { hy: "Գին", ru: "Цена", en: "Price" },
+    types: ["money", "number"],
+    hint: "Մեկ միավորի գինը․ գումար = գին × քանակ",
+  },
+  amount: {
+    labels: { hy: "Գումար", ru: "Сумма", en: "Total" },
+    types: ["money", "number"],
+    hint: "Տողի ամբողջ գումարը",
+  },
+  payment: {
+    labels: { hy: "Վճարման եղանակ", ru: "Способ оплаты", en: "Payment method" },
+    types: ["select", "text"],
+    options: ["Կանխիկ", "Քարտ", "Փոխանցում"],
+    hint: "Կանխիկ, քարտ…",
+  },
+  channel: {
+    labels: { hy: "Աղբյուր", ru: "Канал", en: "Channel" },
+    types: ["select", "text"],
+    options: ["Instagram", "Facebook", "Կայք", "Հեռախոս", "Խանութ"],
+    hint: "Որտեղից է եկել հաճախորդը",
+  },
+  status: {
+    labels: { hy: "Կարգավիճակ", ru: "Статус", en: "Status" },
+    types: ["select", "text"],
+    options: ["Նոր", "Կատարված", "Չեղարկված"],
+    hint: "Նոր, կատարված…",
+  },
+  customer: {
+    labels: { hy: "Հաճախորդ", ru: "Клиент", en: "Customer" },
+    types: ["text", "select"],
+    hint: "Չի ուղարկվում AI-ին",
+  },
+  phone: {
+    labels: { hy: "Հեռախոս", ru: "Телефон", en: "Phone" },
+    types: ["text"],
+    hint: "Չի ուղարկվում AI-ին",
+  },
+  address: {
+    labels: { hy: "Հասցե", ru: "Адрес", en: "Address" },
+    types: ["text"],
+    hint: "Չի ուղարկվում AI-ին",
+  },
+  note: {
+    labels: { hy: "Մեկնաբանություն", ru: "Комментарий", en: "Note" },
+    types: ["text"],
+    hint: "Ազատ տեքստ",
+  },
+};
+
+/** A role's labels; the item is a service in the orders section. */
+export function roleLabels(role: ColumnRole, section: DataTableSection): RoleInfo["labels"] {
+  if (role === "item" && section === "orders") return { hy: "Ծառայություն", ru: "Услуга", en: "Service" };
+  return COLUMN_ROLES[role].labels;
+}
+
+export const ROLE_ORDER = Object.keys(COLUMN_ROLES) as ColumnRole[];
 
 /** How a stored value reads in the table. */
 export function formatCell(value: DataCellValue | undefined, column: Pick<AdminDataColumnDto, "type">): string {

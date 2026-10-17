@@ -17,9 +17,10 @@ class DataTableResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description,
             'columns' => $this->columns,
-            'dateColumn' => $this->date_column,
-            'amountColumn' => $this->amount_column,
-            'quantityColumn' => $this->quantity_column,
+            // Keys of the columns a row's date and money are read from (by role).
+            'dateColumn' => $this->dateColumn()?->key,
+            'amountColumn' => $this->amountColumn()?->key,
+            'amountLabel' => $this->amountLabel(),
             'rowsCount' => $this->whenCounted('rows'),
             'rowsWithoutDate' => $this->whenCounted('rows_without_date'),
             // When the first and last rows happened, the money of all rows, the last import.

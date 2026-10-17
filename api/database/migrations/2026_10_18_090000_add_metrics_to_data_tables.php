@@ -1,7 +1,5 @@
 <?php
 
-use App\DataTables\RowMetrics;
-use App\Models\DataTable;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -28,11 +26,8 @@ return new class extends Migration
             $table->index(['data_table_id', 'occurred_at']);
         });
 
-        DataTable::withoutTenancy()->each(function (DataTable $table) {
-            $table->fillMetricColumns();
-            $table->saveQuietly();
-            RowMetrics::recompute($table);
-        });
+        // The rows are filled by 2026_10_18_120000, which moves these choices
+        // into column roles.
     }
 
     public function down(): void

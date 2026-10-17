@@ -96,7 +96,7 @@ class TableAnalyticsTest extends TestCase
             [['value' => 'Մոմ', 'rows' => 2, 'amount' => 9500], ['value' => 'Օճառ', 'rows' => 1, 'amount' => 3000]],
             $summary['breakdowns'][0]['values'],
         );
-        $this->assertSame([['label' => 'Քանակ', 'sum' => 5, 'filled' => 3]], $summary['numbers']);
+        $this->assertSame([['label' => 'Քանակ', 'unit' => null, 'sum' => 5, 'filled' => 3]], $summary['numbers']);
 
         $this->assertSame(['Instagram', '17.10'], array_column($summary['tables'], 'name'));
         $this->assertSame('Գին × Քանակ', $summary['tables'][0]['amountColumn']);
@@ -108,23 +108,76 @@ class TableAnalyticsTest extends TestCase
             ->assertJsonCount(13, 'data.0.series');
     }
 
-    public function test_changing_the_date_or_amount_column_counts_the_rows_again(): void
+    public function test_changing_what_a_column_means_counts_the_rows_again(): void
     {
+        $this->assertSame('sales', $this->table['section']);
+        $this->assertSame(
+            ['item', 'quantity', 'unit_price', 'date', 'phone'],
+            array_column($this->table['columns'], 'role'),
+            'Roles are guessed from the names of columns sent without one.',
+        );
+
+        // The price column no longer counted as a price: no money at all.
         $columns = $this->table['columns'];
-        $columns[] = ['label' => 'Վճարված', 'type' => 'money'];
+        $columns[2]['role'] = null;
+        $this->patchJson("/api/v1/admin/data-tables/{$this->table['id']}", ['columns' => $columns])->assertOk();
+        $this->getJson('/api/v1/admin/analytics/tables?period=30')->assertOk()->assertJsonPath('data.0.amount', null);
 
-        $this->patchJson("/api/v1/admin/data-tables/{$this->table['id']}", [
-            'columns' => $columns,
-            'amount_column' => 'Վճարված',
-            'quantity_column' => null,
-        ])->assertOk()->assertJsonPath('data.quantityColumn', null);
-
-        // No row has the new money column filled yet.
-        $this->getJson('/api/v1/admin/analytics/tables?period=30')->assertOk()->assertJsonPath('data.0.amount.current', 0);
-
-        // Back to the price; the quantity column, not chosen, is picked again.
-        $this->patchJson("/api/v1/admin/data-tables/{$this->table['id']}", ['amount_column' => $columns[2]['key']])->assertOk();
+        // A total column filled on a row wins over price × quantity.
+        $columns[2]['role'] = 'unit_price';
+        $columns[] = ['label' => 'Վճարված', 'type' => 'money', 'role' => 'amount'];
+        $table = $this->patchJson("/api/v1/admin/data-tables/{$this->table['id']}", ['columns' => $columns])->assertOk()->json('data');
         $this->getJson('/api/v1/admin/analytics/tables?period=30')->assertOk()->assertJsonPath('data.0.amount.current', 16500);
+
+        $row = DataTableRow::withoutTenancy()->orderBy('id')->first();
+        $values = [...$row->data, $table['columns'][5]['key'] => 8000];
+        $this->patchJson("/api/v1/admin/data-tables/{$this->table['id']}/rows/{$row->id}", ['values' => $values])->assertOk();
+        // 8000 instead of 2 × 4500
+        $this->getJson('/api/v1/admin/analytics/tables?period=30')->assertOk()->assertJsonPath('data.0.amount.current', 15500);
+    }
+
+    public function test_a_price_per_kilogram_times_a_weight_is_counted_exactly(): void
+    {
+        $table = $this->postJson('/api/v1/admin/data-tables', [
+            'section' => 'sales',
+            'name' => 'Կշռով',
+            'columns' => [
+                ['label' => 'Ապրանք', 'type' => 'text', 'role' => 'item'],
+                // Named in Latin letters: only the role says it's the price.
+                ['label' => 'gin', 'type' => 'money', 'role' => 'unit_price'],
+                ['label' => 'Քաշ', 'type' => 'number', 'role' => 'quantity'],
+                ['label' => 'Միավոր', 'type' => 'select', 'role' => 'unit', 'options' => ['կգ', 'հատ']],
+                ['label' => 'Ամսաթիվ', 'type' => 'date', 'role' => 'date'],
+            ],
+        ])->assertCreated()->assertJsonPath('data.amountLabel', 'gin × Քաշ')->json('data');
+
+        $this->rows($table, [
+            ['Պանիր', 3000, '0,5', 'կգ', '2026-10-17'],
+            ['Մեղր', '1999.99', '0.3', 'կգ', '2026-10-17'],
+            ['Մոմ', 4500, 2, 'հատ', '2026-10-17'],
+        ]);
+
+        // 1500 + 599.997 → 600 + 9000
+        $this->assertSame([1500.0, 600.0, 9000.0], DataTableRow::withoutTenancy()->where('data_table_id', $table['id'])->orderBy('id')->pluck('amount')->all());
+
+        $sales = $this->getJson('/api/v1/admin/analytics/tables?period=7')->assertOk()->json('data.0');
+        $this->assertSame(11100, collect($sales['tables'])->firstWhere('name', 'Կշռով')['amount']);
+        // Kilograms and pieces are not added together.
+        $this->assertSame(
+            [['label' => 'Քանակ', 'unit' => 'կգ', 'sum' => 0.8, 'filled' => 2], ['label' => 'Քանակ', 'unit' => 'հատ', 'sum' => 2, 'filled' => 1]],
+            collect($sales['numbers'])->where('unit', '!==', null)->values()->all(),
+        );
+    }
+
+    public function test_a_role_is_on_one_column_of_a_type_it_allows(): void
+    {
+        $columns = [['label' => 'Գին', 'type' => 'money', 'role' => 'unit_price'], ['label' => 'Цена', 'type' => 'money', 'role' => 'unit_price']];
+        $this->postJson('/api/v1/admin/data-tables', ['section' => 'sales', 'name' => 'X', 'columns' => $columns])
+            ->assertUnprocessable()->assertJsonValidationErrors('columns.1.role');
+
+        $columns = [['label' => 'Ամսաթիվ', 'type' => 'text', 'role' => 'date']];
+        $this->postJson('/api/v1/admin/data-tables', ['section' => 'sales', 'name' => 'X', 'columns' => $columns])
+            ->assertUnprocessable()->assertJsonValidationErrors('columns.0.type');
     }
 
     public function test_table_orders_and_site_orders_are_counted_together(): void

@@ -2,6 +2,7 @@
 
 namespace App\DataTables;
 
+use App\Enums\ColumnRole;
 use App\Enums\DataColumnType;
 use App\Enums\DataTableSection;
 use App\Models\DataTable;
@@ -18,8 +19,8 @@ use Laravel\Pennant\Feature;
  *
  * Rows are placed in time and valued by occurred_at and amount (see
  * RowMetrics), which are kept on each row when it's saved, so a period is
- * one indexed query. Column breakdowns join columns of the same name across
- * tables. Feeds the analytics screen and the AI assistant.
+ * one indexed query. Column breakdowns join columns of the same role (price,
+ * product...) or, without one, the same name across tables. Feeds the analytics screen and the AI assistant.
  */
 class TableAnalytics
 {
@@ -130,7 +131,7 @@ class TableAnalytics
                     'id' => $table->id,
                     'name' => $table->name,
                     'dateColumn' => $table->dateColumn()?->label,
-                    'amountColumn' => $this->amountLabel($table),
+                    'amountColumn' => $table->amountLabel(),
                     'rows' => $rows->count(),
                     'amount' => $table->amountColumn() ? $this->round($rows->sum('amount')) : null,
                     'total' => (int) ($total->total ?? 0),
@@ -192,7 +193,7 @@ class TableAnalytics
                     'table' => $table->name,
                     'at' => substr((string) $row->getRawOriginal('occurred_at'), 0, 16),
                     ...collect($table->columnDefinitions())
-                        ->reject(fn (DataColumn $c) => self::isPersonal($c->label) || $c->key === $table->date_column)
+                        ->reject(fn (DataColumn $c) => self::isPersonalColumn($c) || $c->role === ColumnRole::Date)
                         ->mapWithKeys(fn (DataColumn $c) => [$c->label => $row->data[$c->key] ?? null])
                         ->filter(fn ($v) => $v !== null && $v !== '')
                         ->all(),
@@ -207,6 +208,12 @@ class TableAnalytics
         return (bool) preg_match(self::PERSONAL_LABELS, $label);
     }
 
+    /** About the buyer: by its role, or by its name when it has no role. */
+    public static function isPersonalColumn(DataColumn $column): bool
+    {
+        return $column->role ? $column->role->isPersonal() : self::isPersonal($column->label);
+    }
+
     /** @return array{0: CarbonImmutable, 1: CarbonImmutable, 2: CarbonImmutable, 3: CarbonImmutable} today, start, previous start, end of today */
     private function bounds(int $days): array
     {
@@ -217,25 +224,19 @@ class TableAnalytics
         return [$now, $start, $start->subDays($days), $now->endOfDay()];
     }
 
-    private function amountLabel(DataTable $table): ?string
-    {
-        $amount = $table->amountColumn();
-        $quantity = $table->quantityColumn();
-
-        return $amount ? ($quantity ? "{$amount->label} × {$quantity->label}" : $amount->label) : null;
-    }
-
     /**
      * Most frequent values of text, list and yes/no columns, columns of the
-     * same name in different tables taken as one.
+     * same role (or, without one, the same name) in different tables taken
+     * as one.
      *
      * @param  Collection<int, DataTable>  $tables
      * @return list<array{label: string, values: list<array{value: string, rows: int, amount: int|float|null}>, distinct: int}>
      */
     private function breakdowns(Collection $tables, Collection $current): array
     {
-        $columns = $this->columnsByLabel($tables, fn (DataColumn $c) => in_array($c->type, [DataColumnType::Text, DataColumnType::Select, DataColumnType::Boolean], true)
-            && ! self::isPersonal($c->label));
+        $columns = $this->columnsByMeaning($tables, fn (DataColumn $c) => in_array($c->type, [DataColumnType::Text, DataColumnType::Select, DataColumnType::Boolean], true)
+            && ! self::isPersonalColumn($c)
+            && ! in_array($c->role, [ColumnRole::Unit, ColumnRole::Note], true));
 
         return $columns
             ->map(function (array $column) use ($current) {
@@ -274,44 +275,58 @@ class TableAnalytics
     }
 
     /**
-     * Sums of number columns (quantities, kilograms...), same name taken as one.
+     * Sums of number columns, same role or name taken as one. Quantities are
+     * summed per unit (12 հատ, 3.5 կգ): kilograms and pieces don't add up.
      *
      * @param  Collection<int, DataTable>  $tables
-     * @return list<array{label: string, sum: int|float, filled: int}>
+     * @return list<array{label: string, unit: ?string, sum: int|float, filled: int}>
      */
     private function numbers(Collection $tables, Collection $current): array
     {
-        return $this->columnsByLabel($tables, fn (DataColumn $c) => $c->type === DataColumnType::Number)
-            ->map(function (array $column) use ($current) {
-                $values = $current
-                    ->map(fn ($r) => isset($column['keys'][$r['table']]) ? ($r['data'][$column['keys'][$r['table']]] ?? null) : null)
-                    ->filter(fn ($v) => is_int($v) || is_float($v));
+        $units = $tables->mapWithKeys(fn (DataTable $t) => [$t->id => $t->roleColumn(ColumnRole::Unit)?->key]);
 
-                return ['label' => $column['label'], 'sum' => $this->round($values->sum()), 'filled' => $values->count()];
+        return $this->columnsByMeaning($tables, fn (DataColumn $c) => $c->type === DataColumnType::Number)
+            ->flatMap(function (array $column) use ($current, $units) {
+                $values = $current
+                    ->map(fn ($r) => [
+                        'value' => isset($column['keys'][$r['table']]) ? ($r['data'][$column['keys'][$r['table']]] ?? null) : null,
+                        'unit' => $column['role'] === ColumnRole::Quantity && $units[$r['table']] ? ($r['data'][$units[$r['table']]] ?? null) : null,
+                    ])
+                    ->filter(fn ($v) => is_int($v['value']) || is_float($v['value']));
+
+                return $values->groupBy(fn ($v) => (string) $v['unit'])
+                    ->map(fn (Collection $group, string $unit) => [
+                        'label' => $column['label'],
+                        'unit' => $unit === '' ? null : $unit,
+                        'sum' => $this->round($group->sum('value')),
+                        'filled' => $group->count(),
+                    ])
+                    ->sortByDesc('filled')
+                    ->values();
             })
-            ->filter(fn (array $n) => $n['filled'] > 0)
             ->values()
             ->all();
     }
 
     /**
-     * Columns of all tables grouped by name: label and, per table id, the key.
+     * Columns of all tables grouped by role, or by name for columns without
+     * one: label, role and, per table id, the key. The date is left out.
      *
      * @param  Collection<int, DataTable>  $tables
-     * @return Collection<string, array{label: string, keys: array<int, string>}>
+     * @return Collection<string, array{label: string, role: ?ColumnRole, keys: array<int, string>}>
      */
-    private function columnsByLabel(Collection $tables, callable $filter): Collection
+    private function columnsByMeaning(Collection $tables, callable $filter): Collection
     {
         $columns = collect();
 
         foreach ($tables as $table) {
             foreach ($table->columnDefinitions() as $column) {
-                if ($column->key === $table->date_column || ! $filter($column)) {
+                if ($column->role === ColumnRole::Date || ! $filter($column)) {
                     continue;
                 }
 
-                $name = mb_strtolower(trim($column->label));
-                $entry = $columns->get($name, ['label' => $column->label, 'keys' => []]);
+                $name = $column->role ? "role:{$column->role->value}" : 'label:'.mb_strtolower(trim($column->label));
+                $entry = $columns->get($name, ['label' => $column->label, 'role' => $column->role, 'keys' => []]);
                 $entry['keys'][$table->id] = $column->key;
                 $columns->put($name, $entry);
             }

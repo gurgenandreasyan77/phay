@@ -5,6 +5,7 @@ namespace App\DataTables\Import;
 use App\DataTables\DataColumn;
 use App\DataTables\Moment;
 use App\DataTables\TableAnalytics;
+use App\Enums\ColumnRole;
 use App\Enums\DataColumnType;
 
 /**
@@ -27,7 +28,8 @@ final class ColumnMatcher
         $used = [];
         $mapping = [];
 
-        // Exact names first, then a name that contains the other.
+        // Exact names first, then a name that contains the other, then the
+        // meaning: a "Цена" header goes into the price column called "Գին".
         foreach ([true, false] as $exact) {
             foreach ($columns as $column) {
                 if (isset($mapping[$column->key])) {
@@ -53,22 +55,37 @@ final class ColumnMatcher
             }
         }
 
+        foreach ($columns as $column) {
+            if (isset($mapping[$column->key]) || ! $column->role) {
+                continue;
+            }
+            foreach ($headers as $index => $header) {
+                if (! isset($used[$index]) && ColumnRole::guess($header) === $column->role) {
+                    $mapping[$column->key] = $index;
+                    $used[$index] = true;
+                    break;
+                }
+            }
+        }
+
         return collect($columns)->mapWithKeys(fn (DataColumn $column) => [$column->key => $mapping[$column->key] ?? null])->all();
     }
 
     /**
      * Column definitions for a new table made from the file: the headers as
-     * labels, and the type the values look like.
+     * labels, the type the values look like, and the role (price, quantity,
+     * date...) the header's words suggest, each role once.
      *
      * @param  list<string>  $headers
      * @param  list<list<string>>  $rows
-     * @return list<array{label: string, type: string, required: bool, options: list<string>}>
+     * @return list<array{label: string, type: string, required: bool, options: list<string>, role: ?string}>
      */
     public static function guessColumns(array $headers, array $rows): array
     {
         $sample = array_slice($rows, 0, 500);
         $columns = [];
         $labels = [];
+        $roles = [];
 
         foreach ($headers as $index => $header) {
             $label = mb_substr($header, 0, 100);
@@ -81,11 +98,54 @@ final class ColumnMatcher
 
             $values = array_values(array_filter(array_column($sample, $index), fn ($v) => $v !== ''));
             [$type, $options] = self::guessType($header, $values);
+            [$type, $options, $role] = self::fitRole(ColumnRole::guess($header), $type, $options, $values, $roles);
+            if ($role) {
+                $roles[$role->value] = true;
+            }
 
-            $columns[] = ['label' => $label, 'type' => $type->value, 'required' => false, 'options' => $options];
+            $columns[] = ['label' => $label, 'type' => $type->value, 'required' => false, 'options' => $options, 'role' => $role?->value];
         }
 
         return $columns;
+    }
+
+    /**
+     * The guessed type, made to fit the role the header suggests: a price
+     * is money, a payment method a list; a role the values don't fit (a
+     * "Date" column of words) or already taken is dropped.
+     *
+     * @param  array<string, true>  $taken
+     * @return array{0: DataColumnType, 1: list<string>, 2: ?ColumnRole}
+     */
+    private static function fitRole(?ColumnRole $role, DataColumnType $type, array $options, array $values, array $taken): array
+    {
+        if (! $role || isset($taken[$role->value])) {
+            return [$type, $options, null];
+        }
+
+        $allowed = $role->types();
+
+        if ($allowed[0] === DataColumnType::Money && $type === DataColumnType::Number) {
+            return [DataColumnType::Money, [], $role];
+        }
+
+        $distinct = array_values(array_unique(array_map('trim', $values)));
+        if ($allowed[0] === DataColumnType::Select && $type === DataColumnType::Text && $distinct !== [] && count($distinct) <= 20 && max(array_map('mb_strlen', $distinct)) <= 40) {
+            sort($distinct);
+
+            return [DataColumnType::Select, $distinct, $role];
+        }
+
+        if (in_array($type, $allowed, true)) {
+            return [$type, $options, $role];
+        }
+
+        // Names, phones, notes: whatever the values look like, they're text.
+        if ($allowed[0] === DataColumnType::Text) {
+            return [DataColumnType::Text, [], $role];
+        }
+
+        return [$type, $options, null];
     }
 
     /** @return array{0: DataColumnType, 1: list<string>} */

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Upload } from "lucide-react";
 import type { AdminDataImportDto, AdminDataImportPreviewDto, AdminDataTableDto, DataTableSection } from "@/lib/adminApi";
 import { Badge, Button, buttonClasses, Card, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "../ui";
-import { COLUMN_TYPE_LABELS, formatDateTime, tablePath, validationErrors } from "./shared";
+import { COLUMN_TYPE_LABELS, formatDateTime, roleLabels, tablePath, validationErrors } from "./shared";
 
 export const IMPORT_ACCEPT = ".csv,.tsv,.txt,.xlsx,.xml";
 
@@ -165,7 +165,10 @@ export function ImportWizard({
                     <Td className="whitespace-nowrap">
                       <span className="font-medium">{column.label}</span>
                       {column.required ? <span className="text-danger"> *</span> : null}
-                      <span className="block text-xs text-ink-faint">{COLUMN_TYPE_LABELS[column.type]}</span>
+                      <span className="block text-xs text-ink-faint">
+                        {column.role ? `${roleLabels(column.role, table.section).hy} · ` : ""}
+                        {COLUMN_TYPE_LABELS[column.type]}
+                      </span>
                     </Td>
                     <Td className="w-72">
                       <Select
