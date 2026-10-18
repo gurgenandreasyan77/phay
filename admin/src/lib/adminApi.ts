@@ -871,6 +871,45 @@ export async function getDataTables(section?: DataTableSection): Promise<AdminDa
   return result.data ?? [];
 }
 
+/** A row of an order table on a day of the calendar (see the API's CalendarController). */
+export type CalendarRowDto = {
+  id: number;
+  tableId: number;
+  /** "Y-m-d", the business's local day. */
+  date: string;
+  /** "H:i" for a date-and-time column; null for a date column (the whole day). */
+  time: string | null;
+  amount: number | null;
+  values: Record<string, DataCellValue>;
+};
+
+/** An order from the site on the day the customer asked for. */
+export type CalendarLeadDto = {
+  id: number;
+  date: string;
+  name: string;
+  phone: string;
+  service: string | null;
+  status: LeadStatus;
+  finalPrice: number | null;
+};
+
+export type CalendarDto = {
+  from: string;
+  to: string;
+  /** The order tables with a date column: where rows can be added from the calendar. */
+  tables: AdminDataTableDto[];
+  rows: CalendarRowDto[];
+  /** More rows than the API sends at once. */
+  truncated: boolean;
+  leads: CalendarLeadDto[];
+};
+
+export async function getCalendar(from: string, to: string): Promise<CalendarDto | null> {
+  const result = await adminApiFetch<CalendarDto>(`/admin/calendar?from=${from}&to=${to}`);
+  return result.data;
+}
+
 export async function getDataTable(id: number): Promise<AdminDataTableDto | null> {
   const result = await adminApiFetch<AdminDataTableDto>(`/admin/data-tables/${id}`);
   return result.data;

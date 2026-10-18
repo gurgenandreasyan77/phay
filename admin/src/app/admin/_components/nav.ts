@@ -62,6 +62,7 @@ export const BUSINESS_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/admin", label: "Վահանակ", icon: LayoutDashboard, requires: "orders" },
       { href: "/admin/orders", label: "Պատվերներ", icon: ClipboardList, requiresFeature: "orders", requires: "orders" },
+      { href: "/admin/calendar", label: "Օրացույց", icon: CalendarDays, requiresFeature: "orders", requires: "orders" },
       { href: "/admin/sales", label: "Վաճառքներ", icon: Receipt, requiresFeature: "sales", requires: "orders" },
       { href: "/admin/statistics", label: "Վիճակագրություն", icon: Sigma, requires: "insights" },
       { href: "/admin/analytics", label: "Վերլուծություն", icon: TrendingUp, requires: "insights" },
@@ -88,7 +89,6 @@ export const BUSINESS_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/admin/employees", label: "Աշխատակիցներ", icon: UserCog, soon: true },
       { href: "/admin/tasks", label: "Առաջադրանքներ", icon: ListChecks, soon: true },
-      { href: "/admin/calendar", label: "Օրացույց", icon: CalendarDays, soon: true },
       { href: "/admin/roles", label: "Դերեր և իրավունքներ", icon: ShieldCheck, soon: true },
     ],
   },
