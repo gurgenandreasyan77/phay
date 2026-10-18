@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Admin;
 
+use App\DataTables\Period;
 use App\Models\DataTableRow;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -17,6 +18,9 @@ class DataTableRowResource extends JsonResource
             // An object even when empty, so the admin can always index it by column key.
             'values' => (object) ($this->data ?? []),
             'source' => $this->source,
+            // Where the row is filed: its year, quarter, month, ISO week and day.
+            'period' => ($at = $this->resource->getRawOriginal('occurred_at')) ? Period::tags($at) : null,
+            'employeeId' => $this->employee_id,
             'createdAt' => $this->created_at?->toIso8601String(),
             'updatedAt' => $this->updated_at?->toIso8601String(),
         ];

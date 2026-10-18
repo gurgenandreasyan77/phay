@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\Admin\CalendarRowController as AdminCalendarRowC
 use App\Http\Controllers\Api\V1\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Api\V1\Admin\CalculatorSettingController as AdminCalculatorSettingController;
 use App\Http\Controllers\Api\V1\Admin\ContactChannelController as AdminContactChannelController;
+use App\Http\Controllers\Api\V1\Admin\EmployeeController as AdminEmployeeController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\V1\Admin\DataImportController as AdminDataImportController;
 use App\Http\Controllers\Api\V1\Admin\DataTableController as AdminDataTableController;
@@ -152,6 +153,9 @@ Route::prefix('v1')->group(function () {
                     Route::delete('/data-tables/{dataTable}/rows/{row}', [AdminDataTableRowController::class, 'destroy']);
                 });
 
+                // Who does the orders: the performer field offers them.
+                Route::get('/employees', [AdminEmployeeController::class, 'index']);
+
                 // Filling a table from a CSV, XLSX or XML file.
                 Route::get('/data-tables/{dataTable}/imports', [AdminDataImportController::class, 'index']);
                 Route::post('/data-imports', [AdminDataImportController::class, 'store'])->middleware('throttle:data-imports');
@@ -165,6 +169,9 @@ Route::prefix('v1')->group(function () {
                 Route::get('/analytics/tables', AdminTableAnalyticsController::class);
                 Route::put('/analytics/dashboard', [AdminTableAnalyticsController::class, 'update']);
                 Route::get('/analytics/statistics', [AdminTableAnalyticsController::class, 'statistics']);
+                // What each employee did: orders, revenue, costs.
+                Route::get('/employees/stats', [AdminEmployeeController::class, 'stats']);
+                Route::get('/employees/{employee}', [AdminEmployeeController::class, 'show']);
                 Route::get('/assistant', [AdminAssistantController::class, 'show']);
                 Route::post('/assistant', [AdminAssistantController::class, 'store'])->middleware('throttle:assistant');
             });
@@ -175,6 +182,11 @@ Route::prefix('v1')->group(function () {
                 Route::post('/contact-channels', [AdminContactChannelController::class, 'store']);
                 Route::patch('/contact-channels/{contactChannel}', [AdminContactChannelController::class, 'update']);
                 Route::delete('/contact-channels/{contactChannel}', [AdminContactChannelController::class, 'destroy']);
+
+                // The business's employees: owner and admin.
+                Route::post('/employees', [AdminEmployeeController::class, 'store']);
+                Route::patch('/employees/{employee}', [AdminEmployeeController::class, 'update']);
+                Route::delete('/employees/{employee}', [AdminEmployeeController::class, 'destroy']);
             });
 
             Route::middleware('business.can:catalog')->group(function () {

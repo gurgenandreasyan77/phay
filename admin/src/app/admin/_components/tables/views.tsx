@@ -13,6 +13,7 @@ import {
   getFeatureFlagsAdmin,
   getLeads,
   type DataTableSection,
+  type PeriodKind,
 } from "@/lib/adminApi";
 import { buttonClasses, Card, EmptyCard, PageHeader } from "../ui";
 import { RowsGrid } from "./RowsGrid";
@@ -21,6 +22,7 @@ import { ImportWizard } from "./ImportWizard";
 import { NewTableForm } from "./NewTableForm";
 import { TableDesigner } from "./TableDesigner";
 import { SECTIONS, tablePath, tablesPath } from "./shared";
+import { TABLE_PERIOD_LABELS } from "./periods";
 
 /** 404 while the section's module (orders, sales) is off for this business. */
 export async function requireSectionModule(section: DataTableSection): Promise<void> {
@@ -126,8 +128,10 @@ export async function TableView({
 
   const search = first(searchParams.search);
   const page = Number(first(searchParams.page)) || undefined;
+  const period = first(searchParams.period) as PeriodKind | undefined;
+  const date = first(searchParams.date);
   const table = await loadTable(section, id);
-  const rows = await getDataTableRows(table.id, { search, page });
+  const rows = await getDataTableRows(table.id, { search, page, period, date });
   const canDesign = can(me, "catalog");
 
   return (
@@ -149,7 +153,12 @@ export async function TableView({
         }
       />
       {table.description ? <p className="text-sm text-ink-muted">{table.description}</p> : null}
-      <RowsGrid key={`${table.id}-${search ?? ""}-${page ?? 1}`} table={table} rows={rows.items} meta={rows.meta} />
+      <p className="text-sm text-ink-muted">
+        {table.periodInfo
+          ? `${TABLE_PERIOD_LABELS[table.periodInfo.kind]} աղյուսակ՝ ${table.periodInfo.label}${table.periodInfo.inferred ? " (ըստ անվան կամ տողերի)" : ""}`
+          : "Ցանկացած ամսաթվի աղյուսակ"}
+      </p>
+      <RowsGrid key={`${table.id}-${search ?? ""}-${page ?? 1}-${period ?? ""}-${date ?? ""}`} table={table} rows={rows.items} meta={rows.meta} />
     </div>
   );
 }

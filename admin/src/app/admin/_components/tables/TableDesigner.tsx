@@ -3,18 +3,27 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
-import type { AdminDataColumnDto, AdminDataTableDto, ColumnRole, DataColumnType, DataTableSection } from "@/lib/adminApi";
+import type {
+  AdminDataColumnDto,
+  AdminDataTableDto,
+  ColumnRole,
+  DataColumnType,
+  DataTableSection,
+  TablePeriod,
+} from "@/lib/adminApi";
 import { Button, Card, FieldLabel, Input, Select, Textarea } from "../ui";
 import {
   COLUMN_ROLES,
   COLUMN_TYPE_LABELS,
   COLUMN_TYPES,
+  formatMoment,
   ROLE_ORDER,
   roleLabels,
   tablePath,
   tablesPath,
   validationErrors,
 } from "./shared";
+import { PERIOD_KINDS, periodOf, TABLE_PERIOD_LABELS, today } from "./periods";
 
 type ColumnDraft = {
   /** Local id for React keys; the saved key (if any) is in `key`. */
@@ -57,7 +66,7 @@ function roleDraft(role: ColumnRole, section: DataTableSection): ColumnDraft {
 
 /** A starting point per section, so a new table isn't a blank page. */
 const STARTER_ROLES: Record<DataTableSection, ColumnRole[]> = {
-  orders: ["customer", "phone", "item", "date", "amount"],
+  orders: ["customer", "phone", "item", "date", "amount", "cost", "performer"],
   sales: ["item", "quantity", "unit_price", "date", "payment"],
 };
 
@@ -108,6 +117,12 @@ export function TableDesigner({
   const router = useRouter();
   const [name, setName] = useState(table?.name ?? initial?.name ?? "");
   const [description, setDescription] = useState(table?.description ?? "");
+  // A new table by hand is a month's; one from a file may cover any dates.
+  // "" is a table made before periods, left as it is until one is chosen.
+  const [period, setPeriod] = useState<TablePeriod | "">(() =>
+    table ? (table.period ?? "") : initial ? "custom" : "month",
+  );
+  const [periodDate, setPeriodDate] = useState(table?.periodInfo?.start ?? today());
   const [columns, setColumns] = useState<ColumnDraft[]>(() => {
     const given = table?.columns ?? initial?.columns;
     return given ? given.map(toDraft) : starterColumns(section);
@@ -159,6 +174,9 @@ export function TableDesigner({
         ...(table ? {} : { section }),
         name,
         description: description || null,
+        ...(period === ""
+          ? {}
+          : { period, periodDate: period === "custom" ? null : periodDate || null }),
         columns: columns.map((c) => ({
           key: c.key,
           label: c.label,
@@ -229,6 +247,47 @@ export function TableDesigner({
             <Input value={description} onChange={(e) => setDescription(e.target.value)} />
           </label>
         </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="space-y-1.5">
+            <FieldLabel>Ժամանակահատված</FieldLabel>
+            <Select value={period} onChange={(e) => setPeriod(e.target.value as TablePeriod | "")}>
+              {table && table.period === null ? (
+                <option value="">
+                  {table.periodInfo ? `Ավտոմատ՝ ${table.periodInfo.label} (ըստ անվան կամ տողերի)` : "Ընտրված չէ (ցանկացած ամսաթիվ)"}
+                </option>
+              ) : null}
+              {[...PERIOD_KINDS, "custom" as const].map((kind) => (
+                <option key={kind} value={kind}>
+                  {TABLE_PERIOD_LABELS[kind]}
+                </option>
+              ))}
+            </Select>
+            {errors.period ? <p className="text-xs text-danger">{errors.period}</p> : null}
+          </label>
+          {period !== "" && period !== "custom" ? (
+            <label className="space-y-1.5">
+              <FieldLabel>Ո՞ր ժամանակահատվածի համար</FieldLabel>
+              <Input type="date" value={periodDate} onChange={(e) => setPeriodDate(e.target.value)} />
+              {/^\d{4}-\d{2}-\d{2}$/.test(periodDate) ? (
+                <p className="text-xs text-ink-muted">
+                  {(() => {
+                    const p = periodOf(period, periodDate);
+                    return p.start === p.end
+                      ? p.label
+                      : `${p.label} · ${formatMoment(p.start)} – ${formatMoment(p.end)}`;
+                  })()}
+                </p>
+              ) : null}
+              {errors.periodDate ? <p className="text-xs text-danger">{errors.periodDate}</p> : null}
+            </label>
+          ) : null}
+        </div>
+        <p className="text-sm text-ink-muted">
+          {period === "custom" || period === ""
+            ? "Աղյուսակը ընդունում է ցանկացած ամսաթվի պատվեր։"
+            : "Օրացույցից ավելացված պատվերը, որի ամսաթիվն այլ ժամանակահատվածից է, կգնա այդ ժամանակահատվածի աղյուսակ (կստեղծվի ինքնաշխատ՝ նույն սյունակներով)։"}{" "}
+          Յուրաքանչյուր տող միշտ գրանցվում է իր տարում, եռամսյակում, ամսում, շաբաթում և օրում։
+        </p>
       </Card>
 
       <div className="space-y-3">

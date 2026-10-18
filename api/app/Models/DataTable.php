@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\DataTables\DataColumn;
 use App\Enums\ColumnRole;
+use App\DataTables\Period;
 use App\Enums\DataTableSection;
+use App\Enums\TablePeriod;
 use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -19,13 +21,36 @@ class DataTable extends Model
 {
     use BelongsToTenant;
 
-    protected $fillable = ['section', 'name', 'description', 'columns', 'sort_order'];
+    protected $fillable = ['section', 'name', 'description', 'columns', 'period', 'period_start', 'sort_order'];
 
     protected $casts = [
         'section' => DataTableSection::class,
         'columns' => 'array',
+        'period' => TablePeriod::class,
+        'period_start' => 'immutable_date',
         'sort_order' => 'integer',
     ];
+
+    /**
+     * The month ("Y-m") read from the name or rows of a table whose period
+     * isn't chosen (see PeriodTables::infer); not stored.
+     */
+    public ?string $inferredMonth = null;
+
+    /**
+     * The period the table is kept for: the chosen one, else the month its
+     * name or rows say (when inferred); null for a table of any dates.
+     */
+    public function period(): ?Period
+    {
+        if ($this->period !== null) {
+            return $this->period->isCalendar() && $this->period_start !== null
+                ? Period::of($this->period, $this->period_start)
+                : null;
+        }
+
+        return $this->inferredMonth !== null ? Period::of(TablePeriod::Month, $this->inferredMonth.'-01') : null;
+    }
 
     public function rows(): HasMany
     {
@@ -62,6 +87,12 @@ class DataTable extends Model
     public function amountColumn(): ?DataColumn
     {
         return $this->roleColumn(ColumnRole::Amount) ?? $this->roleColumn(ColumnRole::UnitPrice);
+    }
+
+    /** Who did the row (an employee's name). */
+    public function performerColumn(): ?DataColumn
+    {
+        return $this->roleColumn(ColumnRole::Performer);
     }
 
     public function quantityColumn(): ?DataColumn

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Pencil, Trash2 } from "lucide-react";
-import type { AdminDataTableDto, AdminDataTableRowDto, DataCellValue } from "@/lib/adminApi";
+import { ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import type { AdminDataTableDto, AdminDataTableRowDto, AdminEmployeeDto, DataCellValue, PeriodKind } from "@/lib/adminApi";
 import { Badge, Button, EmptyRow, Input, Select, TableWrap, Td, Th, Thead, Tr } from "../ui";
 import { formatCell, validationErrors } from "./shared";
+import { PERIOD_KINDS, PERIOD_UNIT_LABELS, periodOf, shiftPeriod, today } from "./periods";
 
 type Column = AdminDataTableDto["columns"][number];
 
@@ -95,6 +96,7 @@ export function RowsGrid({
             Փնտրել
           </Button>
         </form>
+        {table.dateColumn ? <PeriodFilter table={table} go={go} /> : null}
         <span className="text-sm text-ink-muted">Ընդամենը՝ {meta.total} տող</span>
         <Button className="ml-auto" onClick={() => setEditing("new")} disabled={editing === "new"}>
           + Ավելացնել տող
@@ -157,7 +159,7 @@ export function RowsGrid({
           )}
           {rows.length === 0 && editing !== "new" ? (
             <EmptyRow colSpan={colSpan}>
-              {searchParams.get("search") ? "Ոչինչ չի գտնվել։" : "Տողեր դեռ չկան։ Ավելացրեք առաջինը։"}
+              {searchParams.get("search") || searchParams.get("period") ? "Ոչինչ չի գտնվել։" : "Տողեր դեռ չկան։ Ավելացրեք առաջինը։"}
             </EmptyRow>
           ) : null}
         </tbody>
@@ -262,7 +264,100 @@ function RowEditor({
   );
 }
 
+/**
+ * Rows of one day, week, month, quarter or year (?period=&date=), stepped
+ * with the arrows; all rows by default.
+ */
+function PeriodFilter({ table, go }: { table: AdminDataTableDto; go: (params: Record<string, string | null>) => void }) {
+  const searchParams = useSearchParams();
+  const kind = searchParams.get("period") as PeriodKind | null;
+  const date = searchParams.get("date") ?? "";
+  const current = kind && PERIOD_KINDS.includes(kind) && /^\d{4}-\d{2}-\d{2}$/.test(date) ? periodOf(kind, date) : null;
+
+  function choose(next: PeriodKind | "") {
+    if (next === "") {
+      go({ period: null, date: null, page: null });
+      return;
+    }
+    // The day shown so far, else the table's own period, else its last row, else today.
+    const from = current?.start ?? table.periodInfo?.start ?? table.lastAt?.slice(0, 10) ?? today();
+    go({ period: next, date: periodOf(next, from).start, page: null });
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <Select className="w-36" value={current?.kind ?? ""} onChange={(e) => choose(e.target.value as PeriodKind | "")} aria-label="Ժամանակահատված">
+        <option value="">Բոլոր տողերը</option>
+        {PERIOD_KINDS.map((k) => (
+          <option key={k} value={k}>
+            {PERIOD_UNIT_LABELS[k]}
+          </option>
+        ))}
+      </Select>
+      {current ? (
+        <>
+          <Button variant="ghost" size="sm" aria-label="Նախորդ" onClick={() => go({ date: shiftPeriod(current.kind, current.start, -1).start, page: null })}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="whitespace-nowrap text-sm font-medium text-ink">{current.label}</span>
+          <Button variant="ghost" size="sm" aria-label="Հաջորդ" onClick={() => go({ date: shiftPeriod(current.kind, current.start, 1).start, page: null })}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/** The business's employees, read once per page load: the performer field offers their names. */
+let employeesRequest: Promise<AdminEmployeeDto[]> | null = null;
+
+function useEmployees(): AdminEmployeeDto[] {
+  const [employees, setEmployees] = useState<AdminEmployeeDto[]>([]);
+  useEffect(() => {
+    employeesRequest ??= fetch("/api/admin/employees")
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((json: { data?: AdminEmployeeDto[] }) => json.data ?? [])
+      .catch(() => []);
+    let alive = true;
+    employeesRequest.then((list) => alive && setEmployees(list));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return employees;
+}
+
+/** Who did the order: an employee's name, typed or picked from the list. */
+function PerformerInput({ column, value, onChange }: { column: Column; value: string; onChange: (value: string) => void }) {
+  const employees = useEmployees();
+  const listId = `performers-${column.key}`;
+  const known = value.trim() === "" || employees.some((e) => e.name.toLowerCase() === value.trim().toLowerCase());
+
+  return (
+    <>
+      <Input list={listId} value={value} onChange={(e) => onChange(e.target.value)} placeholder="Աշխատակից" />
+      <datalist id={listId}>
+        {employees
+          .filter((e) => e.isActive)
+          .map((e) => (
+            <option key={e.id} value={e.name}>
+              {e.position ?? ""}
+            </option>
+          ))}
+      </datalist>
+      {!known && employees.length > 0 ? (
+        <p className="mt-1 text-xs text-warning">Աշխատակիցների ցանկում չկա. ավելացրեք «Աշխատակիցներ» բաժնում։</p>
+      ) : null}
+    </>
+  );
+}
+
 export function CellInput({ column, value, onChange }: { column: Column; value: string; onChange: (value: string) => void }) {
+  if (column.role === "performer" && column.type === "text") {
+    return <PerformerInput column={column} value={value} onChange={onChange} />;
+  }
+
   switch (column.type) {
     case "select":
       return (

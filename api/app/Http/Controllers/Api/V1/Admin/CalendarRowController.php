@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\DataTables\MonthTables;
+use App\DataTables\Period;
+use App\DataTables\PeriodTables;
 use App\DataTables\RowMetrics;
 use App\Enums\DataTableSection;
 use App\Http\Controllers\Controller;
@@ -18,9 +20,10 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * An order added from the calendar. It goes to the table of its date's
- * month (see MonthTables): a September order chosen for the October table
+ * period (see PeriodTables): a September order chosen for the October table
  * lands in the September one, made like the October table when there is
- * none yet. A table that isn't a month's table keeps every order.
+ * none yet; the same for tables of a day, week, quarter or year. A table of
+ * any dates keeps every order.
  */
 class CalendarRowController extends Controller
 {
@@ -38,13 +41,13 @@ class CalendarRowController extends Controller
         $data = DataTableRowController::parseValues($chosen, $values, fillDate: true);
         // The date as read (or "now" when left empty), for whichever table the row goes to.
         $values[$chosen->dateColumn()->key] = $data[$chosen->dateColumn()->key];
-        $month = substr((string) RowMetrics::for($chosen)($data)['occurred_at'], 0, 7);
+        $date = substr((string) RowMetrics::for($chosen)($data)['occurred_at'], 0, 10);
 
-        [$row, $table, $created] = DB::transaction(function () use ($request, $chosen, $values, $data, $month) {
-            // One at a time per business: two quick orders of a new month make one table.
+        [$row, $table, $created] = DB::transaction(function () use ($request, $chosen, $values, $data, $date) {
+            // One at a time per business: two quick orders of a new period make one table.
             Tenant::query()->whereKey(app(TenantContext::class)->id())->lockForUpdate()->first();
 
-            [$table, $created] = MonthTables::forMonth($chosen, $month);
+            [$table, $created] = PeriodTables::forDate($chosen, $date);
 
             if ($table->isNot($chosen)) {
                 [$carried, $origins] = MonthTables::carry($chosen, $table, $values);
@@ -65,8 +68,10 @@ class CalendarRowController extends Controller
         return response()->json(['data' => [
             'row' => (new DataTableRowResource($row))->resolve($request),
             'table' => (new DataTableResource($table))->resolve($request),
-            // A new table of the month, made for this order.
+            // A new table of the period, made for this order.
             'created' => $created,
+            // The year, quarter, month, ISO week and day the order is filed under.
+            'period' => Period::tags($date),
         ]], 201);
     }
 }
