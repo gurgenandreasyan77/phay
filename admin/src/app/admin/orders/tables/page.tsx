@@ -1,7 +1,6 @@
-import { TablesListView } from "../../_components/tables/views";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
+/** The tables are the orders section itself now. */
 export default function AdminOrderTablesPage() {
-  return <TablesListView section="orders" />;
+  redirect("/admin/orders");
 }

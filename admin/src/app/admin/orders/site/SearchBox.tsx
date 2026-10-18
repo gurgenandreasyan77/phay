@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { Button, Input } from "../_components/ui";
+import { Button, Input } from "../../_components/ui";
 
 export function SearchBox() {
   const router = useRouter();
@@ -17,7 +17,7 @@ export function SearchBox() {
     } else {
       params.delete("search");
     }
-    router.push(`/admin/orders?${params.toString()}`);
+    router.push(`/admin/orders/site?${params.toString()}`);
   }
 
   return (

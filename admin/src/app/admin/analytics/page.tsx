@@ -15,6 +15,7 @@ import {
 import { formatMoment, formatNumber, SECTIONS, tablePath, tablesPath } from "../_components/tables/shared";
 import { LEAD_STATUS_LABELS, LEAD_STATUSES } from "../_components/leadStatus";
 import { WidgetPicker } from "../_components/analytics/WidgetPicker";
+import { formatMetric, money, PeriodTabs, periodFrom, SOURCE_LABELS } from "../_components/analytics/format";
 import { BarChart, bucketTitle, dateBars, weekdayShort, WEEKDAYS } from "../_components/analytics/BarChart";
 import {
   buttonClasses,
@@ -30,36 +31,6 @@ import {
 } from "../_components/ui";
 
 export const dynamic = "force-dynamic";
-
-const PERIODS: { days: AnalyticsPeriod; label: string }[] = [
-  { days: 7, label: "7 օր" },
-  { days: 30, label: "30 օր" },
-  { days: 90, label: "90 օր" },
-  { days: 365, label: "1 տարի" },
-];
-
-const SOURCE_LABELS: Record<string, string> = {
-  website: "Կայք",
-  manual: "Ձեռքով",
-  unknown: "Անհայտ",
-};
-
-/** Whole drams: tenths of a dram mean nothing to a shop. */
-function money(value: number | null): string {
-  return value === null ? "—" : `${formatNumber(Math.round(value))} դր.`;
-}
-
-function formatMetric(metric: TableMetricDto, value: number | null): string {
-  if (value === null) return "—";
-  switch (metric.format) {
-    case "money":
-      return money(value);
-    case "percent":
-      return `${formatNumber(value)}%`;
-    default:
-      return formatNumber(value);
-  }
-}
 
 /** "+12%" against the previous period of the same length. */
 function Delta({ current, previous }: { current: number | null; previous: number | null }) {
@@ -100,17 +71,12 @@ function Kpi({
   );
 }
 
-function first(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
-
 export default async function AdminAnalyticsPage(props: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await requirePermission("insights");
   const searchParams = await props.searchParams;
-  const requested = Number(first(searchParams.period));
-  const period = (PERIODS.find((p) => p.days === requested)?.days ?? 30) as AnalyticsPeriod;
+  const period = periodFrom(searchParams.period);
   const [analytics, flags, tables] = await Promise.all([
     getAnalytics(period),
     getFeatureFlagsAdmin(),
@@ -144,20 +110,7 @@ export default async function AdminAnalyticsPage(props: {
         <EmptyStart ordersOn={ordersOn} salesOn={salesOn} hasTables={tables.length > 0} failed={ordersOn && !analytics} />
       ) : (
         <>
-          <div className="inline-flex rounded-md border border-border bg-surface p-1">
-            {PERIODS.map((p) => (
-              <Link
-                key={p.days}
-                href={`/admin/analytics?period=${p.days}`}
-                className={cn(
-                  "rounded px-3 py-1.5 text-sm font-medium",
-                  p.days === period ? "bg-primary text-primary-foreground" : "text-ink-muted hover:text-ink",
-                )}
-              >
-                {p.label}
-              </Link>
-            ))}
-          </div>
+          <PeriodTabs base="/admin/analytics" period={period} />
 
           {site && orderTables?.withSite ? <AllOrders summary={orderTables} period={period} /> : null}
 
@@ -227,7 +180,7 @@ function SiteOrders({
       {analytics.totals.completedWithoutPrice > 0 ? (
         <p className="rounded-md border border-warning/30 bg-warning-light px-4 py-3 text-sm text-warning">
           {analytics.totals.completedWithoutPrice} կատարված պատվեր չունի վերջնական գին։ Լրացրեք այն{" "}
-          <Link href="/admin/orders?status=completed" className="font-medium underline">
+          <Link href="/admin/orders/site?status=completed" className="font-medium underline">
             Պատվերներ
           </Link>{" "}
           բաժնում, որպեսզի եկամուտը ճիշտ հաշվվի։

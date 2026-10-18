@@ -24,8 +24,8 @@ export default async function AdminDashboardPage() {
       <PageHeader
         title="Վահանակ"
         actions={
-          <Link href="/admin/orders/new" className={buttonClasses("primary")}>
-            Ավելացնել պատվեր
+          <Link href="/admin/orders" className={buttonClasses("secondary")}>
+            Պատվերների աղյուսակները
           </Link>
         }
       />

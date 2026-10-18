@@ -708,6 +708,14 @@ export async function getTableAnalytics(period: AnalyticsPeriod): Promise<TableA
   return result.data ?? [];
 }
 
+/** The statistics screen: every figure of each section, whatever the analytics dashboard shows. */
+export type TableStatisticsDto = Omit<TableAnalyticsDto, "dashboard">;
+
+export async function getTableStatistics(period: AnalyticsPeriod): Promise<TableStatisticsDto[]> {
+  const result = await adminApiFetch<TableStatisticsDto[]>(`/admin/analytics/statistics?period=${period}`);
+  return result.data ?? [];
+}
+
 export async function getAssistantStatus(): Promise<AssistantStatusDto | null> {
   const result = await adminApiFetch<AssistantStatusDto>("/admin/assistant");
   return result.data;

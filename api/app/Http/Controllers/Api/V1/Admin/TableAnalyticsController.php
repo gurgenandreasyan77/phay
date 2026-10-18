@@ -25,29 +25,47 @@ class TableAnalyticsController extends Controller
 {
     public function __invoke(Request $request, TableAnalytics $analytics, BusinessAnalytics $site, Dashboard $dashboard): JsonResponse
     {
+        return response()->json(['data' => $this->sections($request, $analytics, $site, $dashboard, filtered: true)]);
+    }
+
+    /**
+     * The statistics screen: the same figures in full, whatever the owner
+     * chose for the analytics dashboard, to read as exact numbers.
+     */
+    public function statistics(Request $request, TableAnalytics $analytics, BusinessAnalytics $site, Dashboard $dashboard): JsonResponse
+    {
+        return response()->json(['data' => $this->sections($request, $analytics, $site, $dashboard, filtered: false)]);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function sections(Request $request, TableAnalytics $analytics, BusinessAnalytics $site, Dashboard $dashboard, bool $filtered): array
+    {
         $validated = $request->validate([
             'period' => ['nullable', 'integer', Rule::in(BusinessAnalytics::PERIODS)],
         ]);
         $days = (int) ($validated['period'] ?? 30);
 
-        $sections = $analytics->tables()
+        return $analytics->tables()
             ->groupBy(fn (DataTable $t) => $t->section->value)
-            ->map(function (Collection $tables, string $value) use ($analytics, $dashboard, $days, $site) {
+            ->map(function (Collection $tables, string $value) use ($analytics, $dashboard, $days, $site, $filtered) {
                 $section = DataTableSection::from($value);
                 $tables = $tables->values();
-                $board = $dashboard->for($section, $tables);
                 $summary = $analytics->section($section, $tables, $days);
 
                 if ($section === DataTableSection::Orders && Feature::active(FeatureFlag::Orders->value)) {
                     $summary['withSite'] = TableAnalytics::withSiteOrders($summary, $site->summary($days));
                 }
 
+                if (! $filtered) {
+                    return $summary;
+                }
+
+                $board = $dashboard->for($section, $tables);
+
                 return [...$dashboard->apply($summary, $board['enabled']), 'dashboard' => $board];
             })
             ->values()
             ->all();
-
-        return response()->json(['data' => $sections]);
     }
 
     /** The owner picks the widgets of a section's analytics. */
