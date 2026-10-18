@@ -3,9 +3,11 @@
 namespace App\DataTables;
 
 use App\Enums\ColumnRole;
+use App\Enums\DataTableSection;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
 use App\Models\Employee;
+use App\Models\EmployeeGroup;
 use Illuminate\Support\Collection;
 use Laravel\Pennant\Feature;
 
@@ -23,17 +25,17 @@ final class EmployeeStats
      *
      * @return Collection<int, DataTable>
      */
-    public static function tables(): Collection
+    public static function tables(?DataTableSection $section = null): Collection
     {
         return Performers::tables()
-            ->filter(fn (DataTable $t) => Feature::active($t->section->feature()->value))
+            ->filter(fn (DataTable $t) => Feature::active($t->section->feature()->value) && ($section === null || $t->section === $section))
             ->values();
     }
 
     /** @return array<string, mixed> */
-    public static function for(?Period $period): array
+    public static function for(?Period $period, ?DataTableSection $section = null): array
     {
-        $tables = self::tables();
+        $tables = self::tables($section);
         $cost = Performers::costReader($tables);
         $performerKeys = $tables->mapWithKeys(fn (DataTable $t) => [$t->id => $t->performerColumn()->key]);
 
@@ -49,6 +51,8 @@ final class EmployeeStats
         $hasAmount = $tables->contains(fn (DataTable $t) => $t->amountColumn() !== null);
         $hasCost = $tables->contains(fn (DataTable $t) => $t->roleColumn(ColumnRole::Cost) !== null);
         $byEmployee = $rows->whereNotNull('employee')->groupBy('employee');
+        $employees = Employee::query()->orderByDesc('is_active')->orderBy('name')->get();
+        $groupOf = $employees->pluck('group_id', 'id');
 
         return [
             'period' => $period?->toArray(),
@@ -56,20 +60,32 @@ final class EmployeeStats
             'hasAmount' => $hasAmount,
             'hasCost' => $hasCost,
             'total' => self::figures($rows),
-            'employees' => Employee::query()->orderByDesc('is_active')->orderBy('name')->get()
+            'employees' => $employees
                 ->map(fn (Employee $e) => [
                     'id' => $e->id,
                     'name' => $e->name,
                     'position' => $e->position,
                     'isActive' => $e->is_active,
+                    'groupId' => $e->group_id,
                     ...self::figures($byEmployee->get($e->id, collect())),
                 ])
                 ->sortByDesc(fn (array $e) => [$e['isActive'] || $e['orders'] > 0, $e['revenue'] ?? 0, $e['orders']])
                 ->values()
                 ->all(),
+            // Each group's employees together, with its manager.
+            'groups' => EmployeeGroup::query()->with('manager:id,name')->orderBy('name')->get()
+                ->map(fn (EmployeeGroup $g) => [
+                    'id' => $g->id,
+                    'name' => $g->name,
+                    'manager' => $g->manager?->name,
+                    ...self::figures($rows->whereNotNull('employee')->filter(fn (array $r) => $groupOf->get($r['employee']) === $g->id)),
+                ])
+                ->values()
+                ->all(),
             // Rows nobody is named in.
             'unassigned' => self::figures($rows->whereNull('employee')->where('name', '')),
-            // Names in the performer column that aren't employees yet (e.g. from a file).
+            // Names in the performer column that aren't employees: outside
+            // performers (another company, a freelancer), or names from a file.
             'unknown' => $rows->whereNull('employee')->where('name', '!=', '')
                 ->groupBy(fn (array $r) => Employee::normalize($r['name']))
                 ->map(fn (Collection $group) => ['name' => $group->first()['name'], ...self::figures($group)])

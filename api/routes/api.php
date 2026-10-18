@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Api\V1\Admin\CalculatorSettingController as AdminCalculatorSettingController;
 use App\Http\Controllers\Api\V1\Admin\ContactChannelController as AdminContactChannelController;
 use App\Http\Controllers\Api\V1\Admin\EmployeeController as AdminEmployeeController;
+use App\Http\Controllers\Api\V1\Admin\EmployeeGroupController as AdminEmployeeGroupController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\V1\Admin\DataImportController as AdminDataImportController;
 use App\Http\Controllers\Api\V1\Admin\DataTableController as AdminDataTableController;
@@ -155,6 +156,7 @@ Route::prefix('v1')->group(function () {
 
                 // Who does the orders: the performer field offers them.
                 Route::get('/employees', [AdminEmployeeController::class, 'index']);
+                Route::get('/employee-groups', [AdminEmployeeGroupController::class, 'index']);
 
                 // Filling a table from a CSV, XLSX or XML file.
                 Route::get('/data-tables/{dataTable}/imports', [AdminDataImportController::class, 'index']);
@@ -171,7 +173,6 @@ Route::prefix('v1')->group(function () {
                 Route::get('/analytics/statistics', [AdminTableAnalyticsController::class, 'statistics']);
                 // What each employee did: orders, revenue, costs.
                 Route::get('/employees/stats', [AdminEmployeeController::class, 'stats']);
-                Route::get('/employees/{employee}', [AdminEmployeeController::class, 'show']);
                 Route::get('/assistant', [AdminAssistantController::class, 'show']);
                 Route::post('/assistant', [AdminAssistantController::class, 'store'])->middleware('throttle:assistant');
             });
@@ -185,8 +186,14 @@ Route::prefix('v1')->group(function () {
 
                 // The business's employees: owner and admin.
                 Route::post('/employees', [AdminEmployeeController::class, 'store']);
+                // One employee's orders; the money only for the owner.
+                Route::get('/employees/{employee}', [AdminEmployeeController::class, 'show']);
                 Route::patch('/employees/{employee}', [AdminEmployeeController::class, 'update']);
                 Route::delete('/employees/{employee}', [AdminEmployeeController::class, 'destroy']);
+                // Groups of employees and the managers who lead them.
+                Route::post('/employee-groups', [AdminEmployeeGroupController::class, 'store']);
+                Route::patch('/employee-groups/{employeeGroup}', [AdminEmployeeGroupController::class, 'update']);
+                Route::delete('/employee-groups/{employeeGroup}', [AdminEmployeeGroupController::class, 'destroy']);
             });
 
             Route::middleware('business.can:catalog')->group(function () {

@@ -6,11 +6,13 @@ use App\DataTables\EmployeeStats;
 use App\DataTables\Period;
 use App\DataTables\Performers;
 use App\Enums\ColumnRole;
+use App\Enums\DataTableSection;
 use App\Enums\TablePeriod;
 use App\Http\Controllers\Controller;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
 use App\Models\Employee;
+use App\Models\EmployeeGroup;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,6 +32,7 @@ class EmployeeController extends Controller
     public function index(): JsonResponse
     {
         $employees = Employee::query()
+            ->with(['group.manager:id,name', 'managedGroups:id,name,manager_id'])
             ->withCount('rows')
             ->orderByDesc('is_active')
             ->orderBy('name')
@@ -46,7 +49,7 @@ class EmployeeController extends Controller
         // Rows already naming them (typed in or imported before) are theirs.
         Performers::link($employee);
 
-        return response()->json(['data' => self::toArray($employee->loadCount('rows'))], 201);
+        return response()->json(['data' => self::toArray(self::loaded($employee))], 201);
     }
 
     public function update(Request $request, Employee $employee): JsonResponse
@@ -60,35 +63,47 @@ class EmployeeController extends Controller
             Performers::rename($employee);
         }
 
-        return response()->json(['data' => self::toArray($employee->loadCount('rows'))]);
+        return response()->json(['data' => self::toArray(self::loaded($employee))]);
     }
 
     /** Their rows keep the name they were done under, no longer linked to anyone. */
     public function destroy(Employee $employee): Response
     {
         DataTableRow::query()->where('employee_id', $employee->id)->update(['employee_id' => null]);
+        EmployeeGroup::query()->where('manager_id', $employee->id)->update(['manager_id' => null]);
         $employee->delete();
 
         return response()->noContent();
     }
 
-    /** Orders, revenue, costs and profit of each employee in a period (?period=month&date=…; all time without it). */
+    /**
+     * Orders, revenue, costs and profit of each employee in a period
+     * (?period=month&date=…; all time without it), of one section's tables
+     * with ?section= (the orders page shows its own).
+     */
     public function stats(Request $request): JsonResponse
     {
-        return response()->json(['data' => EmployeeStats::for($this->period($request))]);
+        $request->validate(['section' => ['nullable', Rule::enum(DataTableSection::class)]]);
+        $section = $request->filled('section') ? DataTableSection::from($request->input('section')) : null;
+
+        return response()->json(['data' => EmployeeStats::for($this->period($request), $section)]);
     }
 
-    /** One employee: their figures in the period and their rows, newest first. */
+    /**
+     * One employee: their figures in the period and their rows, newest
+     * first. Money (revenue, costs) only for a role that sees insights.
+     */
     public function show(Request $request, Employee $employee): JsonResponse
     {
         $period = $this->period($request);
+        $money = (bool) $request->user()->businessRole(app(TenantContext::class)->current())?->can('insights');
         $tables = EmployeeStats::tables()->keyBy('id');
         $cost = Performers::costReader($tables);
 
         $all = EmployeeStats::rows($tables, $period)->where('employee_id', $employee->id);
         $figures = EmployeeStats::figures(
             (clone $all)->get(['id', 'data_table_id', 'data', 'amount'])
-                ->map(fn (DataTableRow $row) => ['amount' => $row->amount, 'cost' => $cost($row)]),
+                ->map(fn (DataTableRow $row) => ['amount' => $money ? $row->amount : null, 'cost' => $money ? $cost($row) : null]),
         );
 
         $rows = $all->orderByDesc('occurred_at')->orderByDesc('id')->paginate(self::PER_PAGE);
@@ -101,10 +116,10 @@ class EmployeeController extends Controller
 
         return response()->json([
             'data' => [
-                'employee' => self::toArray($employee->loadCount('rows')),
+                'employee' => self::toArray(self::loaded($employee)),
                 'period' => $period?->toArray(),
                 'figures' => $figures,
-                'rows' => collect($rows->items())->map(function (DataTableRow $row) use ($tables, $cost, $text) {
+                'rows' => collect($rows->items())->map(function (DataTableRow $row) use ($tables, $cost, $text, $money) {
                     $table = $tables[$row->data_table_id];
 
                     return [
@@ -113,8 +128,8 @@ class EmployeeController extends Controller
                         'occurredAt' => ($at = $row->getRawOriginal('occurred_at')) ? substr($at, 0, 16) : null,
                         'item' => $text($table, $row, ColumnRole::Item),
                         'status' => $text($table, $row, ColumnRole::Status),
-                        'amount' => $row->amount,
-                        'cost' => $cost($row),
+                        'amount' => $money ? $row->amount : null,
+                        'cost' => $money ? $cost($row) : null,
                     ];
                 })->values(),
             ],
@@ -146,6 +161,7 @@ class EmployeeController extends Controller
             'position' => ['sometimes', 'nullable', 'string', 'max:100'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
             'isActive' => ['sometimes', 'boolean'],
+            'groupId' => ['sometimes', 'nullable', 'integer'],
         ]);
 
         if (array_key_exists('name', $validated)) {
@@ -160,6 +176,14 @@ class EmployeeController extends Controller
             }
         }
 
+        if (array_key_exists('groupId', $validated)) {
+            if ($validated['groupId'] !== null && ! EmployeeGroup::query()->whereKey($validated['groupId'])->exists()) {
+                throw ValidationException::withMessages(['groupId' => ['Ընտրեք խումբ ցանկից։']]);
+            }
+            $validated['group_id'] = $validated['groupId'];
+            unset($validated['groupId']);
+        }
+
         if (array_key_exists('isActive', $validated)) {
             $validated['is_active'] = $validated['isActive'];
             unset($validated['isActive']);
@@ -168,15 +192,30 @@ class EmployeeController extends Controller
         return $validated;
     }
 
+    private static function loaded(Employee $employee): Employee
+    {
+        return $employee->load(['group.manager:id,name', 'managedGroups:id,name,manager_id'])->loadCount('rows');
+    }
+
     /** @return array<string, mixed> */
     private static function toArray(Employee $employee): array
     {
+        $group = $employee->group;
+
         return [
             'id' => $employee->id,
             'name' => $employee->name,
             'position' => $employee->position,
             'phone' => $employee->phone,
             'isActive' => $employee->is_active,
+            // The group they work in, with its manager.
+            'group' => $group ? [
+                'id' => $group->id,
+                'name' => $group->name,
+                'manager' => $group->manager ? ['id' => $group->manager->id, 'name' => $group->manager->name] : null,
+            ] : null,
+            // The groups they lead: a manager when not empty.
+            'managedGroups' => $employee->managedGroups->map(fn (EmployeeGroup $g) => ['id' => $g->id, 'name' => $g->name])->sortBy('name')->values(),
             // Rows linked to them, of any period.
             'ordersCount' => $employee->rows_count ?? null,
             'createdAt' => $employee->created_at?->toIso8601String(),

@@ -1,48 +1,50 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePermission } from "@/lib/adminAuth";
+import { can } from "@/lib/roles";
 import { getEmployee } from "@/lib/adminApi";
 import { buttonClasses, Card, EmptyRow, PageHeader, TableWrap, Td, Th, Thead, Tr } from "../../_components/ui";
 import { formatMoment, formatMoney, tablePath } from "../../_components/tables/shared";
 import { filingLabel } from "../../_components/tables/periods";
-import { PeriodNav, periodFromParams } from "../../_components/tables/PeriodNav";
 
 export const dynamic = "force-dynamic";
 
-/** One employee: their figures in a period and the orders they did. */
+/**
+ * One employee and every order they did, newest first. The money only for
+ * the owner; figures by period are on the orders page.
+ */
 export default async function AdminEmployeePage(props: PageProps<"/admin/employees/[id]">) {
-  await requirePermission("insights");
+  const me = await requirePermission("settings");
+  const money = can(me, "insights");
   const { id } = await props.params;
   const params = await props.searchParams;
-  const current = periodFromParams(params);
   const page = Number(typeof params.page === "string" ? params.page : "") || undefined;
-  const detail = Number.isInteger(Number(id))
-    ? await getEmployee(Number(id), current ? { period: current.kind, date: current.date, page } : { page })
-    : null;
+  const detail = Number.isInteger(Number(id)) ? await getEmployee(Number(id), { page }) : null;
   if (!detail) notFound();
 
   const { employee, figures, rows, meta } = detail;
   const base = `/admin/employees/${employee.id}`;
-  const query = current ? `period=${current.kind}&date=${current.date}` : "period=all";
   const cards: [string, string][] = [
     ["Պատվերներ", String(figures.orders)],
-    ["Եկամուտ", figures.revenue === null ? "—" : formatMoney(figures.revenue)],
-    ["Ծախսեր", figures.costs === null ? "—" : formatMoney(figures.costs)],
-    ["Շահույթ", figures.profit === null ? "—" : formatMoney(figures.profit)],
-    ["Միջին չեկ", figures.averageCheck === null ? "—" : formatMoney(figures.averageCheck)],
+    ...(money
+      ? ([
+          ["Եկամուտ", figures.revenue === null ? "—" : formatMoney(figures.revenue)],
+          ["Ծախսեր", figures.costs === null ? "—" : formatMoney(figures.costs)],
+          ["Շահույթ", figures.profit === null ? "—" : formatMoney(figures.profit)],
+          ["Միջին չեկ", figures.averageCheck === null ? "—" : formatMoney(figures.averageCheck)],
+        ] as [string, string][])
+      : []),
   ];
 
   return (
     <div className="space-y-6">
-      <Link href={`/admin/employees?${query}`} className={buttonClasses("ghost", "sm")}>
+      <Link href="/admin/employees" className={buttonClasses("ghost", "sm")}>
         ← Բոլոր աշխատակիցները
       </Link>
       <PageHeader
         title={employee.name}
         description={[employee.position, employee.phone, employee.isActive ? null : "Չի աշխատում"].filter(Boolean).join(" · ") || undefined}
       />
-      <PeriodNav base={base} current={current} />
-
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {cards.map(([label, value]) => (
           <Card key={label} className="p-4">
@@ -57,8 +59,8 @@ export default async function AdminEmployeePage(props: PageProps<"/admin/employe
           <Th>Ամսաթիվ</Th>
           <Th>Ծառայություն / ապրանք</Th>
           <Th>Աղյուսակ</Th>
-          <Th className="text-right">Գումար</Th>
-          <Th className="text-right">Ծախս</Th>
+          {money ? <Th className="text-right">Գումար</Th> : null}
+          {money ? <Th className="text-right">Ծախս</Th> : null}
         </Thead>
         <tbody>
           {rows.map((row) => (
@@ -76,18 +78,22 @@ export default async function AdminEmployeePage(props: PageProps<"/admin/employe
                   {row.table.name}
                 </Link>
               </Td>
-              <Td className="whitespace-nowrap text-right tabular-nums">{row.amount === null ? "—" : formatMoney(row.amount)}</Td>
-              <Td className="whitespace-nowrap text-right tabular-nums">{row.cost === null ? "—" : formatMoney(row.cost)}</Td>
+              {money ? (
+                <Td className="whitespace-nowrap text-right tabular-nums">{row.amount === null ? "—" : formatMoney(row.amount)}</Td>
+              ) : null}
+              {money ? (
+                <Td className="whitespace-nowrap text-right tabular-nums">{row.cost === null ? "—" : formatMoney(row.cost)}</Td>
+              ) : null}
             </Tr>
           ))}
-          {rows.length === 0 ? <EmptyRow colSpan={5}>Այս ժամանակահատվածում պատվերներ չկան։</EmptyRow> : null}
+          {rows.length === 0 ? <EmptyRow colSpan={money ? 5 : 3}>Այս աշխատակիցը դեռ պատվերներ չունի։ Նշեք նրան պատվերի «Կատարող» դաշտում։</EmptyRow> : null}
         </tbody>
       </TableWrap>
 
       {meta.lastPage > 1 ? (
         <div className="flex items-center gap-3 text-sm text-ink-muted">
           {meta.currentPage > 1 ? (
-            <Link href={`${base}?${query}&page=${meta.currentPage - 1}`} className={buttonClasses("secondary", "sm")}>
+            <Link href={`${base}?page=${meta.currentPage - 1}`} className={buttonClasses("secondary", "sm")}>
               Նախորդ
             </Link>
           ) : null}
@@ -95,7 +101,7 @@ export default async function AdminEmployeePage(props: PageProps<"/admin/employe
             {meta.currentPage} / {meta.lastPage}
           </span>
           {meta.currentPage < meta.lastPage ? (
-            <Link href={`${base}?${query}&page=${meta.currentPage + 1}`} className={buttonClasses("secondary", "sm")}>
+            <Link href={`${base}?page=${meta.currentPage + 1}`} className={buttonClasses("secondary", "sm")}>
               Հաջորդ
             </Link>
           ) : null}
