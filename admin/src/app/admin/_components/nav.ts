@@ -87,7 +87,7 @@ export const BUSINESS_NAV_GROUPS: NavGroup[] = [
   {
     label: "Թիմ",
     items: [
-      { href: "/admin/employees", label: "Աշխատակիցներ", icon: UserCog, soon: true },
+      { href: "/admin/employees", label: "Աշխատակիցներ", icon: UserCog, requires: "settings" },
       { href: "/admin/tasks", label: "Առաջադրանքներ", icon: ListChecks, soon: true },
       { href: "/admin/roles", label: "Դերեր և իրավունքներ", icon: ShieldCheck, soon: true },
     ],

@@ -7,9 +7,9 @@ import { Phone, Plus, Trash2 } from "lucide-react";
 import type { AdminDataTableDto, CalendarLeadDto } from "@/lib/adminApi";
 import { Badge, Button, buttonClasses, Card, cn, FieldLabel, Select } from "../_components/ui";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_TONES } from "../_components/leadStatus";
-import { bucketTitle } from "../_components/analytics/BarChart";
 import { CellInput, fromDraft, toDraft, type Draft } from "../_components/tables/RowsGrid";
 import { formatMoney, SECTIONS, tablePath, validationErrors } from "../_components/tables/shared";
+import { contains, filingLabel, isDate, periodOf } from "../_components/tables/periods";
 import type { CalendarEntry } from "./entries";
 
 /** The table a new order went to last time, remembered in this browser. */
@@ -29,7 +29,6 @@ export function DayPanel({
   day,
   title,
   tables,
-  months,
   entries,
   leads,
   colors,
@@ -38,7 +37,6 @@ export function DayPanel({
   day: string;
   title: string;
   tables: AdminDataTableDto[];
-  months: Record<number, string>;
   entries: CalendarEntry[];
   leads: CalendarLeadDto[];
   colors: Record<number, string>;
@@ -81,7 +79,6 @@ export function DayPanel({
         <NewOrderForm
           day={day}
           tables={tables}
-          months={months}
           onDone={(saved) => {
             setAdding(false);
             if (saved) router.refresh();
@@ -175,33 +172,44 @@ export function DayPanel({
 
 /**
  * A new row of the chosen table, on this day: the table's own fields. When
- * the chosen table is kept for another month, the API puts the row in the
- * table of the date's month, made like the chosen one when there is none.
+ * the chosen table is kept for another day, week, month, quarter or year,
+ * the API puts the row in the table of the date's period, made like the
+ * chosen one when there is none.
  */
 function NewOrderForm({
   day,
   tables,
-  months,
   onDone,
 }: {
   day: string;
   tables: AdminDataTableDto[];
-  months: Record<number, string>;
   onDone: (saved: boolean) => void;
 }) {
-  const [tableId, setTableId] = useState<number>(
-    () => tables.find((t) => months[t.id] === day.slice(0, 7))?.id ?? lastTable(tables) ?? tables[0].id,
-  );
+  const [tableId, setTableId] = useState<number>(() => {
+    const remembered = tables.find((t) => t.id === lastTable(tables));
+    // The table of this day's period, like the one used last time if there are several.
+    const ofDay = tables.filter((t) => t.periodInfo && contains(t.periodInfo, day));
+    return (
+      ofDay.find((t) => t.periodInfo?.kind === remembered?.periodInfo?.kind)?.id ??
+      ofDay[0]?.id ??
+      remembered?.id ??
+      tables[0].id
+    );
+  });
   const table = tables.find((t) => t.id === tableId) ?? tables[0];
   const [draft, setDraft] = useState<Draft>(() => toDraft(table, undefined, day));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  // Where the row will go, by the month of the date typed in.
-  const month = table.dateColumn ? (draft[table.dateColumn] ?? "").slice(0, 7) : "";
-  const elsewhere = /^\d{4}-\d{2}$/.test(month) && months[table.id] !== undefined && months[table.id] !== month;
-  const target = elsewhere ? tables.find((t) => months[t.id] === month) : undefined;
+  // Where the row will go, by the period of the date typed in.
+  const date = table.dateColumn ? (draft[table.dateColumn] ?? "").slice(0, 10) : "";
+  const period = table.periodInfo;
+  const elsewhere = isDate(date) && period !== null && !contains(period, date);
+  const target =
+    elsewhere && period
+      ? tables.find((t) => t.periodInfo?.kind === period.kind && contains(t.periodInfo, date))
+      : undefined;
 
   function chooseTable(id: number) {
     const next = tables.find((t) => t.id === id);
@@ -257,6 +265,7 @@ function NewOrderForm({
             {tables.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
+                {t.periodInfo && t.periodInfo.label !== t.name ? ` · ${t.periodInfo.label}` : ""}
               </option>
             ))}
           </Select>
@@ -280,11 +289,13 @@ function NewOrderForm({
         </label>
       ))}
 
-      {elsewhere ? (
+      {isDate(date) ? <p className="text-xs text-ink-faint">Կգրանցվի՝ {filingLabel(date)}</p> : null}
+
+      {elsewhere && period ? (
         <p className="rounded-md bg-surface px-3 py-2 text-xs text-ink-muted">
           {target
-            ? `Ամսաթիվն այլ ամսից է։ Պատվերը կավելացվի «${target.name}» աղյուսակում։`
-            : `${bucketTitle(month)}-ի համար աղյուսակ դեռ չկա։ Կստեղծվի նորը՝ «${table.name}»-ի սյունակներով, և պատվերը կավելացվի այնտեղ։`}
+            ? `Ամսաթիվը «${table.name}» աղյուսակի ժամանակահատվածից (${period.label}) դուրս է։ Պատվերը կավելացվի «${target.name}» աղյուսակում։`
+            : `«${periodOf(period.kind, date).label}» ժամանակահատվածի համար աղյուսակ դեռ չկա։ Կստեղծվի նորը՝ «${table.name}»-ի սյունակներով, և պատվերը կավելացվի այնտեղ։`}
         </p>
       ) : null}
 

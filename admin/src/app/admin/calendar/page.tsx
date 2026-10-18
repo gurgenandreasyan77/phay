@@ -182,7 +182,6 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
             day={day}
             title={bucketTitle(day)}
             tables={data.tables}
-            months={data.months}
             entries={byDay.get(day)?.entries ?? []}
             leads={byDay.get(day)?.leads ?? []}
             colors={Object.fromEntries(data.tables.map((t) => [t.id, tableColor(data, t.id)]))}

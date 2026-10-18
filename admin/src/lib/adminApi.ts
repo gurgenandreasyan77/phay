@@ -128,6 +128,7 @@ export type ColumnRole =
   | "payment"
   | "channel"
   | "status"
+  | "performer"
   | "customer"
   | "phone"
   | "address"
@@ -143,12 +144,31 @@ export type AdminDataColumnDto = {
   role?: ColumnRole | null;
 };
 
+/** What a table is kept for: a day, ISO week, month, quarter, year, or any dates (custom). */
+export type TablePeriod = "day" | "week" | "month" | "quarter" | "year" | "custom";
+
+/** A period of time: "2026-W47", "47-րդ շաբաթ 2026 (16.11–22.11)", 2026-11-16 … 2026-11-22. */
+export type PeriodDto = {
+  kind: Exclude<TablePeriod, "custom">;
+  key: string;
+  label: string;
+  start: string;
+  end: string;
+};
+
+/** Where a row is filed: its year, quarter, month, ISO week (of weekYear) and day. */
+export type PeriodTagsDto = { year: number; quarter: number; month: number; week: number; weekYear: number; day: string };
+
 export type AdminDataTableDto = {
   id: number;
   section: DataTableSection;
   name: string;
   description: string | null;
   columns: Required<AdminDataColumnDto>[];
+  /** The chosen period; null for a table made before periods (its month may be inferred). */
+  period: TablePeriod | null;
+  /** The period the table holds, chosen or (inferred) read from its name or rows; null for any dates. */
+  periodInfo: (PeriodDto & { inferred: boolean }) | null;
   /** Keys of the columns (found by role) a row's date and money come from. */
   dateColumn: string | null;
   amountColumn: string | null;
@@ -171,6 +191,8 @@ export type AdminDataTableRowDto = {
   id: number;
   values: Record<string, DataCellValue>;
   source: "manual" | "import";
+  period: PeriodTagsDto | null;
+  employeeId: number | null;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -899,8 +921,8 @@ export type CalendarDto = {
   to: string;
   /** The order tables with a date column: where rows can be added from the calendar. */
   tables: AdminDataTableDto[];
-  /** The month ("Y-m") of each table kept per month, by table id; other tables aren't listed. */
-  months: Record<number, string>;
+  /** The period of each table kept per day, week, month, quarter or year, by table id; other tables aren't listed. */
+  periods: Record<number, PeriodDto>;
   rows: CalendarRowDto[];
   /** More rows than the API sends at once. */
   truncated: boolean;
@@ -919,13 +941,17 @@ export async function getDataTable(id: number): Promise<AdminDataTableDto | null
 
 export async function getDataTableRows(
   id: number,
-  params: { search?: string; page?: number },
+  params: { search?: string; page?: number; period?: PeriodKind; date?: string },
 ): Promise<PaginatedDataRowsDto> {
   const empty = { items: [], meta: { currentPage: 1, lastPage: 1, total: 0 } };
 
   const query = new URLSearchParams();
   if (params.search) query.set("search", params.search);
   if (params.page) query.set("page", String(params.page));
+  if (params.period && params.date) {
+    query.set("period", params.period);
+    query.set("date", params.date);
+  }
 
   const result = await adminApiFetchRaw(`/admin/data-tables/${id}/rows?${query.toString()}`);
   if (result.status !== 200 || !result.json) return empty;
@@ -941,6 +967,88 @@ export async function getDataTableRows(
       ? { currentPage: json.meta.current_page, lastPage: json.meta.last_page, total: json.meta.total }
       : empty.meta,
   };
+}
+
+export type PeriodKind = PeriodDto["kind"];
+
+/** Someone who does the business's orders (see the API's EmployeeController). */
+export type AdminEmployeeDto = {
+  id: number;
+  name: string;
+  position: string | null;
+  phone: string | null;
+  isActive: boolean;
+  /** Rows linked to them, of any period. */
+  ordersCount: number | null;
+  createdAt: string | null;
+};
+
+/** Orders and money of a group of rows: revenue is the amount, costs are unit cost × quantity. */
+export type EmployeeFiguresDto = {
+  orders: number;
+  revenue: number | null;
+  costs: number | null;
+  profit: number | null;
+  averageCheck: number | null;
+};
+
+export type EmployeeStatsDto = {
+  period: PeriodDto | null;
+  hasPerformerColumn: boolean;
+  hasAmount: boolean;
+  hasCost: boolean;
+  total: EmployeeFiguresDto;
+  employees: (EmployeeFiguresDto & { id: number; name: string; position: string | null; isActive: boolean })[];
+  /** Rows with no performer. */
+  unassigned: EmployeeFiguresDto;
+  /** Names in the performer column that aren't employees yet. */
+  unknown: (EmployeeFiguresDto & { name: string })[];
+};
+
+export type EmployeeRowDto = {
+  id: number;
+  table: { id: number; name: string; section: DataTableSection };
+  occurredAt: string | null;
+  item: string | null;
+  status: string | null;
+  amount: number | null;
+  cost: number | null;
+};
+
+export type EmployeeDetailDto = {
+  employee: AdminEmployeeDto;
+  period: PeriodDto | null;
+  figures: EmployeeFiguresDto;
+  rows: EmployeeRowDto[];
+  meta: { currentPage: number; lastPage: number; total: number };
+};
+
+export async function getEmployees(): Promise<AdminEmployeeDto[]> {
+  const result = await adminApiFetch<AdminEmployeeDto[]>("/admin/employees");
+  return result.data ?? [];
+}
+
+function periodQuery(params: { period?: PeriodKind; date?: string; page?: number }): string {
+  const query = new URLSearchParams();
+  if (params.period) query.set("period", params.period);
+  if (params.period && params.date) query.set("date", params.date);
+  if (params.page) query.set("page", String(params.page));
+  return query.toString();
+}
+
+export async function getEmployeeStats(params: { period?: PeriodKind; date?: string }): Promise<EmployeeStatsDto | null> {
+  const result = await adminApiFetch<EmployeeStatsDto>(`/admin/employees/stats?${periodQuery(params)}`);
+  return result.data;
+}
+
+export async function getEmployee(
+  id: number,
+  params: { period?: PeriodKind; date?: string; page?: number },
+): Promise<EmployeeDetailDto | null> {
+  const result = await adminApiFetchRaw(`/admin/employees/${id}?${periodQuery(params)}`);
+  if (result.status !== 200 || !result.json) return null;
+  const json = result.json as { data: Omit<EmployeeDetailDto, "meta">; meta: EmployeeDetailDto["meta"] };
+  return { ...json.data, meta: json.meta };
 }
 
 export async function getDataImports(tableId: number): Promise<AdminDataImportDto[]> {

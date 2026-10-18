@@ -94,6 +94,11 @@ export const COLUMN_ROLES: Record<ColumnRole, RoleInfo> = {
     options: ["Նոր", "Կատարված", "Չեղարկված"],
     hint: "Նոր, կատարված…",
   },
+  performer: {
+    labels: { hy: "Կատարող", ru: "Исполнитель", en: "Performer" },
+    types: ["text", "select"],
+    hint: "Աշխատակիցը, ով կատարել է պատվերը․ ընտրեք «Աշխատակիցներ» ցանկից",
+  },
   customer: {
     labels: { hy: "Հաճախորդ", ru: "Клиент", en: "Customer" },
     types: ["text", "select"],

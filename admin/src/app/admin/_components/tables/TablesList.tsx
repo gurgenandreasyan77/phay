@@ -4,9 +4,15 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Trash2, TriangleAlert, Upload } from "lucide-react";
-import type { AdminDataTableDto, DataTableSection } from "@/lib/adminApi";
-import { Button, buttonClasses, EmptyRow, Input, TableWrap, Td, Th, Thead, Tr } from "../ui";
+import type { AdminDataTableDto, DataTableSection, TablePeriod } from "@/lib/adminApi";
+import { Button, buttonClasses, EmptyRow, Input, Select, TableWrap, Td, Th, Thead, Tr } from "../ui";
 import { formatDateTime, formatMoment, formatMoney, tablePath } from "./shared";
+import { contains, PERIOD_KINDS, TABLE_PERIOD_LABELS } from "./periods";
+
+/** What a table is kept for: its period's kind, or any dates. */
+function kindOf(table: AdminDataTableDto): TablePeriod {
+  return table.periodInfo?.kind ?? "custom";
+}
 
 /**
  * Every table of a section in one list: a business that imports a file a
@@ -24,6 +30,7 @@ export function TablesList({
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [kind, setKind] = useState<TablePeriod | "">("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -32,8 +39,16 @@ export function TablesList({
     const query = search.trim().toLowerCase();
     return tables
       .filter((t) => query === "" || t.name.toLowerCase().includes(query))
-      .sort((a, b) => (b.lastAt ?? "").localeCompare(a.lastAt ?? "") || b.id - a.id);
-  }, [tables, search]);
+      .filter((t) => kind === "" || kindOf(t) === kind)
+      .sort(
+        (a, b) =>
+          (b.periodInfo?.start ?? "").localeCompare(a.periodInfo?.start ?? "") ||
+          (b.lastAt ?? "").localeCompare(a.lastAt ?? "") ||
+          b.id - a.id,
+      );
+  }, [tables, search, kind]);
+
+  const kinds = [...PERIOD_KINDS, "custom" as const].filter((k) => tables.some((t) => kindOf(t) === k));
 
   const allShownSelected = shown.length > 0 && shown.every((t) => selected.has(t.id));
 
@@ -73,6 +88,16 @@ export function TablesList({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Փնտրել անունով" className="w-64" />
+        {kinds.length > 1 ? (
+          <Select className="w-56" value={kind} onChange={(e) => setKind(e.target.value as TablePeriod | "")} aria-label="Ժամանակահատված">
+            <option value="">Բոլոր ժամանակահատվածները</option>
+            {kinds.map((k) => (
+              <option key={k} value={k}>
+                {TABLE_PERIOD_LABELS[k]}
+              </option>
+            ))}
+          </Select>
+        ) : null}
         <span className="text-sm text-ink-muted">{tables.length} աղյուսակ</span>
         {canDesign && selected.size > 0 ? (
           <Button variant="secondary" className="ml-auto" disabled={pending} onClick={() => remove([...selected])}>
@@ -96,6 +121,7 @@ export function TablesList({
             </Th>
           ) : null}
           <Th>Աղյուսակ</Th>
+          <Th>Ժամանակահատված</Th>
           <Th className="text-right">Տողեր</Th>
           <Th>Ամսաթվերը</Th>
           <Th className="text-right">Գումար</Th>
@@ -120,6 +146,26 @@ export function TablesList({
                   {table.name}
                 </Link>
                 <span className="block text-xs text-ink-faint">{table.columns.length} սյունակ</span>
+              </Td>
+              <Td className="whitespace-nowrap">
+                {table.periodInfo ? (
+                  <>
+                    <span className="text-ink">{table.periodInfo.label}</span>
+                    <span className="block text-xs text-ink-faint">
+                      {TABLE_PERIOD_LABELS[table.periodInfo.kind]}
+                      {table.periodInfo.inferred ? " · ըստ անվան" : ""}
+                    </span>
+                    {(table.firstAt && !contains(table.periodInfo, table.firstAt)) ||
+                    (table.lastAt && !contains(table.periodInfo, table.lastAt)) ? (
+                      <span className="mt-0.5 flex items-center gap-1 text-xs text-warning">
+                        <TriangleAlert className="h-3 w-3" />
+                        Կան տողեր այլ ժամանակահատվածից
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  <span className="text-ink-muted">{TABLE_PERIOD_LABELS.custom}</span>
+                )}
               </Td>
               <Td className="text-right">{table.rowsCount ?? 0}</Td>
               <Td className="whitespace-nowrap text-ink-muted">
@@ -172,7 +218,7 @@ export function TablesList({
             </Tr>
           ))}
           {shown.length === 0 ? (
-            <EmptyRow colSpan={canDesign ? 7 : 6}>
+            <EmptyRow colSpan={canDesign ? 8 : 7}>
               {tables.length === 0 ? "Աղյուսակներ դեռ չկան։" : "Ոչինչ չի գտնվել։"}
             </EmptyRow>
           ) : null}
