@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { cn, Input } from "../_components/ui";
+import { cn, Input } from "../../_components/ui";
 
 /** The price the client actually paid; analytics revenue is built on it. Saves on blur or Enter. */
 export function OrderPriceInput({

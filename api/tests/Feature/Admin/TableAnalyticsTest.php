@@ -368,6 +368,22 @@ class TableAnalyticsTest extends TestCase
         Sanctum::actingAs(User::factory()->forTenant($this->shop, 'admin')->create());
 
         $this->getJson('/api/v1/admin/analytics/tables')->assertForbidden();
+        $this->getJson('/api/v1/admin/analytics/statistics')->assertForbidden();
+    }
+
+    public function test_statistics_show_every_figure_whatever_the_dashboard_shows(): void
+    {
+        $this->putJson('/api/v1/admin/analytics/dashboard', ['section' => 'sales', 'widgets' => ['count']])->assertOk();
+
+        $sales = $this->getJson('/api/v1/admin/analytics/statistics?period=30')->assertOk()->json('data.0');
+        $this->assertSame('sales', $sales['section']);
+        $this->assertArrayNotHasKey('dashboard', $sales);
+        $this->assertContains('revenue', array_column($sales['metrics'], 'key'));
+        $this->assertCount(30, $sales['series']);
+        $this->assertSame($sales['rows']['current'], array_sum(array_column($sales['series'], 'rows')));
+        $this->assertNotSame([], $sales['breakdowns']);
+
+        $this->getJson('/api/v1/admin/analytics/statistics?period=12')->assertUnprocessable();
     }
 
     public function test_the_assistant_reads_the_tables_without_buyer_contacts(): void

@@ -11,7 +11,7 @@ export function tablePath(section: DataTableSection, id?: number, suffix = ""): 
 }
 
 export function tablesPath(section: DataTableSection): string {
-  return section === "orders" ? `${SECTIONS.orders.base}/tables` : SECTIONS.sales.base;
+  return SECTIONS[section].base;
 }
 
 export const COLUMN_TYPES: DataColumnType[] = ["text", "number", "money", "date", "datetime", "select", "boolean"];

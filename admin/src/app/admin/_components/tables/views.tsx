@@ -11,11 +11,11 @@ import {
   getDataTableRows,
   getDataTables,
   getFeatureFlagsAdmin,
+  getLeads,
   type DataTableSection,
 } from "@/lib/adminApi";
-import { buttonClasses, EmptyCard, PageHeader } from "../ui";
+import { buttonClasses, Card, EmptyCard, PageHeader } from "../ui";
 import { RowsGrid } from "./RowsGrid";
-import { OrdersTabs } from "./SectionTabs";
 import { TablesList } from "./TablesList";
 import { ImportWizard } from "./ImportWizard";
 import { NewTableForm } from "./NewTableForm";
@@ -39,11 +39,36 @@ async function loadTable(section: DataTableSection, rawId: string) {
   return table;
 }
 
-/** All tables of a section: the sales page, and the orders' "Աղյուսակներ" tab. */
+/** How many orders came from the site, and how many are new; null when none ever did. */
+async function siteOrders(): Promise<{ total: number; fresh: number } | null> {
+  const [all, fresh] = await Promise.all([getLeads({}), getLeads({ status: "new" })]);
+  // The list may come unpaginated: then its length is the count.
+  const count = (list: Awaited<ReturnType<typeof getLeads>>) => Math.max(list.meta.total, list.items.length);
+  return count(all) > 0 ? { total: count(all), fresh: count(fresh) } : null;
+}
+
+/** The site's orders, listed with the tables: one more table the site fills in. */
+function SiteOrdersCard({ total, fresh }: { total: number; fresh: number }) {
+  return (
+    <Link href={`${SECTIONS.orders.base}/site`} className="block">
+      <Card className="flex flex-wrap items-center justify-between gap-3 transition-colors hover:border-primary">
+        <div>
+          <p className="font-medium text-ink">Կայքից եկած պատվերներ</p>
+          <p className="mt-0.5 text-sm text-ink-muted">Այս աղյուսակը լրացնում է կայքի ձևը։ Նշեք կարգավիճակը և վերջնական գինը։</p>
+        </div>
+        <p className="text-sm text-ink-muted">
+          {total} պատվեր{fresh > 0 ? <span className="ml-2 font-medium text-primary">{fresh} նոր</span> : null}
+        </p>
+      </Card>
+    </Link>
+  );
+}
+
+/** All tables of a section: the orders and the sales pages. */
 export async function TablesListView({ section }: { section: DataTableSection }) {
   const me = await requirePermission("orders");
   await requireSectionModule(section);
-  const tables = await getDataTables(section);
+  const [tables, site] = await Promise.all([getDataTables(section), section === "orders" ? siteOrders() : null]);
   const canDesign = can(me, "catalog");
 
   return (
@@ -63,7 +88,7 @@ export async function TablesListView({ section }: { section: DataTableSection })
           ) : null
         }
       />
-      {section === "orders" ? <OrdersTabs active="tables" tablesCount={tables.length} /> : null}
+      {site ? <SiteOrdersCard {...site} /> : null}
       {tables.length === 0 ? (
         <EmptyCard>
           {canDesign

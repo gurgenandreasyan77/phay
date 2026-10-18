@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import type { LeadStatus } from "@/lib/adminApi";
-import { Select } from "../_components/ui";
+import { Select } from "../../_components/ui";
 
 export function StatusFilter({ statusLabels }: { statusLabels: Record<LeadStatus, string> }) {
   const router = useRouter();
@@ -16,7 +16,7 @@ export function StatusFilter({ statusLabels }: { statusLabels: Record<LeadStatus
     } else {
       params.delete("status");
     }
-    router.push(`/admin/orders?${params.toString()}`);
+    router.push(`/admin/orders/site?${params.toString()}`);
   }
 
   return (
