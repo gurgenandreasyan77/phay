@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Admin;
 
+use App\DataTables\MonthTables;
+use App\Models\DataTable;
 use App\Models\Lead;
 use App\Models\Tenant;
 use App\Models\User;
@@ -141,5 +143,138 @@ class AdminCalendarTest extends TestCase
         Sanctum::actingAs(User::factory()->forTenant($this->salon, 'moderator')->create());
 
         $this->getJson('/api/v1/admin/calendar?from=2026-10-01&to=2026-10-31')->assertOk();
+    }
+
+    /** @return array<string, mixed> the response's data */
+    private function addFromCalendar(array $table, string $item, string $date, int $amount): array
+    {
+        [$itemKey, $dateKey, $amountKey] = array_column($table['columns'], 'key');
+
+        return $this->postJson('/api/v1/admin/calendar/rows', ['table' => $table['id'], 'values' => [
+            $itemKey => $item, $dateKey => $date, $amountKey => $amount,
+        ]])->assertCreated()->json('data');
+    }
+
+    public function test_an_order_of_a_month_without_a_table_gets_a_new_table_like_the_chosen_one(): void
+    {
+        $october = $this->table('Հոկտեմբեր 2026');
+        $this->addRow($october, 'Բազմոց', '2026-10-05 14:30', 9900);
+
+        $added = $this->addFromCalendar($october, 'Ներքնակ', '2026-09-20 10:00', 5000);
+
+        $this->assertTrue($added['created']);
+        $this->assertSame('Սեպտեմբեր 2026', $added['table']['name']);
+        $this->assertNotSame($october['id'], $added['table']['id']);
+        $this->assertSame(array_column($october['columns'], 'key'), array_column($added['table']['columns'], 'key'));
+        $this->assertSame('2026-09-20 10:00', $added['row']['values'][$october['columns'][1]['key']]);
+
+        // The October table keeps only October.
+        $this->assertDatabaseCount('data_table_rows', 2);
+        $this->assertSame(1, $this->rowsOf($october['id']));
+
+        // The next September order goes to the new table, not to a third one.
+        $again = $this->addFromCalendar($october, 'Աթոռ', '2026-09-21 12:00', 500);
+        $this->assertFalse($again['created']);
+        $this->assertSame($added['table']['id'], $again['table']['id']);
+        $this->assertSame(2, $this->tableCount());
+
+        $calendar = $this->getJson('/api/v1/admin/calendar?from=2026-09-01&to=2026-10-31')->json('data');
+        $this->assertSame(['2026-09', '2026-10'], [$calendar['months'][$added['table']['id']], $calendar['months'][$october['id']]]);
+        $this->assertCount(3, $calendar['rows']);
+    }
+
+    public function test_an_order_of_a_month_with_a_table_goes_to_it(): void
+    {
+        $october = $this->table('october');
+        $september = $this->table('september');
+        $this->addRow($september, 'Բազմոց', '2026-09-03 11:00', 9900);
+
+        $added = $this->addFromCalendar($october, 'Ներքնակ', '2026-09-20 10:00', 5000);
+
+        $this->assertFalse($added['created']);
+        $this->assertSame($september['id'], $added['table']['id']);
+        $this->assertSame(2, $this->rowsOf($september['id']));
+        $this->assertSame(0, $this->rowsOf($october['id']));
+
+        // Its own month stays in the chosen table.
+        $this->assertSame($october['id'], $this->addFromCalendar($october, 'Աթոռ', '2026-10-02 10:00', 500)['table']['id']);
+    }
+
+    public function test_a_table_of_a_month_is_known_by_its_rows_too(): void
+    {
+        $orders = $this->table('Պատվերներ');
+        foreach (range(1, 9) as $day) {
+            $this->addRow($orders, 'Բազմոց', "2026-10-0{$day} 10:00", 1000);
+        }
+        // One stray September row (added before this fix) doesn't make it a two-month table.
+        $this->addRow($orders, 'Ներքնակ', '2026-09-30 10:00', 1000);
+
+        $added = $this->addFromCalendar($orders, 'Աթոռ', '2026-08-15 10:00', 500);
+
+        $this->assertTrue($added['created']);
+        $this->assertSame('Օգոստոս 2026', $added['table']['name']);
+    }
+
+    public function test_a_table_of_any_month_keeps_every_order(): void
+    {
+        $all = $this->table('Բոլոր պատվերները');
+        $this->addRow($all, 'Բազմոց', '2026-08-05 10:00', 1000);
+        $this->addRow($all, 'Բազմոց', '2026-10-05 10:00', 1000);
+        $empty = $this->table('Տնային');
+
+        $this->assertSame($all['id'], $this->addFromCalendar($all, 'Ներքնակ', '2026-09-20 10:00', 5000)['table']['id']);
+        $this->assertSame($empty['id'], $this->addFromCalendar($empty, 'Ներքնակ', '2026-09-20 10:00', 5000)['table']['id']);
+        $this->assertSame(2, $this->tableCount());
+    }
+
+    public function test_a_bad_order_creates_no_table_and_a_moderator_may_add(): void
+    {
+        $october = $this->table('Октябрь');
+        $this->addRow($october, 'Բազմոց', '2026-10-05 14:30', 9900);
+        [$itemKey, $dateKey, $amountKey] = array_column($october['columns'], 'key');
+
+        $this->postJson('/api/v1/admin/calendar/rows', ['table' => $october['id'], 'values' => [
+            $itemKey => 'Ներքնակ', $dateKey => 'երեկ', $amountKey => 5000,
+        ]])->assertUnprocessable()->assertJsonValidationErrors("values.{$dateKey}");
+        $this->assertSame(1, $this->tableCount());
+
+        Sanctum::actingAs(User::factory()->forTenant($this->salon, 'moderator')->create());
+        $added = $this->addFromCalendar($october, 'Ներքնակ', '2026-11-02 10:00', 5000);
+        $this->assertSame('Ноябрь', $added['table']['name']);
+
+        // Another business's table can't be chosen.
+        $other = $this->createTenant('other-salon');
+        $foreign = $this->asTenant($other, fn () => DataTable::create(['section' => 'orders', 'name' => 'X', 'columns' => []]));
+        $this->postJson('/api/v1/admin/calendar/rows', ['table' => $foreign->id, 'values' => []])->assertNotFound();
+    }
+
+    public function test_month_names(): void
+    {
+        $this->assertSame([10, 2026, 'hy'], $this->named('Հոկտեմբեր 2026'));
+        $this->assertSame([10, null, 'hy'], $this->named('Պատվերներ հոկտեմբերի'));
+        $this->assertSame([9, null, 'ru'], $this->named('Заказы сентября'));
+        $this->assertSame([9, 2026, 'en'], $this->named('Sept 2026'));
+        $this->assertSame([9, 2026, null], $this->named('orders 09.2026'));
+        $this->assertSame([9, 2026, null], $this->named('2026-09'));
+        $this->assertNull(MonthTables::fromName('Սեպտեմբեր–Հոկտեմբեր'));
+        $this->assertNull(MonthTables::fromName('Բոլոր պատվերները 2026'));
+        $this->assertNull(MonthTables::fromName('Marketing'));
+    }
+
+    private function rowsOf(int $table): int
+    {
+        return $this->asTenant($this->salon, fn () => DataTable::findOrFail($table)->rows()->count());
+    }
+
+    private function tableCount(): int
+    {
+        return $this->asTenant($this->salon, fn () => DataTable::count());
+    }
+
+    private function named(string $name): ?array
+    {
+        $named = MonthTables::fromName($name);
+
+        return $named === null ? null : [$named['month'], $named['year'], $named['lang']];
     }
 }

@@ -79,7 +79,19 @@ class DataTableRowController extends Controller
     private function validatedData(Request $request, DataTable $dataTable, bool $fillDate = false): array
     {
         $request->validate(['values' => ['present', 'array']]);
-        $values = $request->input('values', []);
+
+        return self::parseValues($dataTable, $request->input('values', []), $fillDate);
+    }
+
+    /**
+     * A row's data from what was typed, by the table's columns; a validation
+     * error per column (values.{key}) otherwise.
+     *
+     * @param  array<string, mixed>  $values
+     * @param  array<string, string>  $errorKeys  column key → the key its error is reported under
+     */
+    public static function parseValues(DataTable $dataTable, array $values, bool $fillDate = false, array $errorKeys = []): array
+    {
         $date = $dataTable->dateColumn();
 
         if ($fillDate && $date && trim((string) ($values[$date->key] ?? '')) === '') {
@@ -91,7 +103,7 @@ class DataTableRowController extends Controller
 
         if ($errors !== []) {
             throw ValidationException::withMessages(
-                collect($errors)->mapWithKeys(fn (string $error, string $key) => ["values.{$key}" => [$error]])->all(),
+                collect($errors)->mapWithKeys(fn (string $error, string $key) => ['values.'.($errorKeys[$key] ?? $key) => [$error]])->all(),
             );
         }
 
