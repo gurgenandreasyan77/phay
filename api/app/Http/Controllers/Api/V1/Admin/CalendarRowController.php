@@ -10,6 +10,8 @@ use App\Http\Resources\Admin\DataTableResource;
 use App\Http\Resources\Admin\DataTableRowResource;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
+use App\Models\Tenant;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +41,9 @@ class CalendarRowController extends Controller
         $month = substr((string) RowMetrics::for($chosen)($data)['occurred_at'], 0, 7);
 
         [$row, $table, $created] = DB::transaction(function () use ($request, $chosen, $values, $data, $month) {
+            // One at a time per business: two quick orders of a new month make one table.
+            Tenant::query()->whereKey(app(TenantContext::class)->id())->lockForUpdate()->first();
+
             [$table, $created] = MonthTables::forMonth($chosen, $month);
 
             if ($table->isNot($chosen)) {
