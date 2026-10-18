@@ -302,7 +302,7 @@ export function CellInput({ column, value, onChange }: { column: Column; value: 
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={column.type === "money" ? "֏" : undefined}
-          className="text-right"
+          className="tabular-nums"
         />
       );
     default:
