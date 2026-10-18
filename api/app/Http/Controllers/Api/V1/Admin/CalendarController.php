@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\DataTables\MonthTables;
 use App\Enums\DataColumnType;
 use App\Enums\DataTableSection;
 use App\Http\Controllers\Controller;
@@ -73,6 +74,9 @@ class CalendarController extends Controller
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
             'tables' => DataTableResource::collection($tables),
+            // The month ("Y-m") of each table kept per month, by table id: an
+            // order added on another month's day goes to that month's table.
+            'months' => (object) MonthTables::months($tables),
             'rows' => $rows->take(self::MAX_ROWS)->map(function (DataTableRow $row) use ($timed) {
                 $at = CarbonImmutable::parse($row->getRawOriginal('occurred_at'));
 

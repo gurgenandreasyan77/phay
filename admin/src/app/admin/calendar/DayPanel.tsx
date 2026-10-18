@@ -7,6 +7,7 @@ import { Phone, Plus, Trash2 } from "lucide-react";
 import type { AdminDataTableDto, CalendarLeadDto } from "@/lib/adminApi";
 import { Badge, Button, buttonClasses, Card, cn, FieldLabel, Select } from "../_components/ui";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_TONES } from "../_components/leadStatus";
+import { bucketTitle } from "../_components/analytics/BarChart";
 import { CellInput, fromDraft, toDraft, type Draft } from "../_components/tables/RowsGrid";
 import { formatMoney, SECTIONS, tablePath, validationErrors } from "../_components/tables/shared";
 import type { CalendarEntry } from "./entries";
@@ -28,6 +29,7 @@ export function DayPanel({
   day,
   title,
   tables,
+  months,
   entries,
   leads,
   colors,
@@ -36,6 +38,7 @@ export function DayPanel({
   day: string;
   title: string;
   tables: AdminDataTableDto[];
+  months: Record<number, string>;
   entries: CalendarEntry[];
   leads: CalendarLeadDto[];
   colors: Record<number, string>;
@@ -78,6 +81,7 @@ export function DayPanel({
         <NewOrderForm
           day={day}
           tables={tables}
+          months={months}
           onDone={(saved) => {
             setAdding(false);
             if (saved) router.refresh();
@@ -169,22 +173,35 @@ export function DayPanel({
   );
 }
 
-/** A new row of the chosen table, on this day: the table's own fields. */
+/**
+ * A new row of the chosen table, on this day: the table's own fields. When
+ * the chosen table is kept for another month, the API puts the row in the
+ * table of the date's month, made like the chosen one when there is none.
+ */
 function NewOrderForm({
   day,
   tables,
+  months,
   onDone,
 }: {
   day: string;
   tables: AdminDataTableDto[];
+  months: Record<number, string>;
   onDone: (saved: boolean) => void;
 }) {
-  const [tableId, setTableId] = useState<number>(() => lastTable(tables) ?? tables[0].id);
+  const [tableId, setTableId] = useState<number>(
+    () => tables.find((t) => months[t.id] === day.slice(0, 7))?.id ?? lastTable(tables) ?? tables[0].id,
+  );
   const table = tables.find((t) => t.id === tableId) ?? tables[0];
   const [draft, setDraft] = useState<Draft>(() => toDraft(table, undefined, day));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
+
+  // Where the row will go, by the month of the date typed in.
+  const month = table.dateColumn ? (draft[table.dateColumn] ?? "").slice(0, 7) : "";
+  const elsewhere = /^\d{4}-\d{2}$/.test(month) && months[table.id] !== undefined && months[table.id] !== month;
+  const target = elsewhere ? tables.find((t) => months[t.id] === month) : undefined;
 
   function chooseTable(id: number) {
     const next = tables.find((t) => t.id === id);
@@ -199,10 +216,10 @@ function NewOrderForm({
     setErrors({});
     setFailed(false);
     try {
-      const response = await fetch(`/api/admin/data-tables/${table.id}/rows`, {
+      const response = await fetch("/api/admin/calendar/rows", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ values: fromDraft(table, draft) }),
+        body: JSON.stringify({ table: table.id, values: fromDraft(table, draft) }),
       });
       if (response.status === 422) {
         setErrors(validationErrors(await response.json().catch(() => null)));
@@ -262,6 +279,14 @@ function NewOrderForm({
           {errors[`values.${column.key}`] ? <p className="text-xs text-danger">{errors[`values.${column.key}`]}</p> : null}
         </label>
       ))}
+
+      {elsewhere ? (
+        <p className="rounded-md bg-surface px-3 py-2 text-xs text-ink-muted">
+          {target
+            ? `Ամսաթիվն այլ ամսից է։ Պատվերը կավելացվի «${target.name}» աղյուսակում։`
+            : `${bucketTitle(month)}-ի համար աղյուսակ դեռ չկա։ Կստեղծվի նորը՝ «${table.name}»-ի սյունակներով, և պատվերը կավելացվի այնտեղ։`}
+        </p>
+      ) : null}
 
       <div className="flex items-center gap-2">
         <Button type="submit" size="sm" disabled={pending}>

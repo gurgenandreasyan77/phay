@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\Admin\AdditionalServiceController as AdminAdditi
 use App\Http\Controllers\Api\V1\Admin\AnalyticsController as AdminAnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\AssistantController as AdminAssistantController;
 use App\Http\Controllers\Api\V1\Admin\CalendarController as AdminCalendarController;
+use App\Http\Controllers\Api\V1\Admin\CalendarRowController as AdminCalendarRowController;
 use App\Http\Controllers\Api\V1\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Api\V1\Admin\CalculatorSettingController as AdminCalculatorSettingController;
 use App\Http\Controllers\Api\V1\Admin\ContactChannelController as AdminContactChannelController;
@@ -135,6 +136,8 @@ Route::prefix('v1')->group(function () {
 
                     // Orders by day: rows of the order tables and the site's orders.
                     Route::get('/calendar', AdminCalendarController::class);
+                    // An order added on a day goes to the table of its month (made when missing).
+                    Route::post('/calendar/rows', [AdminCalendarRowController::class, 'store']);
                 });
 
                 // The business's own tables (orders, sales): everyone who works

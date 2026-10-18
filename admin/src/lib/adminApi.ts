@@ -899,6 +899,8 @@ export type CalendarDto = {
   to: string;
   /** The order tables with a date column: where rows can be added from the calendar. */
   tables: AdminDataTableDto[];
+  /** The month ("Y-m") of each table kept per month, by table id; other tables aren't listed. */
+  months: Record<number, string>;
   rows: CalendarRowDto[];
   /** More rows than the API sends at once. */
   truncated: boolean;
