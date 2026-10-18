@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use App\Features\FeatureFlag;
+use App\Tenancy\TenantScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Laravel\Pennant\Contracts\FeatureScopeSerializeable;
 use Laravel\Pennant\Feature;
 use RuntimeException;
@@ -22,6 +24,7 @@ class Tenant extends Model implements FeatureScopeSerializeable
 
     protected $fillable = [
         'name',
+        'logo',
         'slug',
         'default_locale',
         'locales',
@@ -65,6 +68,25 @@ class Tenant extends Model implements FeatureScopeSerializeable
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class)->withPivot('role')->withTimestamps();
+    }
+
+    // The relations below read another business's rows from the platform
+    // level, so they skip the current-tenant scope (the foreign key already
+    // limits them to this business).
+
+    public function contactChannels(): HasMany
+    {
+        return $this->hasMany(ContactChannel::class)->withoutGlobalScope(TenantScope::class);
+    }
+
+    public function siteSetting(): HasOne
+    {
+        return $this->hasOne(SiteSetting::class)->withoutGlobalScope(TenantScope::class);
+    }
+
+    public function supportMessages(): HasMany
+    {
+        return $this->hasMany(SupportMessage::class)->withoutGlobalScope(TenantScope::class);
     }
 
     public function isActive(): bool

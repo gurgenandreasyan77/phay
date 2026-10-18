@@ -18,9 +18,61 @@ use Illuminate\Validation\Rule;
  */
 class TenantController extends Controller
 {
-    public function index(): AnonymousResourceCollection
+    /**
+     * ?search= finds a business by its name or slug, any of its contacts
+     * (a phone matches with or without spaces, dashes or +) or its address.
+     * Matched in PHP: Armenian text compares case-insensitively the same way
+     * on every database, and the platform has tens of businesses, not
+     * thousands (then: a search column).
+     */
+    public function index(Request $request): AnonymousResourceCollection
     {
-        return TenantResource::collection(Tenant::query()->withCount(['sites', 'users'])->orderBy('id')->get());
+        $search = mb_strtolower(trim((string) $request->query('search', '')));
+
+        $tenants = Tenant::query()
+            ->withCount([
+                'sites',
+                'users',
+                'supportMessages as unread_messages_count' => fn ($query) => $query->unreadFrom(false),
+            ])
+            ->with(['siteSetting', 'contactChannels'])
+            ->orderBy('id')
+            ->get();
+
+        if ($search !== '') {
+            $tenants = $tenants->filter(fn (Tenant $tenant) => $this->matches($tenant, $search))->values();
+        }
+
+        return TenantResource::collection($tenants);
+    }
+
+    private function matches(Tenant $tenant, string $search): bool
+    {
+        $digits = preg_replace('/\D+/', '', $search);
+
+        $texts = [
+            $tenant->name,
+            $tenant->slug,
+            ...array_values(array_filter((array) ($tenant->siteSetting?->address ?? []), 'is_string')),
+            ...$tenant->contactChannels->pluck('label')->filter()->all(),
+        ];
+
+        foreach ($tenant->contactChannels as $channel) {
+            $texts[] = $channel->value;
+
+            // "55 33-76 33", "+374 55337633" and "553376" find the same phone.
+            if (strlen($digits) >= 3 && str_contains(preg_replace('/\D+/', '', $channel->value), $digits)) {
+                return true;
+            }
+        }
+
+        foreach ($texts as $text) {
+            if (str_contains(mb_strtolower((string) $text), $search)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function store(Request $request): JsonResponse

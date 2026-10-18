@@ -344,6 +344,8 @@ export type PlatformRole = "super_admin" | "moderator";
 export type AdminTenantDto = {
   id: number;
   name: string;
+  /** Public URL of the logo the business uploaded in its settings. */
+  logo?: string | null;
   slug: string;
   defaultLocale: string;
   status: "active" | "suspended";
@@ -352,7 +354,30 @@ export type AdminTenantDto = {
   sitesCount?: number;
   /** Logins that can sign in to this business. */
   usersCount?: number;
+  /** Platform list only: the address and active contacts from the business's settings. */
+  address?: Partial<Record<"hy" | "ru" | "en", string>>;
+  contacts?: { type: ContactChannelType; value: string; label: string | null }[];
+  /** Platform list only: the business's chat messages the platform hasn't read. */
+  unreadMessages?: number;
   createdAt: string | null;
+};
+
+/** A chat message between a business and the platform team. */
+export type SupportMessageDto = {
+  id: number;
+  body: string;
+  /** Written by the platform team (true) or by the business (false). */
+  fromPlatform: boolean;
+  authorName: string | null;
+  readAt: string | null;
+  createdAt: string | null;
+};
+
+/** One business's conversation in the platform's list of chats. */
+export type SupportConversationDto = {
+  tenant: { id: number; name: string; logo: string | null };
+  lastMessage: SupportMessageDto;
+  unread: number;
 };
 
 /** A login of a business, created by hand by platform staff. */
@@ -557,6 +582,8 @@ export type AdminMarketTaskPageDto = {
 };
 
 export type AdminSiteSettingsDto = {
+  /** Older APIs don't send it. */
+  business?: { name: string; logo: string | null };
   address: Partial<Record<"hy" | "ru" | "en", string>>;
   channels: AdminContactChannelDto[];
 };
@@ -777,8 +804,15 @@ export async function getPlatformUsersAdmin(): Promise<AdminPlatformUserDto[]> {
   return result.data ?? [];
 }
 
-export async function getTenantsAdmin(): Promise<AdminTenantDto[]> {
-  const result = await adminApiFetch<AdminTenantDto[]>("/admin/tenants");
+export async function getTenantsAdmin(search?: string): Promise<AdminTenantDto[]> {
+  const query = search ? `?search=${encodeURIComponent(search)}` : "";
+  const result = await adminApiFetch<AdminTenantDto[]>(`/admin/tenants${query}`);
+  return result.data ?? [];
+}
+
+/** The platform's chats: businesses that have written or been written to. */
+export async function getSupportConversations(): Promise<SupportConversationDto[]> {
+  const result = await adminApiFetch<SupportConversationDto[]>("/admin/support/conversations");
   return result.data ?? [];
 }
 

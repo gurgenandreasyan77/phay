@@ -1,20 +1,70 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import type { ContactChannelType } from "@/lib/api";
 import type { AdminTenantDto } from "@/lib/adminApi";
+import { BusinessLogo } from "../_components/BusinessLogo";
 import { TenantLoginsPanel } from "./TenantLoginsPanel";
 import { TenantModulesPanel } from "./TenantModulesPanel";
-import { Badge, Button, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "../_components/ui";
+import { Badge, Button, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr, buttonClasses } from "../_components/ui";
 
 const LOCALE_LABELS: Record<string, string> = { hy: "Հայերեն", ru: "Русский", en: "English" };
 
+const CONTACT_LABELS: Record<ContactChannelType, string> = {
+  phone: "Հեռ.",
+  whatsapp: "WhatsApp",
+  telegram: "Telegram",
+  instagram: "Instagram",
+  facebook: "Facebook",
+  tiktok: "TikTok",
+  viber: "Viber",
+  email: "Email",
+  other: "Այլ",
+};
+
+/** The address in the admin's language first, else whichever the business filled in. */
+function addressOf(tenant: AdminTenantDto): string | null {
+  const address = tenant.address ?? {};
+  return address.hy || address.ru || address.en || null;
+}
+
+/** Search by name, slug, phone, any contact or address; the server matches, the URL keeps it (?q=). */
+function SearchBox({ initial }: { initial: string }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [value, setValue] = useState(initial);
+
+  useEffect(() => {
+    if (value.trim() === initial) return;
+    const timer = setTimeout(() => {
+      const q = value.trim();
+      router.replace(q ? `${pathname}?q=${encodeURIComponent(q)}` : pathname, { scroll: false });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [value, initial, pathname, router]);
+
+  return (
+    <Input
+      type="search"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      placeholder="Որոնել՝ անվանում, հեռախոս, Instagram, հասցե…"
+      className="max-w-md"
+    />
+  );
+}
+
 export function BusinessesManager({
   tenants,
+  search,
   currentTenantId,
   isSuperAdmin,
 }: {
   tenants: AdminTenantDto[];
+  /** The current search (?q=); the list is already filtered by it. */
+  search: string;
   currentTenantId: number | null;
   /** Modules and platform staff accounts are the super admin's; a platform moderator onboards only. */
   isSuperAdmin: boolean;
@@ -48,11 +98,13 @@ export function BusinessesManager({
 
   return (
     <div className="space-y-6">
+      <SearchBox initial={search} />
+
       <TableWrap>
         <Thead>
           <Th>Անվանում</Th>
+          <Th>Կոնտակտներ</Th>
           <Th>Slug</Th>
-          <Th>Լեզու</Th>
           <Th>Կայքեր</Th>
           <Th>Մուտքեր</Th>
           <Th>Կարգավիճակ</Th>
@@ -64,13 +116,39 @@ export function BusinessesManager({
             return (
               <Tr key={tenant.id}>
                 <Td className="font-medium text-ink">
-                  <span className="flex items-center gap-2">
-                    {tenant.name}
-                    {isCurrent ? <Badge tone="primary">Ընթացիկ</Badge> : null}
+                  <span className="flex items-center gap-3">
+                    <BusinessLogo name={tenant.name} logo={tenant.logo} />
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-2">
+                        {tenant.name}
+                        {isCurrent ? <Badge tone="primary">Ընթացիկ</Badge> : null}
+                      </span>
+                      {addressOf(tenant) ? (
+                        <span className="block max-w-64 truncate text-xs font-normal text-ink-muted">
+                          {addressOf(tenant)}
+                        </span>
+                      ) : null}
+                    </span>
                   </span>
                 </Td>
-                <Td className="font-mono text-xs text-ink-muted">{tenant.slug}</Td>
-                <Td>{LOCALE_LABELS[tenant.defaultLocale] ?? tenant.defaultLocale}</Td>
+                <Td className="text-xs">
+                  {tenant.contacts && tenant.contacts.length > 0 ? (
+                    <ul className="space-y-0.5">
+                      {tenant.contacts.slice(0, 3).map((contact, i) => (
+                        <li key={`${contact.type}-${i}`} className="whitespace-nowrap">
+                          <span className="text-ink-muted">{CONTACT_LABELS[contact.type] ?? contact.type}՝ </span>
+                          {contact.value}
+                        </li>
+                      ))}
+                      {tenant.contacts.length > 3 ? (
+                        <li className="text-ink-muted">և ևս {tenant.contacts.length - 3}</li>
+                      ) : null}
+                    </ul>
+                  ) : (
+                    <span className="text-ink-faint">—</span>
+                  )}
+                </Td>
+                <Td className="whitespace-nowrap font-mono text-xs text-ink-muted">{tenant.slug}</Td>
                 <Td>{tenant.sitesCount ?? 0}</Td>
                 <Td>{tenant.usersCount ?? 0}</Td>
                 <Td>
@@ -82,6 +160,17 @@ export function BusinessesManager({
                 </Td>
                 <Td className="text-right">
                   <span className="inline-flex items-center justify-end gap-2">
+                    <Link
+                      href={`/admin/platform/support?tenant=${tenant.id}`}
+                      className={buttonClasses("secondary", "sm")}
+                    >
+                      Զրույց
+                      {tenant.unreadMessages ? (
+                        <span className="rounded-full bg-primary px-1.5 py-0.5 text-[11px] font-semibold leading-none text-primary-foreground">
+                          {tenant.unreadMessages}
+                        </span>
+                      ) : null}
+                    </Link>
                     <Button
                       size="sm"
                       variant={panel?.tenantId === tenant.id && panel.kind === "logins" ? "primary" : "secondary"}
@@ -111,7 +200,9 @@ export function BusinessesManager({
               </Tr>
             );
           })}
-          {tenants.length === 0 ? <EmptyRow colSpan={7}>Բիզնեսներ դեռ չկան։</EmptyRow> : null}
+          {tenants.length === 0 ? (
+            <EmptyRow colSpan={7}>{search ? "Ոչինչ չի գտնվել։" : "Բիզնեսներ դեռ չկան։"}</EmptyRow>
+          ) : null}
         </tbody>
       </TableWrap>
 
