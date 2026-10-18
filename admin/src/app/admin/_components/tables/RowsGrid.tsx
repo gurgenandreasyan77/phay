@@ -10,21 +10,25 @@ import { formatCell, validationErrors } from "./shared";
 type Column = AdminDataTableDto["columns"][number];
 
 /** What the inputs hold while a row is edited: always strings. */
-type Draft = Record<string, string>;
+export type Draft = Record<string, string>;
 
 /** Now, as a date or date-and-time column stores it ("Y-m-d" / "Y-m-d H:i"). */
-function now(type: Column["type"]): string {
+export function now(type: Column["type"]): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
   const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   return type === "datetime" ? `${date} ${pad(d.getHours())}:${pad(d.getMinutes())}` : date;
 }
 
-function toDraft(table: AdminDataTableDto, row?: AdminDataTableRowDto): Draft {
+/** @param date a new row's date ("Y-m-d"), today when not given */
+export function toDraft(table: AdminDataTableDto, row?: AdminDataTableRowDto, date?: string): Draft {
   return Object.fromEntries(
     table.columns.map((column) => {
-      // A new row happens now, unless changed.
-      if (!row && column.key === table.dateColumn) return [column.key, now(column.type)];
+      // A new row happens now (or on the given day), unless changed.
+      if (!row && column.key === table.dateColumn) {
+        const today = now(column.type);
+        return [column.key, date ? `${date}${today.slice(10)}` : today];
+      }
       const value = row?.values[column.key];
       return [column.key, value === null || value === undefined ? "" : String(value)];
     }),
@@ -32,7 +36,7 @@ function toDraft(table: AdminDataTableDto, row?: AdminDataTableRowDto): Draft {
 }
 
 /** Strings to what the API takes; it parses and validates each value by type. */
-function fromDraft(table: AdminDataTableDto, draft: Draft): Record<string, DataCellValue> {
+export function fromDraft(table: AdminDataTableDto, draft: Draft): Record<string, DataCellValue> {
   return Object.fromEntries(
     table.columns.map((column) => {
       const value = draft[column.key] ?? "";
@@ -258,7 +262,7 @@ function RowEditor({
   );
 }
 
-function CellInput({ column, value, onChange }: { column: Column; value: string; onChange: (value: string) => void }) {
+export function CellInput({ column, value, onChange }: { column: Column; value: string; onChange: (value: string) => void }) {
   switch (column.type) {
     case "select":
       return (
