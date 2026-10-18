@@ -179,7 +179,10 @@ class AdminCalendarTest extends TestCase
         $this->assertSame(2, $this->tableCount());
 
         $calendar = $this->getJson('/api/v1/admin/calendar?from=2026-09-01&to=2026-10-31')->json('data');
-        $this->assertSame(['2026-09', '2026-10'], [$calendar['months'][$added['table']['id']], $calendar['months'][$october['id']]]);
+        $this->assertSame(['2026-09', '2026-10'], [$calendar['periods'][$added['table']['id']]['key'], $calendar['periods'][$october['id']]['key']]);
+        // The new table is kept for its month from now on; the old one's month is still read from its name.
+        $this->assertSame(['month', null], [$added['table']['period'], $october['period']]);
+        $this->assertSame(['year' => 2026, 'quarter' => 3, 'month' => 9, 'week' => 39, 'weekYear' => 2026, 'day' => '2026-09-21'], $again['period']);
         $this->assertCount(3, $calendar['rows']);
     }
 

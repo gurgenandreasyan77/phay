@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\DataTables\DataTableSchema;
+use App\DataTables\Period;
 use App\Enums\DataColumnType;
+use App\Enums\TablePeriod;
+use Illuminate\Validation\Rule;
 use App\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\DataTableRowResource;
@@ -27,14 +30,23 @@ class DataTableRowController extends Controller
     {
         DataTableController::ensureReachable($dataTable);
 
-        $request->validate(['search' => ['nullable', 'string', 'max:100']]);
+        $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            // Rows of one day, ISO week, month, quarter or year: the one `date` is in.
+            'period' => ['nullable', Rule::in(TablePeriod::calendarValues())],
+            'date' => ['required_with:period', 'nullable', 'date_format:Y-m-d'],
+        ]);
         $search = trim((string) $request->input('search'));
+        $period = $request->filled('period') ? Period::of(TablePeriod::from($request->input('period')), $request->input('date')) : null;
 
         $rows = $dataTable->rows()
             ->when($search !== '', fn ($query) => $query->whereRaw(
                 'LOWER(CAST(data AS TEXT)) LIKE ?',
                 ['%'.mb_strtolower(addcslashes($search, '%_\\')).'%'],
             ))
+            ->when($period !== null, fn ($query) => $query
+                ->where('occurred_at', '>=', $period->start->format('Y-m-d H:i:s'))
+                ->where('occurred_at', '<', $period->next()->format('Y-m-d H:i:s')))
             ->orderByDesc('id')
             ->paginate(self::PER_PAGE);
 

@@ -42,7 +42,7 @@ final class MonthTables
      */
     public static function months(Collection $tables): array
     {
-        $histograms = self::histograms($tables->modelKeys());
+        $histograms = self::histograms($tables->pluck('id')->all());
         $months = [];
 
         foreach ($tables as $table) {
@@ -237,7 +237,7 @@ final class MonthTables
     }
 
     /** @return list<string> */
-    private static function keys(DataTable $table): array
+    public static function keys(DataTable $table): array
     {
         return array_map(fn (DataColumn $c) => $c->key, $table->columnDefinitions());
     }

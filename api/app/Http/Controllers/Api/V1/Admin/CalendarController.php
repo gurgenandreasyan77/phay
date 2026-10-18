@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
-use App\DataTables\MonthTables;
+use App\DataTables\PeriodTables;
 use App\Enums\DataColumnType;
 use App\Enums\DataTableSection;
 use App\Http\Controllers\Controller;
@@ -48,6 +48,7 @@ class CalendarController extends Controller
             ->get()
             ->filter(fn (DataTable $table) => $table->dateColumn() !== null)
             ->values();
+        PeriodTables::infer($tables);
 
         $rows = DataTableRow::query()
             ->whereIn('data_table_id', $tables->modelKeys())
@@ -74,9 +75,12 @@ class CalendarController extends Controller
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
             'tables' => DataTableResource::collection($tables),
-            // The month ("Y-m") of each table kept per month, by table id: an
-            // order added on another month's day goes to that month's table.
-            'months' => (object) MonthTables::months($tables),
+            // The period of each table kept per day, week, month, quarter or
+            // year, by table id (each table also has it as periodInfo): an
+            // order added on a day of another period goes to that period's table.
+            'periods' => (object) $tables->filter(fn (DataTable $t) => $t->period() !== null)
+                ->mapWithKeys(fn (DataTable $t) => [$t->id => $t->period()->toArray()])
+                ->all(),
             'rows' => $rows->take(self::MAX_ROWS)->map(function (DataTableRow $row) use ($timed) {
                 $at = CarbonImmutable::parse($row->getRawOriginal('occurred_at'));
 

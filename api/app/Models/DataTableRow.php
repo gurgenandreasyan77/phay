@@ -20,11 +20,12 @@ class DataTableRow extends Model
     protected $casts = [
         'data' => 'array',
         'amount' => 'float',
+        'employee_id' => 'integer',
     ];
 
     protected static function booted(): void
     {
-        // occurred_at and amount always follow the row's data.
+        // occurred_at, amount and employee_id always follow the row's data.
         static::saving(function (DataTableRow $row) {
             if ($row->isDirty('data') || ! $row->exists) {
                 $row->forceFill(RowMetrics::for($row->getRelationValue('table'))($row->data ?? []));
@@ -35,5 +36,11 @@ class DataTableRow extends Model
     public function table(): BelongsTo
     {
         return $this->belongsTo(DataTable::class, 'data_table_id');
+    }
+
+    /** Who did it: the employee named in the performer column. */
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class);
     }
 }

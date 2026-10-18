@@ -17,6 +17,14 @@ class DataTableResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description,
             'columns' => $this->columns,
+            // What the table is kept for (TablePeriod; null: not chosen) and
+            // the period it holds: the chosen one, or the month read from its
+            // name or rows (inferred) for a table made before periods.
+            'period' => $this->period?->value,
+            'periodInfo' => ($period = $this->resource->period()) === null ? null : [
+                ...$period->toArray(),
+                'inferred' => $this->period === null,
+            ],
             // Keys of the columns a row's date and money are read from (by role).
             'dateColumn' => $this->dateColumn()?->key,
             'amountColumn' => $this->amountColumn()?->key,

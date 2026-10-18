@@ -3,8 +3,12 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\DataTables\DataTableSchema;
+use App\DataTables\Period;
+use App\DataTables\PeriodTables;
 use App\DataTables\RowMetrics;
 use App\Enums\DataTableSection;
+use App\Enums\TablePeriod;
+use App\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\DataTableResource;
 use App\Models\DataTable;
@@ -44,7 +48,7 @@ class DataTableController extends Controller
             ->orderBy('id')
             ->get();
 
-        return DataTableResource::collection($tables);
+        return DataTableResource::collection(PeriodTables::infer($tables));
     }
 
     public function store(Request $request): JsonResponse
@@ -53,6 +57,7 @@ class DataTableController extends Controller
             'section' => ['required', Rule::enum(DataTableSection::class)],
             'name' => ['required', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:1000'],
+            ...self::periodRules(),
             ...DataTableSchema::rules(),
         ]);
 
@@ -64,8 +69,10 @@ class DataTableController extends Controller
             'name' => trim($validated['name']),
             'description' => $validated['description'] ?? null,
             'columns' => DataTableSchema::columns($validated['columns']),
+            ...self::periodFields($validated),
             'sort_order' => (DataTable::query()->where('section', $section)->max('sort_order') ?? 0) + 1,
         ]);
+        PeriodTables::infer(collect([$table]));
 
         return (new DataTableResource($table->loadCount('rows')))->response()->setStatusCode(201);
     }
@@ -73,6 +80,7 @@ class DataTableController extends Controller
     public function show(DataTable $dataTable): DataTableResource
     {
         self::ensureReachable($dataTable);
+        PeriodTables::infer(collect([$dataTable]));
 
         return new DataTableResource($dataTable->loadCount('rows'));
     }
@@ -84,6 +92,7 @@ class DataTableController extends Controller
         $validated = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:100'],
             'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            ...self::periodRules(),
             ...collect(DataTableSchema::rules())
                 ->map(fn (array $rules, string $field) => $field === 'columns' ? ['sometimes', ...$rules] : $rules)
                 ->all(),
@@ -97,17 +106,20 @@ class DataTableController extends Controller
             $validated['name'] = trim($validated['name']);
         }
 
-        $dataTable->fill($validated);
+        $dataTable->fill([...collect($validated)->except(['period', 'periodDate'])->all(), ...self::periodFields($validated, $dataTable)]);
         $recompute = $dataTable->isDirty('columns');
         $dataTable->save();
 
-        // A new date, price or quantity column (or a retyped one): every row
-        // is read again, so analytics follow at once.
+        // A new date, price, quantity or performer column (or a retyped one):
+        // every row is read again, so analytics follow at once.
         if ($recompute) {
             RowMetrics::recompute($dataTable);
         }
 
-        return new DataTableResource($dataTable->fresh()->loadCount('rows'));
+        $fresh = $dataTable->fresh();
+        PeriodTables::infer(collect([$fresh]));
+
+        return new DataTableResource($fresh->loadCount('rows'));
     }
 
     public function destroy(DataTable $dataTable): Response
@@ -132,6 +144,44 @@ class DataTableController extends Controller
         $tables->each->delete();
 
         return response()->noContent();
+    }
+
+    /** A table's period, and a day in it (the first day is stored). */
+    private static function periodRules(): array
+    {
+        return [
+            'period' => ['sometimes', 'nullable', Rule::enum(TablePeriod::class)],
+            'periodDate' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+        ];
+    }
+
+    /**
+     * The period fields to store from a request: the chosen kind and the
+     * first day of the period the given day is in; without a day, the one
+     * the table already holds, else today's. Nothing when the request
+     * doesn't choose a period.
+     *
+     * @return array{period?: ?TablePeriod, period_start?: ?\Carbon\CarbonImmutable}
+     */
+    private static function periodFields(array $validated, ?DataTable $table = null): array
+    {
+        if (! array_key_exists('period', $validated)) {
+            return [];
+        }
+
+        $kind = $validated['period'] === null ? null : TablePeriod::from($validated['period']);
+        if ($kind === null || ! $kind->isCalendar()) {
+            return ['period' => $kind, 'period_start' => null];
+        }
+
+        if ($table !== null) {
+            PeriodTables::infer(collect([$table]));
+        }
+        $day = $validated['periodDate']
+            ?? $table?->period()?->start
+            ?? now(app(TenantContext::class)->current()->timezone ?: config('app.timezone'))->toDateString();
+
+        return ['period' => $kind, 'period_start' => Period::of($kind, $day)->start];
     }
 
     public static function moduleActive(DataTableSection $section): bool
