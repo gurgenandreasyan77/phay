@@ -171,7 +171,6 @@ Route::prefix('v1')->group(function () {
                 Route::get('/analytics/statistics', [AdminTableAnalyticsController::class, 'statistics']);
                 // What each employee did: orders, revenue, costs.
                 Route::get('/employees/stats', [AdminEmployeeController::class, 'stats']);
-                Route::get('/employees/{employee}', [AdminEmployeeController::class, 'show']);
                 Route::get('/assistant', [AdminAssistantController::class, 'show']);
                 Route::post('/assistant', [AdminAssistantController::class, 'store'])->middleware('throttle:assistant');
             });
@@ -185,6 +184,8 @@ Route::prefix('v1')->group(function () {
 
                 // The business's employees: owner and admin.
                 Route::post('/employees', [AdminEmployeeController::class, 'store']);
+                // One employee's orders; the money only for the owner.
+                Route::get('/employees/{employee}', [AdminEmployeeController::class, 'show']);
                 Route::patch('/employees/{employee}', [AdminEmployeeController::class, 'update']);
                 Route::delete('/employees/{employee}', [AdminEmployeeController::class, 'destroy']);
             });

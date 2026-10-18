@@ -91,6 +91,10 @@ class AdminEmployeeTest extends TestCase
         $this->assertSame(1, $stats['unassigned']['orders']);
         $this->assertSame(5, $stats['total']['orders']);
 
+        // The orders page asks for its own section; a sales section has no performer column here.
+        $this->assertSame(5, $this->getJson('/api/v1/admin/employees/stats?section=orders&period=month&date=2026-11-18')->json('data.total.orders'));
+        $this->assertFalse($this->getJson('/api/v1/admin/employees/stats?section=sales')->json('data.hasPerformerColumn'));
+
         // All time: October too.
         $this->assertSame(2, collect($this->getJson('/api/v1/admin/employees/stats')->json('data.employees'))->firstWhere('name', 'Գոռ')['orders']);
 
@@ -162,6 +166,7 @@ class AdminEmployeeTest extends TestCase
     public function test_who_may_see_and_keep_employees(): void
     {
         $id = $this->employee('Աննա');
+        $this->addRow($this->ordersTable(), '2026-11-02', 10000, 1500, 'Աննա');
 
         // A moderator picks performers but doesn't keep the list or see money.
         $this->actingAsMember('moderator');
@@ -170,10 +175,12 @@ class AdminEmployeeTest extends TestCase
         $this->getJson('/api/v1/admin/employees/stats')->assertForbidden();
         $this->getJson("/api/v1/admin/employees/{$id}")->assertForbidden();
 
-        // An admin keeps the list, the money is the owner's.
+        // An admin keeps the list and sees an employee's orders; the money is the owner's.
         $this->actingAsMember('admin');
         $this->postJson('/api/v1/admin/employees', ['name' => 'Գոռ'])->assertCreated();
         $this->getJson('/api/v1/admin/employees/stats')->assertForbidden();
+        $admin = $this->getJson("/api/v1/admin/employees/{$id}")->assertOk()->json('data');
+        $this->assertSame([1, null, null, null], [$admin['figures']['orders'], $admin['figures']['revenue'], $admin['rows'][0]['amount'], $admin['rows'][0]['cost']]);
 
         // Another business sees none of them.
         $other = $this->createTenant('test-other');

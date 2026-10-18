@@ -6,6 +6,7 @@ use App\DataTables\EmployeeStats;
 use App\DataTables\Period;
 use App\DataTables\Performers;
 use App\Enums\ColumnRole;
+use App\Enums\DataTableSection;
 use App\Enums\TablePeriod;
 use App\Http\Controllers\Controller;
 use App\Models\DataTable;
@@ -72,23 +73,34 @@ class EmployeeController extends Controller
         return response()->noContent();
     }
 
-    /** Orders, revenue, costs and profit of each employee in a period (?period=month&date=…; all time without it). */
+    /**
+     * Orders, revenue, costs and profit of each employee in a period
+     * (?period=month&date=…; all time without it), of one section's tables
+     * with ?section= (the orders page shows its own).
+     */
     public function stats(Request $request): JsonResponse
     {
-        return response()->json(['data' => EmployeeStats::for($this->period($request))]);
+        $request->validate(['section' => ['nullable', Rule::enum(DataTableSection::class)]]);
+        $section = $request->filled('section') ? DataTableSection::from($request->input('section')) : null;
+
+        return response()->json(['data' => EmployeeStats::for($this->period($request), $section)]);
     }
 
-    /** One employee: their figures in the period and their rows, newest first. */
+    /**
+     * One employee: their figures in the period and their rows, newest
+     * first. Money (revenue, costs) only for a role that sees insights.
+     */
     public function show(Request $request, Employee $employee): JsonResponse
     {
         $period = $this->period($request);
+        $money = (bool) $request->user()->businessRole(app(TenantContext::class)->current())?->can('insights');
         $tables = EmployeeStats::tables()->keyBy('id');
         $cost = Performers::costReader($tables);
 
         $all = EmployeeStats::rows($tables, $period)->where('employee_id', $employee->id);
         $figures = EmployeeStats::figures(
             (clone $all)->get(['id', 'data_table_id', 'data', 'amount'])
-                ->map(fn (DataTableRow $row) => ['amount' => $row->amount, 'cost' => $cost($row)]),
+                ->map(fn (DataTableRow $row) => ['amount' => $money ? $row->amount : null, 'cost' => $money ? $cost($row) : null]),
         );
 
         $rows = $all->orderByDesc('occurred_at')->orderByDesc('id')->paginate(self::PER_PAGE);
@@ -104,7 +116,7 @@ class EmployeeController extends Controller
                 'employee' => self::toArray($employee->loadCount('rows')),
                 'period' => $period?->toArray(),
                 'figures' => $figures,
-                'rows' => collect($rows->items())->map(function (DataTableRow $row) use ($tables, $cost, $text) {
+                'rows' => collect($rows->items())->map(function (DataTableRow $row) use ($tables, $cost, $text, $money) {
                     $table = $tables[$row->data_table_id];
 
                     return [
@@ -113,8 +125,8 @@ class EmployeeController extends Controller
                         'occurredAt' => ($at = $row->getRawOriginal('occurred_at')) ? substr($at, 0, 16) : null,
                         'item' => $text($table, $row, ColumnRole::Item),
                         'status' => $text($table, $row, ColumnRole::Status),
-                        'amount' => $row->amount,
-                        'cost' => $cost($row),
+                        'amount' => $money ? $row->amount : null,
+                        'cost' => $money ? $cost($row) : null,
                     ];
                 })->values(),
             ],

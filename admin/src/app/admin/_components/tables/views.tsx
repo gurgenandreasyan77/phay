@@ -10,6 +10,7 @@ import {
   getDataTable,
   getDataTableRows,
   getDataTables,
+  getEmployeeStats,
   getFeatureFlagsAdmin,
   getLeads,
   type DataTableSection,
@@ -23,6 +24,8 @@ import { NewTableForm } from "./NewTableForm";
 import { TableDesigner } from "./TableDesigner";
 import { SECTIONS, tablePath, tablesPath } from "./shared";
 import { TABLE_PERIOD_LABELS } from "./periods";
+import { periodFromParams } from "./PeriodNav";
+import { PerformerStats } from "./PerformerStats";
 
 /** 404 while the section's module (orders, sales) is off for this business. */
 export async function requireSectionModule(section: DataTableSection): Promise<void> {
@@ -66,11 +69,27 @@ function SiteOrdersCard({ total, fresh }: { total: number; fresh: number }) {
   );
 }
 
-/** All tables of a section: the orders and the sales pages. */
-export async function TablesListView({ section }: { section: DataTableSection }) {
+/**
+ * All tables of a section: the orders and the sales pages. For the owner,
+ * also who did the section's orders in a day, week, month, quarter or year.
+ */
+export async function TablesListView({
+  section,
+  searchParams = {},
+}: {
+  section: DataTableSection;
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
   const me = await requirePermission("orders");
   await requireSectionModule(section);
-  const [tables, site] = await Promise.all([getDataTables(section), section === "orders" ? siteOrders() : null]);
+  const current = periodFromParams(searchParams);
+  const [tables, site, performers] = await Promise.all([
+    getDataTables(section),
+    section === "orders" ? siteOrders() : null,
+    can(me, "insights")
+      ? getEmployeeStats({ section, ...(current ? { period: current.kind, date: current.date } : {}) })
+      : null,
+  ]);
   const canDesign = can(me, "catalog");
 
   return (
@@ -102,6 +121,7 @@ export async function TablesListView({ section }: { section: DataTableSection })
       ) : (
         <TablesList section={section} tables={tables} canDesign={canDesign} />
       )}
+      {performers?.hasPerformerColumn ? <PerformerStats stats={performers} base={tablesPath(section)} current={current} /> : null}
     </div>
   );
 }

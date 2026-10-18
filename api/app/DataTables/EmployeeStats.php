@@ -3,6 +3,7 @@
 namespace App\DataTables;
 
 use App\Enums\ColumnRole;
+use App\Enums\DataTableSection;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
 use App\Models\Employee;
@@ -23,17 +24,17 @@ final class EmployeeStats
      *
      * @return Collection<int, DataTable>
      */
-    public static function tables(): Collection
+    public static function tables(?DataTableSection $section = null): Collection
     {
         return Performers::tables()
-            ->filter(fn (DataTable $t) => Feature::active($t->section->feature()->value))
+            ->filter(fn (DataTable $t) => Feature::active($t->section->feature()->value) && ($section === null || $t->section === $section))
             ->values();
     }
 
     /** @return array<string, mixed> */
-    public static function for(?Period $period): array
+    public static function for(?Period $period, ?DataTableSection $section = null): array
     {
-        $tables = self::tables();
+        $tables = self::tables($section);
         $cost = Performers::costReader($tables);
         $performerKeys = $tables->mapWithKeys(fn (DataTable $t) => [$t->id => $t->performerColumn()->key]);
 

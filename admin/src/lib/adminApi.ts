@@ -1036,8 +1036,13 @@ function periodQuery(params: { period?: PeriodKind; date?: string; page?: number
   return query.toString();
 }
 
-export async function getEmployeeStats(params: { period?: PeriodKind; date?: string }): Promise<EmployeeStatsDto | null> {
-  const result = await adminApiFetch<EmployeeStatsDto>(`/admin/employees/stats?${periodQuery(params)}`);
+export async function getEmployeeStats(params: {
+  period?: PeriodKind;
+  date?: string;
+  section?: DataTableSection;
+}): Promise<EmployeeStatsDto | null> {
+  const section = params.section ? `&section=${params.section}` : "";
+  const result = await adminApiFetch<EmployeeStatsDto>(`/admin/employees/stats?${periodQuery(params)}${section}`);
   return result.data;
 }
 
