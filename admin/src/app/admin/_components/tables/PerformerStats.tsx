@@ -91,7 +91,7 @@ export function PerformerStats({
               <Td>
                 <span className="font-medium text-ink">{u.name}</span>
                 <span className="block text-xs text-warning">
-                  Չկա{" "}
+                  Արտաքին կատարող · չկա{" "}
                   <Link href="/admin/employees" className="underline">
                     աշխատակիցների
                   </Link>{" "}
@@ -113,6 +113,46 @@ export function PerformerStats({
           </tr>
         </tbody>
       </TableWrap>
+      {stats.groups.length > 0 ? <GroupStats stats={stats} /> : null}
     </SectionCard>
+  );
+}
+
+/** The same figures by group of employees, with each group's manager. */
+function GroupStats({ stats }: { stats: EmployeeStatsDto }) {
+  const ungrouped = stats.employees.filter((e) => e.groupId === null).reduce((sum, e) => sum + e.orders, 0);
+
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-semibold text-ink">Ըստ խմբերի</h3>
+      <TableWrap>
+        <Thead>
+          <Th>Խումբ</Th>
+          <Th className="text-right">Պատվերներ</Th>
+          {stats.hasAmount ? <Th className="text-right">Եկամուտ</Th> : null}
+          {stats.hasCost ? (
+            <>
+              <Th className="text-right">Ծախսեր</Th>
+              <Th className="text-right">Շահույթ</Th>
+            </>
+          ) : null}
+          {stats.hasAmount ? <Th className="text-right">Միջին չեկ</Th> : null}
+        </Thead>
+        <tbody>
+          {stats.groups.map((g) => (
+            <Tr key={g.id}>
+              <Td>
+                <span className="font-medium text-ink">{g.name}</span>
+                <span className="block text-xs text-ink-faint">{g.manager ? `մենեջեր՝ ${g.manager}` : "առանց մենեջերի"}</span>
+              </Td>
+              <FiguresCells figures={g} stats={stats} />
+            </Tr>
+          ))}
+        </tbody>
+      </TableWrap>
+      {ungrouped > 0 ? (
+        <p className="text-xs text-ink-muted">Խմբում չընդգրկված աշխատակիցների պատվերներ՝ {ungrouped}։</p>
+      ) : null}
+    </div>
   );
 }

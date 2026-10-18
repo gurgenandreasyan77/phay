@@ -328,34 +328,89 @@ function useEmployees(): AdminEmployeeDto[] {
   return employees;
 }
 
-/** Who did the order: an employee's name, typed or picked from the list. */
-function PerformerInput({ column, value, onChange }: { column: Column; value: string; onChange: (value: string) => void }) {
+const MANUAL = "__manual__";
+
+/**
+ * Who did the order: picked from the employees (by group), or typed by hand
+ * for someone who isn't one, e.g. an outside company doing the job. A typed
+ * name is kept as is and counted on its own in the figures.
+ */
+function PerformerInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const employees = useEmployees();
-  const listId = `performers-${column.key}`;
-  const known = value.trim() === "" || employees.some((e) => e.name.toLowerCase() === value.trim().toLowerCase());
+  const name = value.trim().replace(/\s+/g, " ").toLowerCase();
+  const known = employees.find((e) => e.name.toLowerCase() === name);
+  const [manual, setManual] = useState(false);
+  const typing = manual || (name !== "" && !known);
+
+  if (typing || employees.length === 0) {
+    return (
+      <div className="space-y-1">
+        <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder="Կատարողի անուն կամ ընկերություն" autoFocus={manual} />
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {name !== "" && !known ? <Badge tone="warning">Արտաքին</Badge> : null}
+          {employees.length > 0 ? (
+            <button
+              type="button"
+              className="text-primary hover:underline"
+              onClick={() => {
+                setManual(false);
+                onChange("");
+              }}
+            >
+              Ընտրել աշխատակիցներից
+            </button>
+          ) : (
+            <span className="text-ink-faint">Աշխատակիցներ դեռ չկան. ավելացրեք «Աշխատակիցներ» բաժնում։</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const active = employees.filter((e) => e.isActive || e.id === known?.id);
+  const groups = new Map<string, typeof active>();
+  for (const e of active) {
+    const label = e.group ? (e.group.manager ? `${e.group.name} · մենեջեր՝ ${e.group.manager.name}` : e.group.name) : "";
+    groups.set(label, [...(groups.get(label) ?? []), e]);
+  }
+  const option = (e: AdminEmployeeDto) => (
+    <option key={e.id} value={e.name}>
+      {[e.name, e.managedGroups.length > 0 ? "մենեջեր" : e.position].filter(Boolean).join(" · ")}
+    </option>
+  );
 
   return (
-    <>
-      <Input list={listId} value={value} onChange={(e) => onChange(e.target.value)} placeholder="Աշխատակից" />
-      <datalist id={listId}>
-        {employees
-          .filter((e) => e.isActive)
-          .map((e) => (
-            <option key={e.id} value={e.name}>
-              {e.position ?? ""}
-            </option>
-          ))}
-      </datalist>
-      {!known && employees.length > 0 ? (
-        <p className="mt-1 text-xs text-warning">Աշխատակիցների ցանկում չկա. ավելացրեք «Աշխատակիցներ» բաժնում։</p>
-      ) : null}
-    </>
+    <Select
+      value={known?.name ?? ""}
+      onChange={(e) => {
+        if (e.target.value === MANUAL) {
+          setManual(true);
+          onChange("");
+        } else {
+          onChange(e.target.value);
+        }
+      }}
+    >
+      <option value="">— Ընտրեք կատարողին —</option>
+      {[...groups.entries()]
+        .sort(([a], [b]) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b)))
+        .map(([label, list]) =>
+          groups.size > 1 || label !== "" ? (
+            <optgroup key={label} label={label || "Առանց խմբի"}>
+              {list.map(option)}
+            </optgroup>
+          ) : (
+            list.map(option)
+          ),
+        )}
+      <option value={MANUAL}>✎ Գրել ձեռքով (արտաքին կատարող)…</option>
+    </Select>
   );
 }
 
 export function CellInput({ column, value, onChange }: { column: Column; value: string; onChange: (value: string) => void }) {
   if (column.role === "performer" && column.type === "text") {
-    return <PerformerInput column={column} value={value} onChange={onChange} />;
+    return <PerformerInput value={value} onChange={onChange} />;
   }
 
   switch (column.type) {

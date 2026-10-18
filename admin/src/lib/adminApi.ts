@@ -978,9 +978,21 @@ export type AdminEmployeeDto = {
   position: string | null;
   phone: string | null;
   isActive: boolean;
+  /** The group they work in, with its manager. */
+  group: { id: number; name: string; manager: { id: number; name: string } | null } | null;
+  /** The groups they lead: a manager when not empty. */
+  managedGroups: { id: number; name: string }[];
   /** Rows linked to them, of any period. */
   ordersCount: number | null;
   createdAt: string | null;
+};
+
+/** A team of employees led by a manager (an employee who may lead several groups). */
+export type AdminEmployeeGroupDto = {
+  id: number;
+  name: string;
+  manager: { id: number; name: string } | null;
+  employeesCount: number | null;
 };
 
 /** Orders and money of a group of rows: revenue is the amount, costs are unit cost × quantity. */
@@ -998,10 +1010,12 @@ export type EmployeeStatsDto = {
   hasAmount: boolean;
   hasCost: boolean;
   total: EmployeeFiguresDto;
-  employees: (EmployeeFiguresDto & { id: number; name: string; position: string | null; isActive: boolean })[];
+  employees: (EmployeeFiguresDto & { id: number; name: string; position: string | null; isActive: boolean; groupId: number | null })[];
+  /** Each group's employees together. */
+  groups: (EmployeeFiguresDto & { id: number; name: string; manager: string | null })[];
   /** Rows with no performer. */
   unassigned: EmployeeFiguresDto;
-  /** Names in the performer column that aren't employees yet. */
+  /** Names in the performer column that aren't employees: outside performers, or names from a file. */
   unknown: (EmployeeFiguresDto & { name: string })[];
 };
 
@@ -1025,6 +1039,11 @@ export type EmployeeDetailDto = {
 
 export async function getEmployees(): Promise<AdminEmployeeDto[]> {
   const result = await adminApiFetch<AdminEmployeeDto[]>("/admin/employees");
+  return result.data ?? [];
+}
+
+export async function getEmployeeGroups(): Promise<AdminEmployeeGroupDto[]> {
+  const result = await adminApiFetch<AdminEmployeeGroupDto[]>("/admin/employee-groups");
   return result.data ?? [];
 }
 

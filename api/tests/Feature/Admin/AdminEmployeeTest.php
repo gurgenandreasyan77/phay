@@ -189,4 +189,63 @@ class AdminEmployeeTest extends TestCase
         $this->patchJson("/api/v1/admin/employees/{$id}", ['name' => 'X'])->assertNotFound();
         $this->getJson("/api/v1/admin/employees/{$id}")->assertNotFound();
     }
+
+    public function test_groups_with_a_manager_who_may_lead_several(): void
+    {
+        $manager = $this->employee('Արամ', 'Մենեջեր');
+        $anna = $this->employee('Աննա');
+        $gor = $this->employee('Գոռ');
+
+        $sofas = $this->postJson('/api/v1/admin/employee-groups', ['name' => 'Բազմոցներ', 'managerId' => $manager])
+            ->assertCreated()->assertJsonPath('data.manager.name', 'Արամ')->json('data.id');
+        $homes = $this->postJson('/api/v1/admin/employee-groups', ['name' => 'Բնակարաններ', 'managerId' => $manager])->assertCreated()->json('data.id');
+        $this->postJson('/api/v1/admin/employee-groups', ['name' => ' բազմոցներ '])->assertJsonValidationErrors('name');
+
+        $this->patchJson("/api/v1/admin/employees/{$anna}", ['groupId' => $sofas])->assertOk()
+            ->assertJsonPath('data.group.name', 'Բազմոցներ')
+            ->assertJsonPath('data.group.manager.name', 'Արամ');
+        $this->patchJson("/api/v1/admin/employees/{$gor}", ['groupId' => $homes])->assertOk();
+
+        // The manager leads both groups.
+        $list = collect($this->getJson('/api/v1/admin/employees')->assertOk()->json('data'))->keyBy('id');
+        $this->assertSame(['Բազմոցներ', 'Բնակարաններ'], array_column($list[$manager]['managedGroups'], 'name'));
+        $this->assertSame([], $list[$anna]['managedGroups']);
+
+        // Figures per group: its employees' orders together.
+        $table = $this->ordersTable();
+        $this->addRow($table, '2026-11-02', 10000, null, 'Աննա');
+        $this->addRow($table, '2026-11-03', 5000, null, 'Գոռ');
+        $this->addRow($table, '2026-11-04', 7000, null, 'Մաքուր տուն ՍՊԸ');
+        $stats = $this->getJson('/api/v1/admin/employees/stats')->assertOk()->json('data');
+        $groups = collect($stats['groups'])->keyBy('name');
+        $this->assertSame([1, 10000, 'Արամ'], [$groups['Բազմոցներ']['orders'], $groups['Բազմոցներ']['revenue'], $groups['Բազմոցներ']['manager']]);
+        $this->assertSame(5000, $groups['Բնակարաններ']['revenue']);
+        // An outside performer is counted by name, not as an employee.
+        $this->assertSame(['Մաքուր տուն ՍՊԸ', 7000], [$stats['unknown'][0]['name'], $stats['unknown'][0]['revenue']]);
+
+        // Deleting a group keeps its employees; deleting the manager leaves groups without one.
+        $this->deleteJson("/api/v1/admin/employee-groups/{$sofas}")->assertNoContent();
+        $this->assertNull($this->getJson("/api/v1/admin/employees/{$anna}")->json('data.employee.group'));
+        $this->deleteJson("/api/v1/admin/employees/{$manager}")->assertNoContent();
+        $this->assertNull($this->getJson('/api/v1/admin/employee-groups')->assertOk()->json('data.0.manager'));
+    }
+
+    public function test_groups_are_kept_by_owner_and_admin_and_stay_in_their_business(): void
+    {
+        $group = $this->postJson('/api/v1/admin/employee-groups', ['name' => 'Բազմոցներ'])->assertCreated()->json('data.id');
+
+        $this->actingAsMember('moderator');
+        $this->getJson('/api/v1/admin/employee-groups')->assertOk()->assertJsonCount(1, 'data');
+        $this->postJson('/api/v1/admin/employee-groups', ['name' => 'X'])->assertForbidden();
+
+        $this->actingAsMember('admin');
+        $this->patchJson("/api/v1/admin/employee-groups/{$group}", ['name' => 'Սրահ'])->assertOk()->assertJsonPath('data.name', 'Սրահ');
+
+        $other = $this->createTenant('test-other');
+        Sanctum::actingAs(User::factory()->forTenant($other, 'owner')->create());
+        $this->getJson('/api/v1/admin/employee-groups')->assertOk()->assertJsonCount(0, 'data');
+        $this->patchJson("/api/v1/admin/employee-groups/{$group}", ['name' => 'X'])->assertNotFound();
+        $mine = $this->postJson('/api/v1/admin/employees', ['name' => 'Լևոն'])->json('data.id');
+        $this->patchJson("/api/v1/admin/employees/{$mine}", ['groupId' => $group])->assertJsonValidationErrors('groupId');
+    }
 }
