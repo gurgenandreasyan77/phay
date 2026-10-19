@@ -7,7 +7,7 @@ import { PageHeader } from "../_components/ui";
 export const dynamic = "force-dynamic";
 
 export default async function AdminSupportPage() {
-  const admin = await requirePermission("settings");
+  const admin = await requirePermission("settings", { allowLocked: true });
   // Platform staff answer businesses from the platform level.
   if (isPlatformStaff(admin)) notFound();
 

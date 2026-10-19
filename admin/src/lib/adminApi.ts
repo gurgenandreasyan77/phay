@@ -417,6 +417,100 @@ export type AdminUserDto = {
   currentTenant: AdminTenantDto | null;
   /** Businesses the user can switch to (all of them for a super admin). */
   tenants: AdminTenantDto[];
+  /** The current business's subscription (absent from an older API). */
+  subscription?: SubscriptionSummaryDto | null;
+};
+
+/* ---------------------------------------------------------- Subscriptions */
+
+export type SubscriptionStatus = "trial" | "active" | "free" | "canceling" | "expired" | "unlimited";
+
+/** What the admin layout needs: a banner before the end, a lock after it. */
+export type SubscriptionSummaryDto = {
+  status: SubscriptionStatus;
+  statusLabel: string;
+  endsAt: string | null;
+  daysLeft: number | null;
+  /** Within the warning window (10 days by default). */
+  ending: boolean;
+  /** Ended: the business's people can open only the subscription, the chat and their account. */
+  locked: boolean;
+};
+
+export type SubscriptionModulePriceDto = {
+  key: string;
+  label: string;
+  price: number;
+  /** On for this business. */
+  active: boolean;
+  /** Its price is inside the plan. */
+  included: boolean;
+};
+
+export type SubscriptionDto = {
+  status: SubscriptionStatus;
+  statusLabel: string;
+  plan: { id: number; name: string; price: number } | null;
+  unlimited: boolean;
+  trialEndsAt: string | null;
+  paidUntil: string | null;
+  freeUntil: string | null;
+  /** The super admin turned it off from this moment. */
+  cancelAt: string | null;
+  endsAt: string | null;
+  daysLeft: number | null;
+  ending: boolean;
+  warnDays: number;
+  /** AMD a month: the plan plus the modules on that it doesn't include. */
+  pricing: { plan: number; modules: SubscriptionModulePriceDto[]; total: number };
+};
+
+export type SubscriptionPaymentDto = {
+  id: number;
+  amount: number;
+  months: number;
+  periodFrom: string | null;
+  periodTo: string | null;
+  note: string | null;
+  recordedBy?: string | null;
+  createdAt: string | null;
+};
+
+export type PlanDto = {
+  id: number;
+  name: string;
+  description: string | null;
+  price: number;
+  trialDays: number;
+  includedModules: string[];
+  isDefault: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  subscriptionsCount?: number;
+};
+
+export type ModulePriceDto = { key: string; label: string; description: string; price: number };
+
+/** The business's own subscription page. */
+export type BusinessSubscriptionDto = {
+  subscription: SubscriptionDto;
+  payments: SubscriptionPaymentDto[];
+  plans: { id: number; name: string; description: string | null; price: number; includedModules: string[] }[];
+};
+
+export type SubscriptionTenantDto = { id: number; name: string; logo: string | null; status: "active" | "suspended" };
+
+export type PlatformSubscriptionRowDto = {
+  tenant: SubscriptionTenantDto;
+  subscription: SubscriptionDto;
+  lastPayment: SubscriptionPaymentDto | null;
+};
+
+export type TenantSubscriptionDetailDto = {
+  tenant: SubscriptionTenantDto;
+  subscription: SubscriptionDto;
+  payments: SubscriptionPaymentDto[];
+  plans: { id: number; name: string; price: number; isActive: boolean }[];
 };
 
 export type AdminSiteDto = {
@@ -1204,5 +1298,30 @@ export async function getDataImports(tableId: number): Promise<AdminDataImportDt
 
 export async function getDataImport(id: number, tableId: number): Promise<AdminDataImportPreviewDto | null> {
   const result = await adminApiFetch<AdminDataImportPreviewDto>(`/admin/data-imports/${id}?data_table_id=${tableId}`);
+  return result.data;
+}
+
+export async function getSubscription(): Promise<BusinessSubscriptionDto | null> {
+  const result = await adminApiFetch<BusinessSubscriptionDto>("/admin/subscription");
+  return result.data;
+}
+
+export async function getPlansAdmin(): Promise<PlanDto[]> {
+  const result = await adminApiFetch<PlanDto[]>("/admin/plans");
+  return result.data ?? [];
+}
+
+export async function getModulePricesAdmin(): Promise<ModulePriceDto[]> {
+  const result = await adminApiFetch<ModulePriceDto[]>("/admin/module-prices");
+  return result.data ?? [];
+}
+
+export async function getSubscriptionsAdmin(status?: SubscriptionStatus): Promise<PlatformSubscriptionRowDto[]> {
+  const result = await adminApiFetch<PlatformSubscriptionRowDto[]>(`/admin/subscriptions${status ? `?status=${status}` : ""}`);
+  return result.data ?? [];
+}
+
+export async function getTenantSubscriptionAdmin(tenantId: number): Promise<TenantSubscriptionDetailDto | null> {
+  const result = await adminApiFetch<TenantSubscriptionDetailDto>(`/admin/tenants/${tenantId}/subscription`);
   return result.data;
 }

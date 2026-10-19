@@ -3,7 +3,11 @@
 namespace Tests\Feature\Tenancy;
 
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\ModulePrice;
+use App\Models\Plan;
 use App\Models\Site;
+use App\Models\Subscription;
+use App\Models\SubscriptionPayment;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
@@ -19,8 +23,14 @@ class TenantModelCoverageTest extends TestCase
 {
     use RefreshDatabase;
 
-    // Platform-level models: they are not owned by one business.
-    private const PLATFORM_MODELS = [User::class, Tenant::class, Site::class];
+    // Platform-level models: they are not owned by one business. Plans and
+    // module prices are the platform's own; a subscription and its payments
+    // are what the platform bills a business, read across businesses by the
+    // super admin and always looked up by tenant_id explicitly (Subscriptions).
+    private const PLATFORM_MODELS = [
+        User::class, Tenant::class, Site::class,
+        Plan::class, ModulePrice::class, Subscription::class, SubscriptionPayment::class,
+    ];
 
     public function test_every_content_model_is_scoped_to_a_tenant(): void
     {
