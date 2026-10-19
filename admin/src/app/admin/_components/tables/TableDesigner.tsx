@@ -68,13 +68,15 @@ function roleDraft(role: ColumnRole, section: DataTableSection): ColumnDraft {
 const STARTER_ROLES: Record<DataTableSection, ColumnRole[]> = {
   orders: ["customer", "phone", "item", "date", "amount", "cost", "performer"],
   sales: ["item", "quantity", "unit_price", "date", "payment"],
+  expenses: ["date", "category", "item", "amount", "payment", "note"],
 };
 
 function starterColumns(section: DataTableSection): ColumnDraft[] {
   return STARTER_ROLES[section].map((role) => {
     const draft = roleDraft(role, section);
     if (role === "customer" || (section === "sales" && role === "item")) draft.required = true;
-    if (section === "sales" && role === "date") draft.type = "date";
+    if (section !== "orders" && role === "date") draft.type = "date";
+    if (section === "expenses" && (role === "category" || role === "amount")) draft.required = true;
     return draft;
   });
 }
@@ -238,7 +240,7 @@ export function TableDesigner({
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={section === "sales" ? "օր.՝ Instagram վաճառքներ" : "օր.՝ Պատվերներ 2026"}
+              placeholder={section === "sales" ? "օր.՝ Instagram վաճառքներ" : section === "expenses" ? "օր.՝ Ծախսեր 2026" : "օր.՝ Պատվերներ 2026"}
             />
             {errors.name ? <p className="text-xs text-danger">{errors.name}</p> : null}
           </label>

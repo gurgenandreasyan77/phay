@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { requirePermission } from "@/lib/adminAuth";
+import { can } from "@/lib/roles";
 import {
   getAnalytics,
   getFeatureFlagsAdmin,
+  getFinance,
+  type FinanceDto,
   getTableAnalytics,
   type AnalyticsDto,
   type AnalyticsPeriod,
@@ -17,6 +20,7 @@ import { LEAD_STATUS_LABELS, LEAD_STATUSES } from "../_components/leadStatus";
 import { WidgetPicker } from "../_components/analytics/WidgetPicker";
 import { formatMetric, money, PeriodTabs, periodFrom, SOURCE_LABELS } from "../_components/analytics/format";
 import { BarChart, bucketTitle, dateBars, weekdayShort, WEEKDAYS } from "../_components/analytics/BarChart";
+import { FinanceCategories, FinanceNotes, FinanceTiles, NetProfitChart } from "../_components/finance/Finance";
 import {
   buttonClasses,
   Card,
@@ -74,13 +78,14 @@ function Kpi({
 export default async function AdminAnalyticsPage(props: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requirePermission("insights");
+  const me = await requirePermission("insights");
   const searchParams = await props.searchParams;
   const period = periodFrom(searchParams.period);
-  const [analytics, flags, tables] = await Promise.all([
+  const [analytics, flags, tables, finance] = await Promise.all([
     getAnalytics(period),
     getFeatureFlagsAdmin(),
     getTableAnalytics(period),
+    can(me, "expenses") ? getFinance({ by: "month" }) : null,
   ]);
   const ordersOn = flags.find((f) => f.key === "orders")?.active ?? true;
   const salesOn = flags.find((f) => f.key === "sales")?.active ?? false;
@@ -106,6 +111,8 @@ export default async function AdminAnalyticsPage(props: {
         }
       />
 
+      {finance?.has.expenses ? <NetProfit report={finance} /> : null}
+
       {empty ? (
         <EmptyStart ordersOn={ordersOn} salesOn={salesOn} hasTables={tables.length > 0} failed={ordersOn && !analytics} />
       ) : (
@@ -122,6 +129,33 @@ export default async function AdminAnalyticsPage(props: {
         </>
       )}
     </div>
+  );
+}
+
+/** Net profit month by month (revenue − cost of goods − expenses) and this month in short. */
+function NetProfit({ report }: { report: FinanceDto }) {
+  return (
+    <SectionCard
+      title="Զուտ շահույթ ըստ ամիսների"
+      description="Եկամուտ − ապրանքի ինքնարժեք − ծախսեր։ Կարմիր սյունը վնասով ամիս է։"
+      actions={
+        <Link href="/admin/statistics?by=month#finance" className="text-sm font-medium text-primary hover:underline">
+          Ճշգրիտ թվերը →
+        </Link>
+      }
+    >
+      <Card>
+        <NetProfitChart report={report} />
+      </Card>
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <FinanceTiles period={report.current} previous={report.current.previous} withCost={report.has.cost} />
+        <Card>
+          <p className="mb-3 text-sm font-medium text-ink">Ծախսեր՝ {report.current.label}</p>
+          <FinanceCategories categories={report.current.categories} />
+        </Card>
+      </div>
+      <FinanceNotes notes={report.notes} />
+    </SectionCard>
   );
 }
 

@@ -102,7 +102,7 @@ export const BUSINESS_NAV_GROUPS: NavGroup[] = [
     label: "Ֆինանսներ",
     items: [
       { href: "/admin/payments", label: "Վճարումներ", icon: CreditCard, soon: true },
-      { href: "/admin/expenses", label: "Ծախսեր", icon: Wallet, soon: true },
+      { href: "/admin/expenses", label: "Ծախսեր", icon: Wallet, requires: "expenses" },
     ],
   },
   {
