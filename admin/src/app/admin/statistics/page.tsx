@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { TrendingUp } from "lucide-react";
 import { requirePermission } from "@/lib/adminAuth";
+import { can } from "@/lib/roles";
 import {
   getAnalytics,
   getFeatureFlagsAdmin,
+  getFinance,
+  type FinanceDto,
   getTableStatistics,
   type AnalyticsDto,
   type TableMetricDto,
@@ -13,6 +16,7 @@ import { buttonClasses, Card, EmptyCard, EmptyRow, PageHeader, SectionCard, Tabl
 import { formatMetric, money, PeriodTabs, periodFrom, SOURCE_LABELS } from "../_components/analytics/format";
 import { bucketTitle } from "../_components/analytics/BarChart";
 import { formatMoment, formatNumber, SECTIONS, tablePath } from "../_components/tables/shared";
+import { FinanceCategories, FinanceNav, FinanceNotes, FinanceTable, FinanceTiles, financeParams, NetProfitChart } from "../_components/finance/Finance";
 
 export const dynamic = "force-dynamic";
 
@@ -46,9 +50,15 @@ type Stats = {
  * totals, whatever the owner chose to see on the analytics dashboard.
  */
 export default async function AdminStatisticsPage(props: PageProps<"/admin/statistics">) {
-  await requirePermission("insights");
-  const period = periodFrom((await props.searchParams).period);
-  const [sections, flags, site] = await Promise.all([getTableStatistics(period), getFeatureFlagsAdmin(), getAnalytics(period)]);
+  const me = await requirePermission("insights");
+  const searchParams = await props.searchParams;
+  const period = periodFrom(searchParams.period);
+  const [sections, flags, site, finance] = await Promise.all([
+    getTableStatistics(period),
+    getFeatureFlagsAdmin(),
+    getAnalytics(period),
+    can(me, "expenses") ? getFinance(financeParams(searchParams)) : null,
+  ]);
   const ordersOn = flags.find((f) => f.key === "orders")?.active ?? true;
   const siteOrders = ordersOn && site && site.everOrders > 0 ? site : null;
 
@@ -68,6 +78,8 @@ export default async function AdminStatisticsPage(props: PageProps<"/admin/stati
           </Link>
         }
       />
+
+      {finance ? <FinanceSection report={finance} period={String(period)} /> : null}
 
       {stats.length === 0 ? (
         <EmptyCard>
@@ -358,4 +370,54 @@ function Figure({ label, value }: { label: string; value: string }) {
 
 function TotalRow({ children }: { children: React.ReactNode }) {
   return <tr className="border-t-2 border-border bg-surface-secondary font-semibold text-ink">{children}</tr>;
+}
+
+/**
+ * Net profit per day, week, month, quarter or year: revenue, cost of goods,
+ * expenses and what was left, with the expenses by kind. Without recorded
+ * expenses, a pointer to the expenses section instead.
+ */
+function FinanceSection({ report, period }: { report: FinanceDto; period: string }) {
+  if (!report.has.expenses) {
+    return (
+      <div id="finance">
+      <Card className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="font-medium text-ink">Զուտ շահույթ</p>
+          <p className="mt-0.5 text-sm text-ink-muted">Գրեք ծախսերը (հարկեր, վարձ, աշխատավարձ, գնումներ…), և այստեղ կտեսնեք զուտ շահույթը ըստ օրերի, ամիսների, եռամսյակների և տարիների։</p>
+        </div>
+        <Link href={SECTIONS.expenses.base} className={buttonClasses("secondary")}>
+          Ավելացնել ծախսեր
+        </Link>
+      </Card>
+      </div>
+    );
+  }
+
+  return (
+    <section id="finance" className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-ink">Զուտ շահույթ</h2>
+          <p className="mt-1 max-w-2xl text-sm text-ink-muted">
+            Եկամուտ − ապրանքի ինքնարժեք − ծախսեր։ Շահույթից դուրս ծախսերը (սարքավորում, վարկ…) հանվում են միայն «Մնացած գումարից»։
+          </p>
+        </div>
+        <FinanceNav base="/admin/statistics" report={report} keep={{ period }} />
+      </div>
+      <FinanceTiles period={report.current} previous={report.current.previous} withCost={report.has.cost} />
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        <Card>
+          <p className="mb-3 text-sm font-medium text-ink">Զուտ շահույթ ըստ ժամանակահատվածների</p>
+          <NetProfitChart report={report} />
+        </Card>
+        <Card>
+          <p className="mb-3 text-sm font-medium text-ink">Ծախսեր ըստ տեսակների՝ {report.current.label}</p>
+          <FinanceCategories categories={report.current.categories} />
+        </Card>
+      </div>
+      <FinanceTable report={report} />
+      <FinanceNotes notes={report.notes} />
+    </section>
+  );
 }

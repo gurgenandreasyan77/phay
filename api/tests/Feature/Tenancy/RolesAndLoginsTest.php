@@ -72,12 +72,13 @@ class RolesAndLoginsTest extends TestCase
         $this->getJson('/api/v1/admin/me')
             ->assertOk()
             ->assertJsonPath('data.businessRole', 'owner')
-            ->assertJsonPath('data.permissions', ['orders', 'catalog', 'settings', 'insights']);
+            ->assertJsonPath('data.permissions', ['orders', 'catalog', 'settings', 'insights', 'expenses']);
         $this->getJson('/api/v1/admin/leads')->assertOk();
         $this->getJson('/api/v1/admin/services')->assertOk();
         $this->getJson('/api/v1/admin/settings')->assertOk();
         $this->getJson('/api/v1/admin/analytics')->assertOk();
         $this->getJson('/api/v1/admin/assistant')->assertOk();
+        $this->getJson('/api/v1/admin/expense-categories')->assertOk();
     }
 
     public function test_an_admin_runs_the_business_but_does_not_see_revenue_or_the_ai_assistant(): void

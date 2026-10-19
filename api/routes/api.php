@@ -12,6 +12,9 @@ use App\Http\Controllers\Api\V1\Admin\CalculatorSettingController as AdminCalcul
 use App\Http\Controllers\Api\V1\Admin\ContactChannelController as AdminContactChannelController;
 use App\Http\Controllers\Api\V1\Admin\EmployeeController as AdminEmployeeController;
 use App\Http\Controllers\Api\V1\Admin\EmployeeGroupController as AdminEmployeeGroupController;
+use App\Http\Controllers\Api\V1\Admin\ExpenseCategoryController as AdminExpenseCategoryController;
+use App\Http\Controllers\Api\V1\Admin\FinanceController as AdminFinanceController;
+use App\Http\Controllers\Api\V1\Admin\RecurringExpenseController as AdminRecurringExpenseController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\V1\Admin\DataImportController as AdminDataImportController;
 use App\Http\Controllers\Api\V1\Admin\DataTableController as AdminDataTableController;
@@ -186,6 +189,21 @@ Route::prefix('v1')->group(function () {
                 Route::get('/employees/stats', [AdminEmployeeController::class, 'stats']);
                 Route::get('/assistant', [AdminAssistantController::class, 'show']);
                 Route::post('/assistant', [AdminAssistantController::class, 'store'])->middleware('throttle:assistant');
+            });
+
+            // What the business spends: kinds of expenses and the ones that
+            // repeat; the expenses tables themselves go through /data-tables.
+            Route::middleware('business.can:expenses')->group(function () {
+                Route::get('/expense-categories', [AdminExpenseCategoryController::class, 'index']);
+                Route::post('/expense-categories', [AdminExpenseCategoryController::class, 'store']);
+                Route::patch('/expense-categories/{expenseCategory}', [AdminExpenseCategoryController::class, 'update']);
+                Route::delete('/expense-categories/{expenseCategory}', [AdminExpenseCategoryController::class, 'destroy']);
+                Route::get('/recurring-expenses', [AdminRecurringExpenseController::class, 'index']);
+                Route::post('/recurring-expenses', [AdminRecurringExpenseController::class, 'store']);
+                Route::patch('/recurring-expenses/{recurringExpense}', [AdminRecurringExpenseController::class, 'update']);
+                Route::delete('/recurring-expenses/{recurringExpense}', [AdminRecurringExpenseController::class, 'destroy']);
+                // Revenue − cost of goods − expenses, per day, week, month, quarter or year.
+                Route::get('/analytics/finance', AdminFinanceController::class)->middleware('business.can:insights');
             });
 
             Route::middleware('business.can:settings')->group(function () {

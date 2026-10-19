@@ -1,9 +1,21 @@
 // Shared by server and client components of the business's own tables.
-import type { AdminDataColumnDto, ColumnRole, DataCellValue, DataColumnType, DataTableSection } from "@/lib/adminApi";
+import type { AdminDataColumnDto, BusinessPermission, ColumnRole, DataCellValue, DataColumnType, DataTableSection } from "@/lib/adminApi";
 
-export const SECTIONS: Record<DataTableSection, { label: string; base: string; feature: "orders" | "sales" }> = {
-  orders: { label: "Պատվերներ", base: "/admin/orders", feature: "orders" },
-  sales: { label: "Վաճառքներ", base: "/admin/sales", feature: "sales" },
+type SectionInfo = {
+  label: string;
+  base: string;
+  /** The module that turns it on; expenses have none, every business has them. */
+  feature: "orders" | "sales" | null;
+  /** Who reads and fills its tables. */
+  permission: BusinessPermission;
+  /** Who designs its tables (name, columns). */
+  design: BusinessPermission;
+};
+
+export const SECTIONS: Record<DataTableSection, SectionInfo> = {
+  orders: { label: "Պատվերներ", base: "/admin/orders", feature: "orders", permission: "orders", design: "catalog" },
+  sales: { label: "Վաճառքներ", base: "/admin/sales", feature: "sales", permission: "orders", design: "catalog" },
+  expenses: { label: "Ծախսեր", base: "/admin/expenses", feature: null, permission: "expenses", design: "expenses" },
 };
 
 export function tablePath(section: DataTableSection, id?: number, suffix = ""): string {
@@ -94,6 +106,11 @@ export const COLUMN_ROLES: Record<ColumnRole, RoleInfo> = {
     options: ["Նոր", "Կատարված", "Չեղարկված"],
     hint: "Նոր, կատարված…",
   },
+  category: {
+    labels: { hy: "Կատեգորիա", ru: "Категория", en: "Category" },
+    types: ["text", "select"],
+    hint: "Ծախսերում՝ ծախսի տեսակը (հարկեր, վարձ…)․ ընտրեք ծախսերի տեսակների ցանկից",
+  },
   performer: {
     labels: { hy: "Կատարող", ru: "Исполнитель", en: "Performer" },
     types: ["text", "select"],
@@ -121,9 +138,11 @@ export const COLUMN_ROLES: Record<ColumnRole, RoleInfo> = {
   },
 };
 
-/** A role's labels; the item is a service in the orders section. */
+/** A role's labels; the item is a service in the orders section, what was paid for in expenses. */
 export function roleLabels(role: ColumnRole, section: DataTableSection): RoleInfo["labels"] {
   if (role === "item" && section === "orders") return { hy: "Ծառայություն", ru: "Услуга", en: "Service" };
+  if (role === "item" && section === "expenses") return { hy: "Ինչի համար", ru: "За что", en: "Description" };
+  if (role === "category" && section === "expenses") return { hy: "Ծախսի տեսակ", ru: "Категория расхода", en: "Expense category" };
   return COLUMN_ROLES[role].labels;
 }
 

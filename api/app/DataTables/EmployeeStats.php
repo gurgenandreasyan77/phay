@@ -9,7 +9,6 @@ use App\Models\DataTableRow;
 use App\Models\Employee;
 use App\Models\EmployeeGroup;
 use Illuminate\Support\Collection;
-use Laravel\Pennant\Feature;
 
 /**
  * How much each employee did in a period: the rows of the order and sales
@@ -28,7 +27,7 @@ final class EmployeeStats
     public static function tables(?DataTableSection $section = null): Collection
     {
         return Performers::tables()
-            ->filter(fn (DataTable $t) => Feature::active($t->section->feature()->value) && ($section === null || $t->section === $section))
+            ->filter(fn (DataTable $t) => $t->section->isRevenue() && $t->section->isActive() && ($section === null || $t->section === $section))
             ->values();
     }
 

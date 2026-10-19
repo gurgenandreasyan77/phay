@@ -17,11 +17,11 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
-use Laravel\Pennant\Feature;
 
 /**
- * The business's own tables (orders, sales...): their names and columns.
- * A table is only reachable while its section's module is on.
+ * The business's own tables (orders, sales, expenses): their names and
+ * columns. A table is only reachable while its section's module is on and
+ * by roles that may see the section.
  */
 class DataTableController extends Controller
 {
@@ -184,9 +184,10 @@ class DataTableController extends Controller
         return ['period' => $kind, 'period_start' => Period::of($kind, $day)->start];
     }
 
+    /** The section's module is on, and the person's role may see it (expenses: the owner). */
     public static function moduleActive(DataTableSection $section): bool
     {
-        return Feature::active($section->feature()->value);
+        return $section->isActive() && $section->allows(auth()->user(), $section->permission());
     }
 
     /** A table of a module that is off behaves as if it doesn't exist. */

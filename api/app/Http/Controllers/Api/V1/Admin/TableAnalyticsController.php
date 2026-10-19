@@ -72,7 +72,7 @@ class TableAnalyticsController extends Controller
     public function update(Request $request, Dashboard $dashboard): JsonResponse
     {
         $validated = $request->validate([
-            'section' => ['required', Rule::in(array_column(DataTableSection::cases(), 'value'))],
+            'section' => ['required', Rule::in(array_column(DataTableSection::revenue(), 'value'))],
             'widgets' => ['present', 'array'],
             'widgets.*' => ['string', Rule::in(DashboardWidget::values())],
         ]);

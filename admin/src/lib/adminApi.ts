@@ -111,8 +111,8 @@ export type AnalyticsDto = {
   everOrders: number;
 };
 
-/** A business's own table (orders, sales): see the API's DataTableController. */
-export type DataTableSection = "orders" | "sales";
+/** A business's own table (orders, sales, expenses): see the API's DataTableController. */
+export type DataTableSection = "orders" | "sales" | "expenses";
 
 export type DataColumnType = "text" | "number" | "money" | "date" | "datetime" | "select" | "boolean";
 
@@ -128,6 +128,7 @@ export type ColumnRole =
   | "payment"
   | "channel"
   | "status"
+  | "category"
   | "performer"
   | "customer"
   | "phone"
@@ -336,7 +337,7 @@ export type AssistantStatusDto = { configured: boolean; used: number; limit: num
 export type BusinessRole = "owner" | "admin" | "moderator";
 
 /** Sections a business role opens: orders (+ dashboard), catalog, settings, insights (analytics + AI). */
-export type BusinessPermission = "orders" | "catalog" | "settings" | "insights";
+export type BusinessPermission = "orders" | "catalog" | "settings" | "insights" | "expenses";
 
 /** Servio's own people: full rights, or onboarding only (no modules, no team). */
 export type PlatformRole = "super_admin" | "moderator";
@@ -1107,6 +1108,93 @@ export async function getEmployee(
   if (result.status !== 200 || !result.json) return null;
   const json = result.json as { data: Omit<EmployeeDetailDto, "meta">; meta: EmployeeDetailDto["meta"] };
   return { ...json.data, meta: json.meta };
+}
+
+/** A kind of the business's expenses (see the API's ExpenseCategories). */
+export type ExpenseCategoryDto = {
+  id: number;
+  /** Set for a ready-made one (taxes, rent...): it can be renamed, not deleted. */
+  key: string | null;
+  name: string;
+  /** Whether the net profit subtracts it. */
+  inProfit: boolean;
+  isDefault: boolean;
+  recurringCount?: number;
+};
+
+export type RecurringFrequency = "week" | "month" | "quarter" | "year";
+
+export type RecurringExpenseDto = {
+  id: number;
+  name: string;
+  category: { id: number; name: string; inProfit: boolean } | null;
+  amount: number;
+  /** About how much a month, to compare. */
+  monthly: number;
+  frequency: RecurringFrequency;
+  startsOn: string;
+  endsOn: string | null;
+  note: string | null;
+};
+
+/** Money in and out of one period (see the API's Finance). */
+export type FinancePeriodDto = {
+  kind: PeriodKind;
+  key: string;
+  label: string;
+  start: string;
+  end: string;
+  revenue: number;
+  /** Cost of goods: unit cost × quantity. */
+  cogs: number;
+  grossProfit: number;
+  /** Expenses counted in the profit. */
+  expenses: number;
+  /** Expenses kept out of the profit (equipment, loans, the owner's withdrawals). */
+  excluded: number;
+  expenseRows: number;
+  netProfit: number;
+  cashLeft: number;
+  margin: number | null;
+};
+
+export type FinanceCategoryDto = {
+  id: number | null;
+  key: string | null;
+  name: string;
+  inProfit: boolean;
+  amount: number;
+  recurring: number;
+  count: number;
+};
+
+export type FinanceDto = {
+  by: PeriodKind;
+  today: string;
+  periods: FinancePeriodDto[];
+  current: FinancePeriodDto & { previous: FinancePeriodDto | null; categories: FinanceCategoryDto[] };
+  total: Omit<FinancePeriodDto, "kind" | "key" | "label" | "start" | "end">;
+  categories: FinanceCategoryDto[];
+  has: { revenue: boolean; cost: boolean; expenses: boolean };
+  notes: string[];
+};
+
+export async function getExpenseCategories(): Promise<ExpenseCategoryDto[]> {
+  const result = await adminApiFetch<ExpenseCategoryDto[]>("/admin/expense-categories");
+  return result.data ?? [];
+}
+
+export async function getRecurringExpenses(): Promise<RecurringExpenseDto[]> {
+  const result = await adminApiFetch<RecurringExpenseDto[]>("/admin/recurring-expenses");
+  return result.data ?? [];
+}
+
+export async function getFinance(params: { by?: PeriodKind; date?: string }): Promise<FinanceDto | null> {
+  const query = new URLSearchParams();
+  if (params.by) query.set("by", params.by);
+  if (params.date) query.set("date", params.date);
+  const result = await adminApiFetch<FinanceDto>(`/admin/analytics/finance?${query}`);
+  return result.data;
 }
 
 export async function getDataImports(tableId: number): Promise<AdminDataImportDto[]> {

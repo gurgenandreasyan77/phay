@@ -3,7 +3,15 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
-import type { AdminDataTableDto, AdminDataTableRowDto, AdminEmployeeDto, DataCellValue, PeriodKind } from "@/lib/adminApi";
+import type {
+  AdminDataTableDto,
+  AdminDataTableRowDto,
+  AdminEmployeeDto,
+  DataCellValue,
+  DataTableSection,
+  ExpenseCategoryDto,
+  PeriodKind,
+} from "@/lib/adminApi";
 import { Badge, Button, EmptyRow, Input, Select, TableWrap, Td, Th, Thead, Tr } from "../ui";
 import { formatCell, validationErrors } from "./shared";
 import { PERIOD_KINDS, PERIOD_UNIT_LABELS, periodOf, shiftPeriod, today } from "./periods";
@@ -241,6 +249,7 @@ function RowEditor({
         <td key={column.key} className="min-w-36 px-2 py-2">
           <CellInput
             column={column}
+            section={table.section}
             value={draft[column.key] ?? ""}
             onChange={(value) => setDraft((d) => ({ ...d, [column.key]: value }))}
           />
@@ -408,9 +417,98 @@ function PerformerInput({ value, onChange }: { value: string; onChange: (value: 
   );
 }
 
-export function CellInput({ column, value, onChange }: { column: Column; value: string; onChange: (value: string) => void }) {
+/** The business's kinds of expenses, read once per page load: the category field of an expenses table offers them. */
+let categoriesRequest: Promise<ExpenseCategoryDto[]> | null = null;
+
+function useExpenseCategories(): ExpenseCategoryDto[] | null {
+  const [categories, setCategories] = useState<ExpenseCategoryDto[] | null>(null);
+  useEffect(() => {
+    categoriesRequest ??= fetch("/api/admin/expense-categories")
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((json: { data?: ExpenseCategoryDto[] }) => json.data ?? [])
+      .catch(() => []);
+    let alive = true;
+    categoriesRequest.then((list) => alive && setCategories(list));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return categories;
+}
+
+/**
+ * The kind of an expense: picked from the business's categories, or typed
+ * by hand. A typed kind that isn't in the list is counted in the profit
+ * under its own name until it's added to the list.
+ */
+function CategoryInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const categories = useExpenseCategories();
+  const name = value.trim().replace(/\s+/g, " ").toLowerCase();
+  const known = categories?.find((c) => c.name.toLowerCase() === name);
+  const [manual, setManual] = useState(false);
+
+  if (categories === null) return <Input value={value} onChange={(e) => onChange(e.target.value)} />;
+
+  if (manual || (name !== "" && !known)) {
+    return (
+      <div className="space-y-1">
+        <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder="Ծախսի տեսակ" autoFocus={manual} />
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {name !== "" && !known ? <Badge tone="warning">Ցանկում չկա</Badge> : null}
+          <button
+            type="button"
+            className="text-primary hover:underline"
+            onClick={() => {
+              setManual(false);
+              onChange("");
+            }}
+          >
+            Ընտրել ցանկից
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Select
+      value={known?.name ?? ""}
+      onChange={(e) => {
+        if (e.target.value === MANUAL) {
+          setManual(true);
+          onChange("");
+        } else {
+          onChange(e.target.value);
+        }
+      }}
+    >
+      <option value="">— Ընտրեք տեսակը —</option>
+      {categories.map((c) => (
+        <option key={c.id} value={c.name}>
+          {c.inProfit ? c.name : `${c.name} (շահույթից դուրս)`}
+        </option>
+      ))}
+      <option value={MANUAL}>✎ Գրել ձեռքով…</option>
+    </Select>
+  );
+}
+
+export function CellInput({
+  column,
+  section,
+  value,
+  onChange,
+}: {
+  column: Column;
+  section?: DataTableSection;
+  value: string;
+  onChange: (value: string) => void;
+}) {
   if (column.role === "performer" && column.type === "text") {
     return <PerformerInput value={value} onChange={onChange} />;
+  }
+  if (column.role === "category" && column.type === "text" && section === "expenses") {
+    return <CategoryInput value={value} onChange={onChange} />;
   }
 
   switch (column.type) {

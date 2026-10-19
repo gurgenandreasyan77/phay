@@ -26,6 +26,8 @@ enum ColumnRole: string
     case Payment = 'payment';
     case Channel = 'channel';
     case Status = 'status';
+    /** The kind of an expense (taxes, rent...): one of the business's ExpenseCategory names. */
+    case Category = 'category';
     case Performer = 'performer';
     case Customer = 'customer';
     case Phone = 'phone';
@@ -40,9 +42,11 @@ enum ColumnRole: string
     {
         return match ($this) {
             self::Date => ['hy' => 'Ամսաթիվ', 'ru' => 'Дата', 'en' => 'Date'],
-            self::Item => $section === Section::Orders
-                ? ['hy' => 'Ծառայություն', 'ru' => 'Услуга', 'en' => 'Service']
-                : ['hy' => 'Ապրանք', 'ru' => 'Товар', 'en' => 'Product'],
+            self::Item => match ($section) {
+                Section::Orders => ['hy' => 'Ծառայություն', 'ru' => 'Услуга', 'en' => 'Service'],
+                Section::Expenses => ['hy' => 'Ինչի համար', 'ru' => 'За что', 'en' => 'Description'],
+                default => ['hy' => 'Ապրանք', 'ru' => 'Товар', 'en' => 'Product'],
+            },
             self::Quantity => ['hy' => 'Քանակ', 'ru' => 'Количество', 'en' => 'Quantity'],
             self::Unit => ['hy' => 'Չափման միավոր', 'ru' => 'Единица', 'en' => 'Unit'],
             self::UnitPrice => ['hy' => 'Գին', 'ru' => 'Цена', 'en' => 'Price'],
@@ -51,6 +55,9 @@ enum ColumnRole: string
             self::Payment => ['hy' => 'Վճարման եղանակ', 'ru' => 'Способ оплаты', 'en' => 'Payment method'],
             self::Channel => ['hy' => 'Աղբյուր', 'ru' => 'Канал', 'en' => 'Channel'],
             self::Status => ['hy' => 'Կարգավիճակ', 'ru' => 'Статус', 'en' => 'Status'],
+            self::Category => $section === Section::Expenses
+                ? ['hy' => 'Ծախսի տեսակ', 'ru' => 'Категория расхода', 'en' => 'Expense category']
+                : ['hy' => 'Կատեգորիա', 'ru' => 'Категория', 'en' => 'Category'],
             self::Performer => ['hy' => 'Կատարող', 'ru' => 'Исполнитель', 'en' => 'Performer'],
             self::Customer => ['hy' => 'Հաճախորդ', 'ru' => 'Клиент', 'en' => 'Customer'],
             self::Phone => ['hy' => 'Հեռախոս', 'ru' => 'Телефон', 'en' => 'Phone'],
@@ -77,11 +84,12 @@ enum ColumnRole: string
             self::Payment => 'վճարման|վճարում|payment|pay\b|оплат|расчет|vcharum',
             self::Channel => 'աղբյուր|ալիք|կայք|source|channel|utm|канал|источник|откуда|axbyur|aghbyur',
             self::Status => 'կարգավիճակ|վիճակ|status|state|статус|состояние|kargavichak',
+            self::Category => 'կատեգորիա|ծախսի\\s*տեսակ|հոդված|category|категори|статья|вид\\s*расход|kategori',
             self::Performer => 'կատարող|աշխատակից|վարպետ|մասնագետ|исполнител|сотрудник|мастер|работник|performer|employee|staff|worker|katarox|katarogh|ashxatakic',
             self::Phone => 'հեռախոս|phone|tel\b|mobile|телефон|моб|herakhos|heraxos',
             self::Address => 'հասցե|address|адрес|hasce',
             self::Customer => 'հաճախորդ|գնորդ|պատվիրատու|անուն|client|customer|buyer|клиент|покупател|заказчик|имя|фио|hachakhord|hachaxord',
-            self::Item => 'ապրանք|ծառայություն|անվանում|product|item|service|goods|sku|товар|услуг|наименован|продукт|apranq|tsarayutyun|carayutyun',
+            self::Item => 'ապրանք|ծառայություն|անվանում|product|item|service|goods|sku|товар|услуг|наименован|продукт|apranq|tsarayutyun|carayutyun|ինչի\\s*համար|նկարագրություն|за\\s*что|назначени|описани|description',
             self::Note => 'մեկնաբանություն|նշում|note|comment|remark|комментар|примечан|заметк',
         };
     }
@@ -91,7 +99,7 @@ enum ColumnRole: string
     {
         $header = mb_strtolower(trim($header));
 
-        foreach ([self::Date, self::Cost, self::Amount, self::UnitPrice, self::Quantity, self::Unit, self::Payment, self::Channel, self::Status, self::Performer, self::Phone, self::Address, self::Item, self::Customer, self::Note] as $role) {
+        foreach ([self::Date, self::Cost, self::Amount, self::UnitPrice, self::Quantity, self::Unit, self::Payment, self::Channel, self::Status, self::Category, self::Performer, self::Phone, self::Address, self::Item, self::Customer, self::Note] as $role) {
             if (preg_match('/'.$role->pattern().'/iu', $header)) {
                 return $role;
             }
@@ -111,6 +119,8 @@ enum ColumnRole: string
             self::Item, self::Customer, self::Phone, self::Address, self::Note => [DataColumnType::Text, DataColumnType::Select],
             // The employee's name; the admin offers the business's employees.
             self::Performer => [DataColumnType::Text, DataColumnType::Select],
+            // A category's name; the admin offers the business's categories, a file may bring others.
+            self::Category => [DataColumnType::Text, DataColumnType::Select],
         };
     }
 

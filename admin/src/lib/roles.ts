@@ -12,7 +12,7 @@ export const BUSINESS_ROLE_LABELS: Record<BusinessRole, string> = {
 
 /** One line per role, shown next to the role picker. */
 export const BUSINESS_ROLE_HINTS: Record<BusinessRole, string> = {
-  owner: "Ամեն ինչ, ներառյալ վերլուծությունը և AI օգնականը",
+  owner: "Ամեն ինչ, ներառյալ վերլուծությունը, ծախսերը և AI օգնականը",
   admin: "Պատվերներ, ծառայություններ, մոդուլներ, կարգավորումներ (առանց եկամուտների և AI-ի)",
   moderator: "Միայն պատվերներ",
 };

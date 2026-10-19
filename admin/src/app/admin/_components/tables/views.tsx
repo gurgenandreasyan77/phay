@@ -1,5 +1,6 @@
-// Server views of the business's own tables, shared by the orders and
-// sales sections (each has thin pages under orders/tables and sales/tables).
+// Server views of the business's own tables, shared by the orders, sales
+// and expenses sections (each has thin pages under <section>/tables).
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePermission } from "@/lib/adminAuth";
@@ -27,10 +28,12 @@ import { TABLE_PERIOD_LABELS } from "./periods";
 import { periodFromParams } from "./PeriodNav";
 import { PerformerStats } from "./PerformerStats";
 
-/** 404 while the section's module (orders, sales) is off for this business. */
+/** 404 while the section's module (orders, sales) is off for this business; expenses have none. */
 export async function requireSectionModule(section: DataTableSection): Promise<void> {
+  const feature = SECTIONS[section].feature;
+  if (feature === null) return;
   const flags = await getFeatureFlagsAdmin();
-  if (!flags.find((f) => f.key === SECTIONS[section].feature)?.active) notFound();
+  if (!flags.find((f) => f.key === feature)?.active) notFound();
 }
 
 function first(value: string | string[] | undefined): string | undefined {
@@ -76,28 +79,36 @@ function SiteOrdersCard({ total, fresh }: { total: number; fresh: number }) {
 export async function TablesListView({
   section,
   searchParams = {},
+  intro,
+  children,
 }: {
   section: DataTableSection;
   searchParams?: Record<string, string | string[] | undefined>;
+  /** Shown under the header, above the tables. */
+  intro?: ReactNode;
+  /** More of the section, under the tables. */
+  children?: ReactNode;
 }) {
-  const me = await requirePermission("orders");
+  const me = await requirePermission(SECTIONS[section].permission);
   await requireSectionModule(section);
   const current = periodFromParams(searchParams);
   const [tables, site, performers] = await Promise.all([
     getDataTables(section),
     section === "orders" ? siteOrders() : null,
-    can(me, "insights")
+    can(me, "insights") && section !== "expenses"
       ? getEmployeeStats({ section, ...(current ? { period: current.kind, date: current.date } : {}) })
       : null,
   ]);
-  const canDesign = can(me, "catalog");
+  const canDesign = can(me, SECTIONS[section].design);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title={SECTIONS[section].label}
         description={
-          section === "sales"
+          section === "expenses"
+            ? "Ձեր ծախսերի աղյուսակները՝ հարկեր, վարձ, աշխատավարձ, գնումներ… Լրացրեք ձեռքով կամ ներմուծեք ֆայլից։"
+            : section === "sales"
             ? "Ձեր վաճառքների աղյուսակները՝ ձեր դաշտերով։ Լրացրեք ձեռքով կամ ներմուծեք ֆայլից, իսկ վերլուծությունը և AI օգնականը կհաշվեն բոլորը միասին։"
             : "Ձեր պատվերների աղյուսակները՝ ձեռքով լրացված կամ ֆայլից ներմուծված։ Վերլուծությունը հաշվում է բոլորը միասին՝ կայքի պատվերների հետ։"
         }
@@ -109,11 +120,14 @@ export async function TablesListView({
           ) : null
         }
       />
+      {intro}
       {site ? <SiteOrdersCard {...site} /> : null}
       {tables.length === 0 ? (
         <EmptyCard>
           {canDesign
-            ? section === "sales"
+            ? section === "expenses"
+              ? "Ծախսերի աղյուսակներ դեռ չկան։ Ստեղծեք առաջինը (ամսաթիվ, ծախսի տեսակ, ինչի համար, գումար) կամ Excel ֆայլից։"
+              : section === "sales"
               ? "Աղյուսակներ դեռ չկան։ Ստեղծեք առաջինը՝ ձեր վաճառքների դաշտերով (ապրանք, քանակ, գին, ամսաթիվ...) կամ Excel ֆայլից։"
               : "Աղյուսակներ դեռ չկան։ Ստեղծեք առաջինը ձեռքով կամ Excel ֆայլից։"
             : "Աղյուսակներ դեռ չկան։ Դրանք ստեղծում է բիզնեսի սեփականատերը կամ ադմինիստրատորը։"}
@@ -122,6 +136,7 @@ export async function TablesListView({
         <TablesList section={section} tables={tables} canDesign={canDesign} />
       )}
       {performers?.hasPerformerColumn ? <PerformerStats stats={performers} base={tablesPath(section)} current={current} /> : null}
+      {children}
     </div>
   );
 }
@@ -143,7 +158,7 @@ export async function TableView({
   id: string;
   searchParams: Record<string, string | string[] | undefined>;
 }) {
-  const me = await requirePermission("orders");
+  const me = await requirePermission(SECTIONS[section].permission);
   await requireSectionModule(section);
 
   const search = first(searchParams.search);
@@ -152,7 +167,7 @@ export async function TableView({
   const date = first(searchParams.date);
   const table = await loadTable(section, id);
   const rows = await getDataTableRows(table.id, { search, page, period, date });
-  const canDesign = can(me, "catalog");
+  const canDesign = can(me, SECTIONS[section].design);
 
   return (
     <div className="space-y-6">
@@ -184,7 +199,7 @@ export async function TableView({
 }
 
 export async function NewTableView({ section }: { section: DataTableSection }) {
-  await requirePermission("catalog");
+  await requirePermission(SECTIONS[section].design);
   await requireSectionModule(section);
 
   return (
@@ -200,7 +215,7 @@ export async function NewTableView({ section }: { section: DataTableSection }) {
 }
 
 export async function TableSettingsView({ section, id }: { section: DataTableSection; id: string }) {
-  await requirePermission("catalog");
+  await requirePermission(SECTIONS[section].design);
   await requireSectionModule(section);
   const table = await loadTable(section, id);
 
@@ -228,7 +243,7 @@ export async function ImportView({
   id: string;
   searchParams: Record<string, string | string[] | undefined>;
 }) {
-  await requirePermission("orders");
+  await requirePermission(SECTIONS[section].permission);
   await requireSectionModule(section);
   const table = await loadTable(section, id);
 
