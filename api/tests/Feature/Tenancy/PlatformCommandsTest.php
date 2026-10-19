@@ -6,6 +6,7 @@ use App\Models\Site;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Pennant\Feature;
 use Tests\TestCase;
 
 class PlatformCommandsTest extends TestCase
@@ -38,6 +39,9 @@ class PlatformCommandsTest extends TestCase
         $site = $tenant->sites()->sole();
         $this->assertSame(['https://shop.am'], $site->allowed_origins);
 
+        // No services until the platform turns the module on.
+        $this->getJson('/api/v1/services', ['X-Site-Key' => $site->public_key])->assertNotFound();
+        Feature::for($tenant)->activate('services');
         $this->getJson('/api/v1/services', ['X-Site-Key' => $site->public_key])->assertOk()->assertJsonCount(0, 'data');
     }
 

@@ -36,7 +36,7 @@ class AdminAssistantTest extends TestCase
 
     public function test_the_owner_asks_about_their_own_sales_only(): void
     {
-        $shop = $this->createTenant('test-shop');
+        $shop = $this->withServices($this->createTenant('test-shop'));
         $this->signInTo($shop);
         $this->asTenant($shop, fn () => $this->createService('cake', 'Տորթ'));
         $this->asTenant(Tenant::default(), fn () => $this->createService('sofa', 'Բազմոցի քիմմաքրում'));

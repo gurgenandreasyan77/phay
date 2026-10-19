@@ -181,6 +181,11 @@ class BusinessAssistant
      */
     private function services(): array
     {
+        // Without the catalog module the business has no services to talk about.
+        if (! Feature::someAreActive([FeatureFlag::Services->value, FeatureFlag::AutoCare->value])) {
+            return [];
+        }
+
         return Service::query()->orderBy('sort_order')->limit(50)->get()
             ->map(fn (Service $s) => array_filter([
                 'name' => $s->trans('name', 'hy'),

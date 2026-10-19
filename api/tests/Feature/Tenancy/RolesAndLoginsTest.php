@@ -66,7 +66,7 @@ class RolesAndLoginsTest extends TestCase
 
     public function test_an_owner_has_every_business_section(): void
     {
-        $shop = $this->createTenant('test-shop');
+        $shop = $this->withServices($this->createTenant('test-shop'));
         Sanctum::actingAs($this->member($shop, 'owner'));
 
         $this->getJson('/api/v1/admin/me')
@@ -83,7 +83,7 @@ class RolesAndLoginsTest extends TestCase
 
     public function test_an_admin_runs_the_business_but_does_not_see_revenue_or_the_ai_assistant(): void
     {
-        $shop = $this->createTenant('test-shop');
+        $shop = $this->withServices($this->createTenant('test-shop'));
         Sanctum::actingAs($this->member($shop, 'admin'));
 
         $this->getJson('/api/v1/admin/me')

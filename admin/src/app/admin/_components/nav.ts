@@ -80,12 +80,9 @@ export const BUSINESS_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Կատալոգ",
-    items: [{ href: "/admin/services", label: "Ծառայություններ", icon: Wrench, requires: "catalog" }],
-  },
-  {
     label: "Մոդուլներ",
     items: [
+      { href: "/admin/services", label: "Ծառայություններ", icon: Wrench, requiresFeature: "services", requires: "catalog" },
       { href: "/admin/dry-cleaning", label: "Քիմմաքրում", icon: Sofa, requiresFeature: "dryCleaning", requires: "catalog" },
       { href: "/admin/auto-care", label: "Ավտոխնամք", icon: Car, requiresFeature: "autoCare", requires: "catalog" },
       { href: "/admin/products", label: "Խանութ", icon: ShoppingBag, requiresFeature: "market", requires: "catalog" },
