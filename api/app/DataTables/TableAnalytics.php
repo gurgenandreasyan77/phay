@@ -10,7 +10,6 @@ use App\Models\DataTableRow;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Laravel\Pennant\Feature;
 
 /**
  * Figures of a business's own tables, per section (orders, sales), over all
@@ -37,14 +36,15 @@ class TableAnalytics
     public function __construct(private readonly TenantContext $tenants) {}
 
     /**
-     * Tables of the sections whose module is on.
+     * Tables of the sections that bring money in (orders, sales) whose
+     * module is on; expenses are figured by App\Expenses\Finance.
      *
      * @return Collection<int, DataTable>
      */
     public function tables(): Collection
     {
-        $sections = collect(DataTableSection::cases())
-            ->filter(fn (DataTableSection $s) => Feature::active($s->feature()->value))
+        $sections = collect(DataTableSection::revenue())
+            ->filter(fn (DataTableSection $s) => $s->isActive())
             ->map(fn (DataTableSection $s) => $s->value);
 
         return DataTable::query()->whereIn('section', $sections)->orderBy('sort_order')->orderBy('id')->get();

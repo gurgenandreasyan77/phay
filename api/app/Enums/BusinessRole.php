@@ -6,7 +6,7 @@ namespace App\Enums;
  * What a person does inside one business (tenant_user.role). Platform staff
  * (super admin, platform moderator) entering a business act as its owner.
  *
- * - owner: everything, including money (analytics) and the AI assistant.
+ * - owner: everything, including money (analytics, expenses) and the AI assistant.
  * - admin: runs the business day to day: orders, services, modules,
  *   settings, but not its revenue figures or the paid AI assistant.
  * - moderator: works with orders only.
@@ -29,11 +29,14 @@ enum BusinessRole: string
     /** Revenue analytics and the AI assistant. */
     public const INSIGHTS = 'insights';
 
+    /** What the business spends (taxes, rent, salaries...) and its net profit. */
+    public const EXPENSES = 'expenses';
+
     /** @return list<string> */
     public function permissions(): array
     {
         return match ($this) {
-            self::Owner => [self::ORDERS, self::CATALOG, self::SETTINGS, self::INSIGHTS],
+            self::Owner => [self::ORDERS, self::CATALOG, self::SETTINGS, self::INSIGHTS, self::EXPENSES],
             self::Admin => [self::ORDERS, self::CATALOG, self::SETTINGS],
             self::Moderator => [self::ORDERS],
         };

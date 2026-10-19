@@ -4,6 +4,8 @@ namespace App\Assistant;
 
 use App\Analytics\Dashboard;
 use App\DataTables\TableAnalytics;
+use App\Enums\TablePeriod;
+use App\Expenses\Finance;
 use App\Enums\DataTableSection;
 use App\Features\FeatureFlag;
 use App\Models\AssistantUsage;
@@ -27,6 +29,7 @@ class BusinessAssistant
         private readonly TableAnalytics $tableAnalytics,
         private readonly TenantContext $tenants,
         private readonly Dashboard $dashboard,
+        private readonly Finance $finance,
     ) {}
 
     public function isConfigured(): bool
@@ -92,6 +95,7 @@ class BusinessAssistant
                 'recentOrders' => $this->recentOrders(),
             ] : null,
             'ownTables' => $this->ownTables(),
+            'finance' => $this->finance(),
         ], fn ($value) => $value !== null && $value !== []), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
         return <<<PROMPT
@@ -104,6 +108,7 @@ class BusinessAssistant
         How the data works:
         - siteOrders: orders that came from the business's website or were added by hand on the orders screen. An order counts on the day it was created; revenue counts on the day an order was completed, from its final price. "conversion" is the share of the period's orders that are already completed. "source" is where the order came from (website, manual entry, or a UTM source).
         - ownTables: rows of tables the business designed itself (its own columns) and filled by hand or from files, e.g. sales from Instagram or a file imported every day. One entry per "section" (orders or sales), with all its tables taken together: rows and "amount" (the money a row is worth: its total column, else unit price × quantity, e.g. 0.5 kg at 3000 a kg is 1500) for the last 30 and 365 days by the date each row happened, with the previous period of the same length. "metrics" are the figures that make sense for what this business records, chosen by what its columns mean: revenue, profit and margin (only when a unit cost column exists: amount − cost × quantity), how many rows, rows a day and a month (counted from the business's first row), the average check, and per unit (kg, pieces...) the quantity sold, the average quantity of a sale and the average price of one unit. Only the figures the owner put on their analytics dashboard are given ("shownOnDashboard"); a figure that is missing was either not chosen or can't be computed from the business's columns: don't guess it, say it can be added on the analytics screen ("Ավելացնել գրաֆիկ") or which column would make it possible. "months" are the last twelve months with their best and weakest one, "weekdays" rows by day of the week (1 is Monday), "hours" rows by hour of the day. A monthly "series" and "peaks" (the best and the weakest finished month or day and the average one, by money, or by how many rows when there is no money), the most frequent values of columns of the same meaning across tables ("breakdowns", with the amount they bring) and sums of number columns (the business's own number columns). "tables" lists each table (rows and amount in the last 365 days, all rows, rows without a date, first and last date) and "latestRows" are the latest rows with their table and time. Rows without a date are in no period. Contact details of buyers are left out on purpose.
+        - finance (only when the business records its expenses): money in and out per month for the last twelve months ("periods", this month the last, not over yet): "revenue" (orders and sales tables plus completed site orders), "cogs" (cost of goods: unit cost × quantity of the rows that have one), "grossProfit" = revenue − cogs, "expenses" (expenses of the categories counted in the profit), "netProfit" = grossProfit − expenses, "excluded" (expenses the owner keeps out of the profit: equipment, loan repayments, what the owner takes out...) and "cashLeft" = netProfit − excluded, "margin" = netProfit / revenue in %. "categories" are the expenses of the twelve months by category ("inProfit" false: kept out of the profit, "recurring": the part that repeats every week, month, quarter or year), "thisMonth" the same for this month, "notes" what makes the figures less exact. Talk about net profit, where the money goes, which costs grow, and what could be cut, with real numbers.
         Amounts are in {$tenant->currency}; write Armenian dram as "դր.".
 
         Reply in the language of the user's latest message (Armenian, Russian or English). Write natural, fluent text, as a native speaker would, with short paragraphs and simple lists. Do not use tables or headings unless asked.
@@ -143,6 +148,32 @@ class BusinessAssistant
             })
             ->values()
             ->all();
+    }
+
+    /**
+     * Money in and out a month over the last twelve months, when the
+     * business records what it spends.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function finance(): ?array
+    {
+        $report = $this->finance->report(TablePeriod::Month);
+
+        if (! $report['has']['expenses']) {
+            return null;
+        }
+
+        $line = fn (array $p) => collect($p)->only(['key', 'revenue', 'cogs', 'grossProfit', 'expenses', 'excluded', 'netProfit', 'cashLeft', 'margin'])->all();
+        $spent = fn (array $categories) => collect($categories)->filter(fn ($c) => $c['amount'] > 0)->map(fn ($c) => collect($c)->only(['name', 'inProfit', 'amount', 'recurring'])->all())->values()->all();
+
+        return [
+            'periods' => array_map($line, $report['periods']),
+            'total' => $line($report['total']),
+            'categories' => $spent($report['categories']),
+            'thisMonth' => $spent($report['current']['categories']),
+            'notes' => $report['notes'],
+        ];
     }
 
     /**
