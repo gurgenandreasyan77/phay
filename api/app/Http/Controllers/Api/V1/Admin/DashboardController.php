@@ -2,30 +2,26 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
-use App\Enums\LeadStatus;
+use App\Analytics\Home;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\LeadResource;
-use App\Models\Lead;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Date;
+use Illuminate\Http\Request;
 
+/**
+ * The business admin's home: today's and this month's orders and sales,
+ * net profit, what's coming up and the site's orders (see Home).
+ */
 class DashboardController extends Controller
 {
-    public function __invoke(): JsonResponse
+    public function __invoke(Request $request, Home $home): JsonResponse
     {
-        $countsByStatus = collect(LeadStatus::cases())->mapWithKeys(
-            fn (LeadStatus $status) => [$status->value => Lead::query()->where('status', $status)->count()]
-        );
+        $data = $home->for($request->user());
 
-        return response()->json([
-            'data' => [
-                'countsByStatus' => $countsByStatus,
-                'newToday' => Lead::query()->whereDate('created_at', Date::today())->count(),
-                'newThisWeek' => Lead::query()->where('created_at', '>=', Date::now()->startOfWeek())->count(),
-                'recentLeads' => LeadResource::collection(
-                    Lead::query()->with('service')->orderByDesc('created_at')->limit(10)->get()
-                ),
-            ],
-        ]);
+        if ($data['site'] !== null) {
+            $data['site']['recent'] = LeadResource::collection($data['site']['recent'])->resolve($request);
+        }
+
+        return response()->json(['data' => $data]);
     }
 }
