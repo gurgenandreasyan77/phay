@@ -41,13 +41,14 @@ class TenantController extends Controller
             ->get();
 
         if ($search !== '') {
-            $tenants = $tenants->filter(fn (Tenant $tenant) => $this->matches($tenant, $search))->values();
+            $tenants = $tenants->filter(fn (Tenant $tenant) => self::matches($tenant, $search))->values();
         }
 
         return TenantResource::collection($tenants);
     }
 
-    private function matches(Tenant $tenant, string $search): bool
+    /** Whether the business matches a lowercased ?search= (also used by the header search). */
+    public static function matches(Tenant $tenant, string $search): bool
     {
         $digits = preg_replace('/\D+/', '', $search);
 

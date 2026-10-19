@@ -22,11 +22,13 @@ use App\Http\Controllers\Api\V1\Admin\DataTableRowController as AdminDataTableRo
 use App\Http\Controllers\Api\V1\Admin\FeatureFlagController as AdminFeatureFlagController;
 use App\Http\Controllers\Api\V1\Admin\LeadController as AdminLeadController;
 use App\Http\Controllers\Api\V1\Admin\ModulePriceController as AdminModulePriceController;
+use App\Http\Controllers\Api\V1\Admin\NotificationController as AdminNotificationController;
 use App\Http\Controllers\Api\V1\Admin\PasswordController as AdminPasswordController;
 use App\Http\Controllers\Api\V1\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Api\V1\Admin\PlatformSubscriptionController as AdminPlatformSubscriptionController;
 use App\Http\Controllers\Api\V1\Admin\PlatformSupportController as AdminPlatformSupportController;
 use App\Http\Controllers\Api\V1\Admin\PlatformUserController as AdminPlatformUserController;
+use App\Http\Controllers\Api\V1\Admin\SearchController as AdminSearchController;
 use App\Http\Controllers\Api\V1\Admin\ProductCategoryController as AdminProductCategoryController;
 use App\Http\Controllers\Api\V1\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Api\V1\Admin\ServiceCategoryController as AdminServiceCategoryController;
@@ -114,6 +116,11 @@ Route::prefix('v1')->group(function () {
             Route::put('/password', [AdminPasswordController::class, 'update'])->middleware('throttle:6,1');
             // Unread chat messages for the menu badge (either side).
             Route::get('/support/unread', [AdminSupportController::class, 'unread']);
+            // The header: the bell (open even after the subscription ended) and the search.
+            Route::get('/notifications', [AdminNotificationController::class, 'index']);
+            Route::post('/notifications/read-all', [AdminNotificationController::class, 'readAll']);
+            Route::post('/notifications/{notification}/read', [AdminNotificationController::class, 'read'])->whereNumber('notification');
+            Route::get('/search', AdminSearchController::class)->middleware('throttle:60,1');
             // The business's subscription: open to all its people, even after it
             // ended (the admin shows how to come back); asking goes to the chat.
             Route::get('/subscription', [AdminSubscriptionController::class, 'show']);
