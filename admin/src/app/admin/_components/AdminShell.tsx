@@ -32,7 +32,12 @@ export function AdminShell({
   return (
     <div className="min-h-screen bg-background lg:pl-64">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block">
-        <Sidebar features={features} me={me} businessName={me?.currentTenant?.name} />
+        <Sidebar
+          features={features}
+          me={me}
+          businessName={me?.currentTenant?.name}
+          businessLogo={me?.currentTenant?.logo}
+        />
       </aside>
 
       {mobileNavOpen ? (
@@ -48,6 +53,7 @@ export function AdminShell({
               features={features}
               me={me}
               businessName={me?.currentTenant?.name}
+              businessLogo={me?.currentTenant?.logo}
               onNavigate={() => setMobileNavOpen(false)}
             />
           </aside>

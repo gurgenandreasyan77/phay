@@ -29,6 +29,8 @@ import {
   Building2,
   Globe,
   UsersRound,
+  MessageCircle,
+  MessagesSquare,
 } from "lucide-react";
 
 export type NavItem = {
@@ -44,6 +46,10 @@ export type NavItem = {
   requires?: BusinessPermission;
   /** Platform level: only the super admin. */
   superAdminOnly?: boolean;
+  /** Business level: hidden for platform staff (they answer from the platform level). */
+  businessOnly?: boolean;
+  /** Shows the count of unread chat messages of this side. */
+  badge?: "business" | "platform";
 };
 
 export type NavGroup = {
@@ -105,6 +111,14 @@ export const BUSINESS_NAV_GROUPS: NavGroup[] = [
       { href: "/admin/documents", label: "Փաստաթղթեր", icon: FileText, soon: true },
       { href: "/admin/automations", label: "Ավտոմատացումներ", icon: Workflow, soon: true },
       { href: "/admin/audit-log", label: "Գործողությունների մատյան", icon: History, soon: true },
+      {
+        href: "/admin/support",
+        label: "Կապ Servio-ի հետ",
+        icon: MessageCircle,
+        requires: "settings",
+        businessOnly: true,
+        badge: "business",
+      },
       { href: "/admin/settings", label: "Կարգավորումներ", icon: Settings, requires: "settings" },
     ],
   },
@@ -117,6 +131,7 @@ export const PLATFORM_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/admin/platform", label: "Բիզնեսներ", icon: Building2 },
       { href: "/admin/platform/sites", label: "Կայքեր", icon: Globe },
+      { href: "/admin/platform/support", label: "Հաղորդագրություններ", icon: MessagesSquare, badge: "platform" },
       { href: "/admin/platform/team", label: "Պլատֆորմի թիմ", icon: UsersRound, superAdminOnly: true },
     ],
   },
@@ -153,7 +168,8 @@ export function visibleNavGroups(features: FeatureFlags, me: NavUser, pathname: 
             (item) =>
               (!item.requiresFeature || features[item.requiresFeature]) &&
               (!item.requires || can(me, item.requires)) &&
-              (!item.soon || staff),
+              (!item.soon || staff) &&
+              (!item.businessOnly || !staff),
           ),
         }));
 

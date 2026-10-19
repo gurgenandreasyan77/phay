@@ -6,10 +6,11 @@ import { PageHeader } from "../_components/ui";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminBusinessesPage() {
+export default async function AdminBusinessesPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const admin = await requirePlatformStaff();
+  const search = ((await searchParams).q ?? "").trim();
 
-  const tenants = await getTenantsAdmin();
+  const tenants = await getTenantsAdmin(search);
 
   return (
     <div className="space-y-8">
@@ -19,6 +20,7 @@ export default async function AdminBusinessesPage() {
       />
       <BusinessesManager
         tenants={tenants}
+        search={search}
         currentTenantId={admin.currentTenant?.id ?? null}
         isSuperAdmin={isSuperAdmin(admin)}
       />

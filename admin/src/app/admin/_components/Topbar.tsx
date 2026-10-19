@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { isPlatformStaff } from "@/lib/roles";
 import { useEffect, useRef, useState } from "react";
-import { Bell, ChevronDown, LogOut, Menu, Search } from "lucide-react";
+import { Bell, ChevronDown, KeyRound, LogOut, Menu, Search } from "lucide-react";
 import type { AdminUserDto } from "@/lib/adminApi";
 import { findActiveNavItem, isPlatformPath } from "./nav";
 import { TenantSwitcher } from "./TenantSwitcher";
@@ -128,6 +128,14 @@ export function Topbar({ onOpenMobileNav, me }: { onOpenMobileNav: () => void; m
                 <p className="text-xs text-ink-muted">{me?.currentTenant?.name ?? "Servio"}</p>
               </div>
               <div className="my-1 h-px bg-border" />
+              <Link
+                href="/admin/account"
+                onClick={() => setMenuOpen(false)}
+                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-ink hover:bg-surface-secondary"
+              >
+                <KeyRound className="h-4 w-4" strokeWidth={1.75} />
+                Իմ հաշիվը և գաղտնաբառը
+              </Link>
               <button
                 type="button"
                 onClick={handleLogout}

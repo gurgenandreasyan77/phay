@@ -13,8 +13,11 @@ class UpdateSiteSettingsRequest extends FormRequest
 
     public function rules(): array
     {
+        // Each form sends its own part: the profile its name, the address form
+        // the address. What isn't sent stays as it is.
         return [
-            'address' => ['nullable', 'array'],
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'address' => ['sometimes', 'nullable', 'array'],
             'address.hy' => ['nullable', 'string', 'max:500'],
             'address.ru' => ['nullable', 'string', 'max:500'],
             'address.en' => ['nullable', 'string', 'max:500'],

@@ -8,11 +8,14 @@ import { isPlatformStaff } from "@/lib/roles";
 import { ArrowLeft } from "lucide-react";
 import { PLATFORM_HOME, isActiveHref, isPlatformPath, visibleNavGroups } from "./nav";
 import { cn } from "./ui";
+import { useSupportUnread } from "./chat/unread";
+import { BusinessLogo } from "./BusinessLogo";
 
 export function Sidebar({
   features,
   me,
   businessName,
+  businessLogo,
   onNavigate,
   className,
 }: {
@@ -20,6 +23,8 @@ export function Sidebar({
   me: AdminUserDto | null;
   /** The business this admin works on (shown in business mode). */
   businessName?: string;
+  /** The business's logo, if it uploaded one in its settings. */
+  businessLogo?: string | null;
   onNavigate?: () => void;
   className?: string;
 }) {
@@ -27,13 +32,18 @@ export function Sidebar({
   const staff = isPlatformStaff(me);
   const navGroups = visibleNavGroups(features, me, pathname);
   const onPlatform = staff && isPlatformPath(pathname);
+  const unread = useSupportUnread(me !== null);
 
   return (
     <nav className={cn("flex h-full flex-col bg-sidebar text-sidebar-text", className)}>
       <div className="flex h-16 items-center gap-2.5 px-5">
-        <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
-          S
-        </span>
+        {!onPlatform && businessLogo ? (
+          <BusinessLogo name={businessName ?? "Servio"} logo={businessLogo} size="sm" className="border-0" />
+        ) : (
+          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
+            S
+          </span>
+        )}
         <div className="min-w-0 leading-tight">
           <p className="truncate text-sm font-semibold text-sidebar-text">
             {onPlatform ? "Servio" : (businessName ?? "Servio")}
@@ -65,6 +75,7 @@ export function Sidebar({
               {group.items.map((item) => {
                 const isActive = isActiveHref(item.href, pathname);
                 const Icon = item.icon;
+                const count = item.badge ? (unread[item.badge] ?? 0) : 0;
 
                 if (item.soon) {
                   return (
@@ -96,7 +107,12 @@ export function Sidebar({
                       )}
                     >
                       <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-                      {item.label}
+                      <span className="flex-1">{item.label}</span>
+                      {count > 0 ? (
+                        <span className="min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-center text-[11px] font-semibold leading-none text-primary-foreground">
+                          {count > 99 ? "99+" : count}
+                        </span>
+                      ) : null}
                     </Link>
                   </li>
                 );

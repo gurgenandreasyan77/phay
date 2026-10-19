@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\V1\Admin\DataTableController as AdminDataTableContr
 use App\Http\Controllers\Api\V1\Admin\DataTableRowController as AdminDataTableRowController;
 use App\Http\Controllers\Api\V1\Admin\FeatureFlagController as AdminFeatureFlagController;
 use App\Http\Controllers\Api\V1\Admin\LeadController as AdminLeadController;
+use App\Http\Controllers\Api\V1\Admin\PasswordController as AdminPasswordController;
+use App\Http\Controllers\Api\V1\Admin\PlatformSupportController as AdminPlatformSupportController;
 use App\Http\Controllers\Api\V1\Admin\PlatformUserController as AdminPlatformUserController;
 use App\Http\Controllers\Api\V1\Admin\ProductCategoryController as AdminProductCategoryController;
 use App\Http\Controllers\Api\V1\Admin\ProductController as AdminProductController;
@@ -28,6 +30,7 @@ use App\Http\Controllers\Api\V1\Admin\ServicePackageController as AdminServicePa
 use App\Http\Controllers\Api\V1\Admin\ServiceVideoController as AdminServiceVideoController;
 use App\Http\Controllers\Api\V1\Admin\SettingsController as AdminSettingsController;
 use App\Http\Controllers\Api\V1\Admin\SiteController as AdminSiteController;
+use App\Http\Controllers\Api\V1\Admin\SupportController as AdminSupportController;
 use App\Http\Controllers\Api\V1\Admin\TableAnalyticsController as AdminTableAnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\TaskPageController as AdminTaskPageController;
 use App\Http\Controllers\Api\V1\Admin\TenantController as AdminTenantController;
@@ -96,6 +99,10 @@ Route::prefix('v1')->group(function () {
             Route::post('/logout', [AdminAuthController::class, 'logout']);
             Route::get('/me', [AdminAuthController::class, 'me']);
             Route::post('/switch-tenant', [AdminAuthController::class, 'switchTenant']);
+            // Everyone changes their own password by typing the current one.
+            Route::put('/password', [AdminPasswordController::class, 'update'])->middleware('throttle:6,1');
+            // Unread chat messages for the menu badge (either side).
+            Route::get('/support/unread', [AdminSupportController::class, 'unread']);
 
             // Onboarding (platform staff: super admin and moderators); a
             // business's own people get 403 here.
@@ -111,6 +118,10 @@ Route::prefix('v1')->group(function () {
                 Route::post('/sites', [AdminSiteController::class, 'store']);
                 Route::patch('/sites/{site}', [AdminSiteController::class, 'update']);
                 Route::post('/sites/{site}/rotate-key', [AdminSiteController::class, 'rotateKey']);
+                // The chat with businesses: every conversation, and one business's.
+                Route::get('/support/conversations', [AdminPlatformSupportController::class, 'conversations']);
+                Route::get('/tenants/{tenant}/messages', [AdminPlatformSupportController::class, 'index']);
+                Route::post('/tenants/{tenant}/messages', [AdminPlatformSupportController::class, 'store'])->middleware('throttle:30,1');
             });
 
             // Platform-wide switches and the platform team: super admin only.
@@ -180,6 +191,11 @@ Route::prefix('v1')->group(function () {
             Route::middleware('business.can:settings')->group(function () {
                 Route::get('/settings', [AdminSettingsController::class, 'show']);
                 Route::put('/settings', [AdminSettingsController::class, 'update']);
+                Route::post('/settings/logo', [AdminSettingsController::class, 'storeLogo']);
+                Route::delete('/settings/logo', [AdminSettingsController::class, 'destroyLogo']);
+                // The chat with the platform team.
+                Route::get('/support/messages', [AdminSupportController::class, 'index']);
+                Route::post('/support/messages', [AdminSupportController::class, 'store'])->middleware('throttle:30,1');
                 Route::post('/contact-channels', [AdminContactChannelController::class, 'store']);
                 Route::patch('/contact-channels/{contactChannel}', [AdminContactChannelController::class, 'update']);
                 Route::delete('/contact-channels/{contactChannel}', [AdminContactChannelController::class, 'destroy']);
