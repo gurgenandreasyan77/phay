@@ -94,7 +94,7 @@ class AdminBusinessAndSiteScreensTest extends TestCase
 
     public function test_a_super_admin_lists_every_site_and_creates_one_for_a_chosen_business(): void
     {
-        $shop = $this->createTenant('test-shop');
+        $shop = $this->withServices($this->createTenant('test-shop'));
         $this->superAdmin();
 
         $this->getJson('/api/v1/admin/sites')

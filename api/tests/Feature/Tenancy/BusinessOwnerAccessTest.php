@@ -62,7 +62,7 @@ class BusinessOwnerAccessTest extends TestCase
 
     public function test_the_owner_cannot_use_platform_screens(): void
     {
-        $shop = $this->createTenant('test-shop');
+        $shop = $this->withServices($this->createTenant('test-shop'));
         $owner = $this->createOwnerLogin($shop);
         $site = $this->createSite($shop);
         Sanctum::actingAs($owner);
@@ -92,7 +92,7 @@ class BusinessOwnerAccessTest extends TestCase
 
     public function test_the_owner_sees_and_changes_only_their_business_data(): void
     {
-        $shop = $this->createTenant('test-shop');
+        $shop = $this->withServices($this->createTenant('test-shop'));
         $servioService = $this->createService('sofa', 'Servio sofa');
         $shopService = $this->asTenant($shop, fn () => $this->createService('shop-item', 'Shop item'));
         Sanctum::actingAs($this->createOwnerLogin($shop));
@@ -183,6 +183,8 @@ class BusinessOwnerAccessTest extends TestCase
 
         $this->assertFalse(Feature::for($shop)->active('market'));
         $this->assertFalse(Feature::for($shop)->active('auto-care'));
+        $this->assertFalse(Feature::for($shop)->active('services'));
+        $this->assertTrue(Feature::for(Tenant::default())->active('services'));
         $this->assertTrue(Feature::for(Tenant::default())->active('market'));
 
         Sanctum::actingAs($this->createOwnerLogin($shop));

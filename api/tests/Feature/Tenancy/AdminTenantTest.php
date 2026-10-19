@@ -28,7 +28,7 @@ class AdminTenantTest extends TestCase
     {
         parent::setUp();
 
-        $this->shop = $this->createTenant('test-shop');
+        $this->shop = $this->withServices($this->createTenant('test-shop'));
 
         $this->servioLead = $this->createLead('Servio client');
         $this->shopLead = $this->asTenant($this->shop, fn () => $this->createLead('Shop client'));

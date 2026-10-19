@@ -64,13 +64,17 @@ Route::prefix('v1')->group(function () {
     // Public API: the X-Site-Key header decides which business's content is
     // served (no header: the default business).
     Route::middleware('tenant.site')->group(function () {
-        Route::get('/categories', [ServiceCategoryController::class, 'index']);
-        Route::get('/services', [ServiceController::class, 'index']);
-        Route::get('/services/{slug}', [ServiceController::class, 'show']);
-        Route::get('/service-packages', [ServicePackageController::class, 'index']);
-        Route::get('/service-packages/{slug}', [ServicePackageController::class, 'show']);
-        Route::get('/service-gallery', [ServiceGalleryItemController::class, 'index']);
-        Route::get('/service-videos', [ServiceVideoController::class, 'index']);
+        // The services catalog: the "services" module, or auto-care, which
+        // keeps its price list, gallery and videos in the same catalog.
+        Route::middleware('feature:services,auto-care')->group(function () {
+            Route::get('/categories', [ServiceCategoryController::class, 'index']);
+            Route::get('/services', [ServiceController::class, 'index']);
+            Route::get('/services/{slug}', [ServiceController::class, 'show']);
+            Route::get('/service-packages', [ServicePackageController::class, 'index']);
+            Route::get('/service-packages/{slug}', [ServicePackageController::class, 'show']);
+            Route::get('/service-gallery', [ServiceGalleryItemController::class, 'index']);
+            Route::get('/service-videos', [ServiceVideoController::class, 'index']);
+        });
 
         // Servio's upholstery dry cleaning: the calculator and its
         // add-on services exist only for a business with this module on.
@@ -281,26 +285,29 @@ Route::prefix('v1')->group(function () {
                 Route::delete('/task-pages/{taskPage}', [AdminTaskPageController::class, 'destroy']);
                 Route::get('/calculator-settings', [AdminCalculatorSettingController::class, 'show']);
                 Route::put('/calculator-settings', [AdminCalculatorSettingController::class, 'update']);
-                Route::get('/service-categories', [AdminServiceCategoryController::class, 'index']);
-                Route::post('/service-categories', [AdminServiceCategoryController::class, 'store']);
-                Route::patch('/service-categories/{serviceCategory}', [AdminServiceCategoryController::class, 'update']);
-                Route::delete('/service-categories/{serviceCategory}', [AdminServiceCategoryController::class, 'destroy']);
-                Route::get('/services', [AdminServiceController::class, 'index']);
-                Route::post('/services', [AdminServiceController::class, 'store']);
-                Route::patch('/services/{service}', [AdminServiceController::class, 'update']);
-                Route::delete('/services/{service}', [AdminServiceController::class, 'destroy']);
-                Route::get('/service-packages', [AdminServicePackageController::class, 'index']);
-                Route::post('/service-packages', [AdminServicePackageController::class, 'store']);
-                Route::patch('/service-packages/{servicePackage}', [AdminServicePackageController::class, 'update']);
-                Route::delete('/service-packages/{servicePackage}', [AdminServicePackageController::class, 'destroy']);
-                Route::get('/service-gallery-items', [AdminServiceGalleryItemController::class, 'index']);
-                Route::post('/service-gallery-items', [AdminServiceGalleryItemController::class, 'store']);
-                Route::patch('/service-gallery-items/{serviceGalleryItem}', [AdminServiceGalleryItemController::class, 'update']);
-                Route::delete('/service-gallery-items/{serviceGalleryItem}', [AdminServiceGalleryItemController::class, 'destroy']);
-                Route::get('/service-videos', [AdminServiceVideoController::class, 'index']);
-                Route::post('/service-videos', [AdminServiceVideoController::class, 'store']);
-                Route::patch('/service-videos/{serviceVideo}', [AdminServiceVideoController::class, 'update']);
-                Route::delete('/service-videos/{serviceVideo}', [AdminServiceVideoController::class, 'destroy']);
+                // The services catalog, as on the site (see above).
+                Route::middleware('feature:services,auto-care')->group(function () {
+                    Route::get('/service-categories', [AdminServiceCategoryController::class, 'index']);
+                    Route::post('/service-categories', [AdminServiceCategoryController::class, 'store']);
+                    Route::patch('/service-categories/{serviceCategory}', [AdminServiceCategoryController::class, 'update']);
+                    Route::delete('/service-categories/{serviceCategory}', [AdminServiceCategoryController::class, 'destroy']);
+                    Route::get('/services', [AdminServiceController::class, 'index']);
+                    Route::post('/services', [AdminServiceController::class, 'store']);
+                    Route::patch('/services/{service}', [AdminServiceController::class, 'update']);
+                    Route::delete('/services/{service}', [AdminServiceController::class, 'destroy']);
+                    Route::get('/service-packages', [AdminServicePackageController::class, 'index']);
+                    Route::post('/service-packages', [AdminServicePackageController::class, 'store']);
+                    Route::patch('/service-packages/{servicePackage}', [AdminServicePackageController::class, 'update']);
+                    Route::delete('/service-packages/{servicePackage}', [AdminServicePackageController::class, 'destroy']);
+                    Route::get('/service-gallery-items', [AdminServiceGalleryItemController::class, 'index']);
+                    Route::post('/service-gallery-items', [AdminServiceGalleryItemController::class, 'store']);
+                    Route::patch('/service-gallery-items/{serviceGalleryItem}', [AdminServiceGalleryItemController::class, 'update']);
+                    Route::delete('/service-gallery-items/{serviceGalleryItem}', [AdminServiceGalleryItemController::class, 'destroy']);
+                    Route::get('/service-videos', [AdminServiceVideoController::class, 'index']);
+                    Route::post('/service-videos', [AdminServiceVideoController::class, 'store']);
+                    Route::patch('/service-videos/{serviceVideo}', [AdminServiceVideoController::class, 'update']);
+                    Route::delete('/service-videos/{serviceVideo}', [AdminServiceVideoController::class, 'destroy']);
+                });
                 Route::post('/uploads', [AdminUploadController::class, 'store']);
             });
         });

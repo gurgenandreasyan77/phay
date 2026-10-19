@@ -316,6 +316,7 @@ export type FeatureFlags = {
   autoCare: boolean;
   market: boolean;
   dryCleaning: boolean;
+  services: boolean;
 };
 
 export type SiteSettingsDto = {

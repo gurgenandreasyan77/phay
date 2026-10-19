@@ -21,6 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     autoCare: isActive("auto-care"),
     market: isActive("market"),
     dryCleaning: isActive("dry-cleaning"),
+    services: isActive("services"),
   };
 
   return (

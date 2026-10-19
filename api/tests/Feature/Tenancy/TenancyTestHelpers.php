@@ -7,6 +7,7 @@ use App\Models\ServiceCategory;
 use App\Models\Site;
 use App\Models\Tenant;
 use App\Tenancy\TenantContext;
+use Laravel\Pennant\Feature;
 
 trait TenancyTestHelpers
 {
@@ -21,6 +22,16 @@ trait TenancyTestHelpers
             'timezone' => 'Asia/Yerevan',
             'status' => $status,
         ]);
+    }
+
+    /**
+     * Turns the services catalog module on: a new business starts without it.
+     */
+    protected function withServices(Tenant $tenant): Tenant
+    {
+        Feature::for($tenant)->activate('services');
+
+        return $tenant;
     }
 
     protected function createSite(Tenant $tenant, array $attributes = []): Site

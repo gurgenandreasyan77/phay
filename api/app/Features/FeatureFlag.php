@@ -16,6 +16,9 @@ enum FeatureFlag: string
     case AutoCare = 'auto-care';
     case Market = 'market';
     case DryCleaning = 'dry-cleaning';
+    // The business's own catalog of services shown on its site: a paid
+    // module, a business without a site has nothing to put there.
+    case Services = 'services';
 
     public function label(): string
     {
@@ -23,6 +26,7 @@ enum FeatureFlag: string
             self::AutoCare => 'Ավտոխնամք',
             self::Market => 'Խանութ',
             self::DryCleaning => 'Քիմմաքրում',
+            self::Services => 'Ծառայություններ',
             self::Orders => 'Պատվերներ',
             self::Sales => 'Վաճառքներ',
         };
@@ -34,6 +38,7 @@ enum FeatureFlag: string
             self::AutoCare => 'Ակտիվացնում կամ ամբողջովին անջատում է ավտոմեքենայի խնամքի բաժինը ողջ հավելվածում։',
             self::Market => 'Ակտիվացնում կամ ամբողջովին անջատում է Խանութ (Market) բաժինը ողջ հավելվածում։',
             self::DryCleaning => 'Փափուկ կահույքի քիմմաքրման հաշվիչը, դրա սակագները և լրացուցիչ ծառայությունները։',
+            self::Services => 'Բիզնեսի ծառայությունների կատալոգը՝ գներով և կատեգորիաներով, որոնք երևում են նրա կայքում։',
             self::Orders => 'Ծառայություն մատուցող բիզնեսի համար՝ կայքից եկած պատվերները և պատվերների սեփական աղյուսակները։',
             self::Sales => 'Ապրանք վաճառող բիզնեսի համար՝ վաճառքների սեփական աղյուսակներ, ձեռքով կամ ֆայլից ներմուծմամբ։',
         };
@@ -42,7 +47,7 @@ enum FeatureFlag: string
     public function category(): string
     {
         return match ($this) {
-            self::AutoCare, self::Market, self::DryCleaning => 'Կատալոգ',
+            self::AutoCare, self::Market, self::DryCleaning, self::Services => 'Կատալոգ',
             self::Orders, self::Sales => 'Բիզնեսի տեսակ',
         };
     }
@@ -56,7 +61,7 @@ enum FeatureFlag: string
         return match ($this) {
             self::AutoCare, self::Market, self::Orders => true,
             // Servio has it on by a migration; anyone else starts without it.
-            self::DryCleaning, self::Sales => false,
+            self::DryCleaning, self::Services, self::Sales => false,
         };
     }
 

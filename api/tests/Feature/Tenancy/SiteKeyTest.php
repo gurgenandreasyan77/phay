@@ -31,7 +31,7 @@ class SiteKeyTest extends TestCase
         parent::setUp();
 
         $this->servio = Tenant::default();
-        $this->shop = $this->createTenant('test-shop');
+        $this->shop = $this->withServices($this->createTenant('test-shop'));
         $this->shopKey = $this->createSite($this->shop)->public_key;
 
         $this->createService('sofa-cleaning', 'Servio sofa');
@@ -69,6 +69,9 @@ class SiteKeyTest extends TestCase
     {
         $empty = $this->createTenant('empty-shop');
         $key = $this->createSite($empty)->public_key;
+
+        $this->getJson('/api/v1/services', ['X-Site-Key' => $key])->assertNotFound();
+        $this->withServices($empty);
 
         $this->getJson('/api/v1/services', ['X-Site-Key' => $key])->assertOk()->assertJsonCount(0, 'data');
         $this->getJson('/api/v1/categories', ['X-Site-Key' => $key])->assertOk()->assertJsonCount(0, 'data');
