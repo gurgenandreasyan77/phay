@@ -31,6 +31,9 @@ import {
   UsersRound,
   MessageCircle,
   MessagesSquare,
+  BadgeCheck,
+  CalendarClock,
+  Tags,
 } from "lucide-react";
 
 export type NavItem = {
@@ -103,6 +106,8 @@ export const BUSINESS_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/admin/payments", label: "Վճարումներ", icon: CreditCard, soon: true },
       { href: "/admin/expenses", label: "Ծախսեր", icon: Wallet, requires: "expenses" },
+      // Open to everyone in the business, even after the subscription ended.
+      { href: "/admin/subscription", label: "Բաժանորդագրություն", icon: BadgeCheck },
     ],
   },
   {
@@ -132,6 +137,8 @@ export const PLATFORM_NAV_GROUPS: NavGroup[] = [
       { href: "/admin/platform", label: "Բիզնեսներ", icon: Building2 },
       { href: "/admin/platform/sites", label: "Կայքեր", icon: Globe },
       { href: "/admin/platform/support", label: "Հաղորդագրություններ", icon: MessagesSquare, badge: "platform" },
+      { href: "/admin/platform/subscriptions", label: "Բաժանորդագրություններ", icon: CalendarClock, superAdminOnly: true },
+      { href: "/admin/platform/plans", label: "Փաթեթներ և գներ", icon: Tags, superAdminOnly: true },
       { href: "/admin/platform/team", label: "Պլատֆորմի թիմ", icon: UsersRound, superAdminOnly: true },
     ],
   },
@@ -145,7 +152,10 @@ export function isPlatformPath(pathname: string): boolean {
 
 export const ALL_NAV_ITEMS: NavItem[] = [...BUSINESS_NAV_GROUPS, ...PLATFORM_NAV_GROUPS].flatMap((group) => group.items);
 
-type NavUser = Pick<AdminUserDto, "platformRole" | "permissions"> | null;
+type NavUser = (Pick<AdminUserDto, "platformRole" | "permissions"> & Pick<Partial<AdminUserDto>, "subscription">) | null;
+
+/** What a business whose subscription ended can still open (see requireAdmin). */
+const OPEN_WHEN_LOCKED = ["/admin/subscription", "/admin/support"];
 
 /**
  * The menu for this page: the platform level on /admin/platform/*, the
@@ -169,7 +179,8 @@ export function visibleNavGroups(features: FeatureFlags, me: NavUser, pathname: 
               (!item.requiresFeature || features[item.requiresFeature]) &&
               (!item.requires || can(me, item.requires)) &&
               (!item.soon || staff) &&
-              (!item.businessOnly || !staff),
+              (!item.businessOnly || !staff) &&
+              (!me?.subscription?.locked || OPEN_WHEN_LOCKED.includes(item.href)),
           ),
         }));
 

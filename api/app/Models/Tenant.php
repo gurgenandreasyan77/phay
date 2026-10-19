@@ -84,6 +84,11 @@ class Tenant extends Model implements FeatureScopeSerializeable
         return $this->hasOne(SiteSetting::class)->withoutGlobalScope(TenantScope::class);
     }
 
+    public function subscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class);
+    }
+
     public function supportMessages(): HasMany
     {
         return $this->hasMany(SupportMessage::class)->withoutGlobalScope(TenantScope::class);

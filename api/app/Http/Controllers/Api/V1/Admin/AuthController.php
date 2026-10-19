@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\LoginRequest;
 use App\Http\Resources\Admin\TenantResource;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Subscriptions\Subscriptions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -95,7 +96,27 @@ class AuthController extends Controller
             'businessRole' => $role?->value,
             'permissions' => $role?->permissions() ?? [],
             'currentTenant' => new TenantResource($current),
+            // The current business's subscription: a banner before it ends, a
+            // lock screen after (never for platform staff).
+            'subscription' => $this->subscriptionSummary($user, $current),
             'tenants' => TenantResource::collection($tenants),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function subscriptionSummary(User $user, Tenant $tenant): array
+    {
+        $subscriptions = app(Subscriptions::class);
+        $subscription = $subscriptions->for($tenant);
+        $status = $subscription->status();
+
+        return [
+            'status' => $status->value,
+            'statusLabel' => $status->label(),
+            'endsAt' => $subscription->endsAt()?->toIso8601String(),
+            'daysLeft' => $subscription->daysLeft(),
+            'ending' => $subscription->isEnding($subscriptions->warnDays()),
+            'locked' => ! $status->allowsAccess() && ! $user->isPlatformStaff(),
         ];
     }
 }

@@ -44,6 +44,16 @@ class SupportChat
         return $message->setRelation('user', $author);
     }
 
+    /** A message from the platform itself (no author), e.g. about the subscription. */
+    public function notify(Tenant $tenant, string $body): SupportMessage
+    {
+        return $tenant->supportMessages()->create([
+            'user_id' => null,
+            'from_platform' => true,
+            'body' => $body,
+        ]);
+    }
+
     /** Messages of the platform team the business hasn't read. */
     public function unreadForBusiness(Tenant $tenant): int
     {

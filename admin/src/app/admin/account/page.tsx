@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 /** The signed-in person's own account, for every role (settings are for owners and admins). */
 export default async function AdminAccountPage() {
-  const admin = await requireAdmin();
+  const admin = await requireAdmin({ allowLocked: true });
 
   return (
     <div className="space-y-10">

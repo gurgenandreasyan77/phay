@@ -21,7 +21,10 @@ use App\Http\Controllers\Api\V1\Admin\DataTableController as AdminDataTableContr
 use App\Http\Controllers\Api\V1\Admin\DataTableRowController as AdminDataTableRowController;
 use App\Http\Controllers\Api\V1\Admin\FeatureFlagController as AdminFeatureFlagController;
 use App\Http\Controllers\Api\V1\Admin\LeadController as AdminLeadController;
+use App\Http\Controllers\Api\V1\Admin\ModulePriceController as AdminModulePriceController;
 use App\Http\Controllers\Api\V1\Admin\PasswordController as AdminPasswordController;
+use App\Http\Controllers\Api\V1\Admin\PlanController as AdminPlanController;
+use App\Http\Controllers\Api\V1\Admin\PlatformSubscriptionController as AdminPlatformSubscriptionController;
 use App\Http\Controllers\Api\V1\Admin\PlatformSupportController as AdminPlatformSupportController;
 use App\Http\Controllers\Api\V1\Admin\PlatformUserController as AdminPlatformUserController;
 use App\Http\Controllers\Api\V1\Admin\ProductCategoryController as AdminProductCategoryController;
@@ -33,6 +36,7 @@ use App\Http\Controllers\Api\V1\Admin\ServicePackageController as AdminServicePa
 use App\Http\Controllers\Api\V1\Admin\ServiceVideoController as AdminServiceVideoController;
 use App\Http\Controllers\Api\V1\Admin\SettingsController as AdminSettingsController;
 use App\Http\Controllers\Api\V1\Admin\SiteController as AdminSiteController;
+use App\Http\Controllers\Api\V1\Admin\SubscriptionController as AdminSubscriptionController;
 use App\Http\Controllers\Api\V1\Admin\SupportController as AdminSupportController;
 use App\Http\Controllers\Api\V1\Admin\TableAnalyticsController as AdminTableAnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\TaskPageController as AdminTaskPageController;
@@ -106,6 +110,11 @@ Route::prefix('v1')->group(function () {
             Route::put('/password', [AdminPasswordController::class, 'update'])->middleware('throttle:6,1');
             // Unread chat messages for the menu badge (either side).
             Route::get('/support/unread', [AdminSupportController::class, 'unread']);
+            // The business's subscription: open to all its people, even after it
+            // ended (the admin shows how to come back); asking goes to the chat.
+            Route::get('/subscription', [AdminSubscriptionController::class, 'show']);
+            Route::post('/subscription/request', [AdminSubscriptionController::class, 'request'])
+                ->middleware(['business.can:settings', 'throttle:10,1']);
 
             // Onboarding (platform staff: super admin and moderators); a
             // business's own people get 403 here.
@@ -135,6 +144,23 @@ Route::prefix('v1')->group(function () {
                 Route::post('/platform-users', [AdminPlatformUserController::class, 'store']);
                 Route::patch('/platform-users/{user}', [AdminPlatformUserController::class, 'update']);
                 Route::delete('/platform-users/{user}', [AdminPlatformUserController::class, 'destroy']);
+
+                // Subscriptions: plans, module prices and every business's subscription.
+                Route::get('/plans', [AdminPlanController::class, 'index']);
+                Route::post('/plans', [AdminPlanController::class, 'store']);
+                Route::patch('/plans/{plan}', [AdminPlanController::class, 'update']);
+                Route::delete('/plans/{plan}', [AdminPlanController::class, 'destroy']);
+                Route::get('/module-prices', [AdminModulePriceController::class, 'index']);
+                Route::put('/module-prices', [AdminModulePriceController::class, 'update']);
+                Route::get('/subscriptions', [AdminPlatformSubscriptionController::class, 'index']);
+                Route::get('/tenants/{tenant}/subscription', [AdminPlatformSubscriptionController::class, 'show']);
+                Route::patch('/tenants/{tenant}/subscription', [AdminPlatformSubscriptionController::class, 'update']);
+                Route::post('/tenants/{tenant}/subscription/payments', [AdminPlatformSubscriptionController::class, 'storePayment']);
+                Route::delete('/tenants/{tenant}/subscription/payments/{payment}', [AdminPlatformSubscriptionController::class, 'destroyPayment']);
+                Route::post('/tenants/{tenant}/subscription/free', [AdminPlatformSubscriptionController::class, 'grantFree']);
+                Route::delete('/tenants/{tenant}/subscription/free', [AdminPlatformSubscriptionController::class, 'removeFree']);
+                Route::post('/tenants/{tenant}/subscription/cancel', [AdminPlatformSubscriptionController::class, 'cancel']);
+                Route::post('/tenants/{tenant}/subscription/resume', [AdminPlatformSubscriptionController::class, 'resume']);
             });
 
             // The business admin, by role (App\Enums\BusinessRole).

@@ -133,9 +133,14 @@ export function ChatThread({
                   mine ? "bg-primary text-primary-foreground" : "bg-surface-secondary text-ink",
                 )}
               >
-                {!mine && message.authorName ? (
+                {/* No author: a message the platform sent by itself (e.g. about the subscription). */}
+                {!mine && (message.authorName || message.fromPlatform) ? (
                   <p className="mb-0.5 text-xs font-medium text-ink-muted">
-                    {message.fromPlatform ? `${message.authorName} · Servio` : message.authorName}
+                    {message.fromPlatform
+                      ? message.authorName
+                        ? `${message.authorName} · Servio`
+                        : "Servio"
+                      : message.authorName}
                   </p>
                 ) : null}
                 <p className="whitespace-pre-wrap break-words">{message.body}</p>

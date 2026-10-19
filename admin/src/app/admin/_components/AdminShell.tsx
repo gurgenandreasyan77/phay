@@ -4,7 +4,10 @@ import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import type { FeatureFlags } from "@/lib/api";
 import type { AdminUserDto } from "@/lib/adminApi";
+import { isPlatformStaff } from "@/lib/roles";
+import { isPlatformPath } from "./nav";
 import { Sidebar } from "./Sidebar";
+import { SubscriptionBanner } from "./subscription/SubscriptionBanner";
 import { Topbar } from "./Topbar";
 
 export function AdminShell({
@@ -61,6 +64,9 @@ export function AdminShell({
       ) : null}
 
       <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} me={me} />
+      {me?.subscription && (me.subscription.ending || me.subscription.locked) && !isPlatformStaff(me) && !isPlatformPath(pathname) ? (
+        <SubscriptionBanner subscription={me.subscription} />
+      ) : null}
       <main className="px-4 py-6 sm:px-6 lg:px-8">{children}</main>
     </div>
   );

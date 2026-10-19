@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\TenantResource;
 use App\Models\Tenant;
+use App\Subscriptions\Subscriptions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -96,6 +97,9 @@ class TenantController extends Controller
             'timezone' => 'Asia/Yerevan',
             'status' => Tenant::STATUS_ACTIVE,
         ]);
+
+        // Its trial on the default plan starts today.
+        app(Subscriptions::class)->for($tenant);
 
         return (new TenantResource($tenant->loadCount(['sites', 'users'])))->response()->setStatusCode(201);
     }

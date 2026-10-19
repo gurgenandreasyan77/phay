@@ -5,7 +5,11 @@ import { can, isPlatformStaff, isSuperAdmin } from "./roles";
 // Called at the top of every admin Server Component. Independent of the
 // cheap cookie-presence check in src/proxy.ts — this actually validates the
 // token against Laravel on every request.
-export async function requireAdmin(): Promise<AdminUserDto> {
+//
+// A business whose subscription ended is sent to its subscription page;
+// pages it can still open (the subscription, the chat, the account) pass
+// allowLocked.
+export async function requireAdmin(options: { allowLocked?: boolean } = {}): Promise<AdminUserDto> {
   const token = await getAdminToken();
   if (!token) {
     redirect("/admin/login");
@@ -16,12 +20,20 @@ export async function requireAdmin(): Promise<AdminUserDto> {
     redirect("/admin/login");
   }
 
-  return withMeDefaults(me.data);
+  const admin = withMeDefaults(me.data);
+  if (admin.subscription?.locked && !options.allowLocked) {
+    redirect("/admin/subscription");
+  }
+
+  return admin;
 }
 
 /** A business section: 404 for roles it isn't open to (the API answers 403 too). */
-export async function requirePermission(permission: BusinessPermission): Promise<AdminUserDto> {
-  const admin = await requireAdmin();
+export async function requirePermission(
+  permission: BusinessPermission,
+  options: { allowLocked?: boolean } = {},
+): Promise<AdminUserDto> {
+  const admin = await requireAdmin(options);
   if (!can(admin, permission)) notFound();
   return admin;
 }
