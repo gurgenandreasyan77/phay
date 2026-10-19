@@ -79,11 +79,64 @@ export type PaginatedLeadsDto = {
   meta: { currentPage: number; lastPage: number; total: number };
 };
 
+/** Rows of a period and their money (null: no amount column, or a role that doesn't see money). */
+export type HomeFiguresDto = { count: number; amount: number | null };
+
+export type HomeSectionDto = {
+  section: Exclude<DataTableSection, "expenses">;
+  tables: number;
+  rows: number;
+  hasAmount: boolean;
+  today: HomeFiguresDto;
+  week: HomeFiguresDto;
+  /** The 1st of the month to today. */
+  month: HomeFiguresDto;
+  /** The same days of last month. */
+  previousMonth: HomeFiguresDto;
+  lastAt: string | null;
+};
+
+export type HomeFinanceFiguresDto = {
+  revenue: number;
+  cogs: number;
+  expenses: number;
+  netProfit: number;
+  cashLeft: number;
+  margin: number | null;
+};
+
+export type HomeUpcomingItemDto = {
+  kind: "row" | "site";
+  id: number;
+  tableId?: number;
+  table?: string;
+  date: string;
+  time: string | null;
+  title: string;
+  customer: string | null;
+  performer: string | null;
+  amount: number | null;
+  status: string | null;
+};
+
+/** The business home (GET /admin/dashboard): blocks a role or module doesn't have are null. */
 export type DashboardDto = {
-  countsByStatus: Record<LeadStatus, number>;
-  newToday: number;
-  newThisWeek: number;
-  recentLeads: AdminLeadDto[];
+  today: string;
+  money: boolean;
+  sections: HomeSectionDto[];
+  finance: (HomeFinanceFiguresDto & {
+    previous: HomeFinanceFiguresDto;
+    has: { revenue: boolean; cost: boolean; expenses: boolean };
+  }) | null;
+  upcoming: { items: HomeUpcomingItemDto[]; total: number; days: number } | null;
+  site: {
+    newToday: number;
+    waiting: number;
+    inWork: number;
+    completedMonth: number;
+    revenueMonth: number | null;
+    recent: AdminLeadDto[];
+  } | null;
 };
 
 export type AnalyticsPeriod = 7 | 30 | 90 | 365;
