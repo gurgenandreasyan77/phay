@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\SupportMessage;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Notifications\Notifier;
 use Illuminate\Support\Collection;
 
 /**
@@ -13,6 +14,8 @@ use Illuminate\Support\Collection;
  */
 class SupportChat
 {
+    public function __construct(private readonly Notifier $notifier) {}
+
     /** @return Collection<int, SupportMessage> the latest messages, oldest first */
     public function messages(Tenant $tenant): Collection
     {
@@ -31,6 +34,7 @@ class SupportChat
         $tenant->supportMessages()
             ->unreadFrom(! $readerIsPlatform)
             ->update(['read_at' => now()]);
+        $this->notifier->supportRead($tenant, $readerIsPlatform);
     }
 
     public function send(Tenant $tenant, User $author, bool $fromPlatform, string $body): SupportMessage
@@ -40,18 +44,27 @@ class SupportChat
             'from_platform' => $fromPlatform,
             'body' => $body,
         ]);
+        $this->notifier->supportMessage($tenant, $message);
 
         return $message->setRelation('user', $author);
     }
 
-    /** A message from the platform itself (no author), e.g. about the subscription. */
-    public function notify(Tenant $tenant, string $body): SupportMessage
+    /**
+     * A message from the platform itself (no author), e.g. about the
+     * subscription; $notice sets what the bell says about it.
+     *
+     * @param  array{title?: string, url?: string, type?: \App\Notifications\NotificationType}  $notice
+     */
+    public function notify(Tenant $tenant, string $body, array $notice = []): SupportMessage
     {
-        return $tenant->supportMessages()->create([
+        $message = $tenant->supportMessages()->create([
             'user_id' => null,
             'from_platform' => true,
             'body' => $body,
         ]);
+        $this->notifier->supportMessage($tenant, $message, $notice);
+
+        return $message;
     }
 
     /** Messages of the platform team the business hasn't read. */

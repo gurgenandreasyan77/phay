@@ -4,10 +4,13 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { isPlatformStaff } from "@/lib/roles";
 import { useEffect, useRef, useState } from "react";
-import { Bell, ChevronDown, KeyRound, LogOut, Menu, Search } from "lucide-react";
+import { ChevronDown, KeyRound, LogOut, Menu } from "lucide-react";
+import type { FeatureFlags } from "@/lib/api";
 import type { AdminUserDto } from "@/lib/adminApi";
 import { findActiveNavItem, isPlatformPath } from "./nav";
 import { TenantSwitcher } from "./TenantSwitcher";
+import { HeaderSearch } from "./header/HeaderSearch";
+import { NotificationBell } from "./header/NotificationBell";
 import { cn } from "./ui";
 
 const EXTRA_SEGMENT_LABELS: Record<string, string> = {
@@ -33,7 +36,15 @@ function useBreadcrumbs(pathname: string) {
   return crumbs;
 }
 
-export function Topbar({ onOpenMobileNav, me }: { onOpenMobileNav: () => void; me: AdminUserDto | null }) {
+export function Topbar({
+  onOpenMobileNav,
+  me,
+  features,
+}: {
+  onOpenMobileNav: () => void;
+  me: AdminUserDto | null;
+  features: FeatureFlags;
+}) {
   const adminEmail = me?.email;
   const pathname = usePathname();
   const router = useRouter();
@@ -91,22 +102,8 @@ export function Topbar({ onOpenMobileNav, me }: { onOpenMobileNav: () => void; m
         {me?.currentTenant && !(isPlatformStaff(me) && isPlatformPath(pathname)) ? (
           <TenantSwitcher current={me.currentTenant} tenants={me.tenants} />
         ) : null}
-        <button
-          type="button"
-          disabled
-          title="Շուտով"
-          className="flex h-9 w-9 items-center justify-center rounded-md text-ink-faint disabled:cursor-not-allowed"
-        >
-          <Search className="h-4.5 w-4.5" strokeWidth={1.75} />
-        </button>
-        <button
-          type="button"
-          disabled
-          title="Շուտով"
-          className="flex h-9 w-9 items-center justify-center rounded-md text-ink-faint disabled:cursor-not-allowed"
-        >
-          <Bell className="h-4.5 w-4.5" strokeWidth={1.75} />
-        </button>
+        <HeaderSearch features={features} me={me} />
+        <NotificationBell enabled={me !== null} />
 
         <div className="relative ml-1" ref={menuRef}>
           <button

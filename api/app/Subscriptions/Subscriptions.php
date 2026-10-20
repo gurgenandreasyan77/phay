@@ -9,6 +9,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionPayment;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Notifications\NotificationType;
 use App\Services\SupportChat;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -120,7 +121,11 @@ class Subscriptions
 
         if (! $subscription->allowsAccess()) {
             if (! $this->same($ends, $subscription->expired_notified_for)) {
-                $this->chat->notify($tenant, $this->expiredMessage());
+                $this->chat->notify($tenant, $this->expiredMessage(), [
+                    'type' => NotificationType::Subscription,
+                    'title' => 'Բաժանորդագրությունն ավարտվել է',
+                    'url' => '/admin/subscription',
+                ]);
                 $subscription->forceFill(['expired_notified_for' => $ends, 'warned_for' => $ends])->save();
             }
 
@@ -128,7 +133,11 @@ class Subscriptions
         }
 
         if ($subscription->isEnding($this->warnDays()) && ! $this->same($ends, $subscription->warned_for)) {
-            $this->chat->notify($tenant, $this->endingMessage($tenant, $subscription));
+            $this->chat->notify($tenant, $this->endingMessage($tenant, $subscription), [
+                'type' => NotificationType::Subscription,
+                'title' => sprintf('Բաժանորդագրությունն ավարտվում է %d օր հետո', $subscription->daysLeft()),
+                'url' => '/admin/subscription',
+            ]);
             $subscription->forceFill(['warned_for' => $ends])->save();
         }
 

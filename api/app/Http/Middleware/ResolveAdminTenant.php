@@ -26,6 +26,8 @@ class ResolveAdminTenant
         'api/v1/admin/subscription',
         'api/v1/admin/subscription/*',
         'api/v1/admin/support/*',
+        'api/v1/admin/notifications',
+        'api/v1/admin/notifications/*',
     ];
 
     public function __construct(

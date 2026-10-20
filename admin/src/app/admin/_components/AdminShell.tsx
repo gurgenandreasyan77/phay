@@ -63,7 +63,7 @@ export function AdminShell({
         </div>
       ) : null}
 
-      <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} me={me} />
+      <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} me={me} features={features} />
       {me?.subscription && (me.subscription.ending || me.subscription.locked) && !isPlatformStaff(me) && !isPlatformPath(pathname) ? (
         <SubscriptionBanner subscription={me.subscription} />
       ) : null}

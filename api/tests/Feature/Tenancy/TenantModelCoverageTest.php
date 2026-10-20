@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Tenancy;
 
+use App\Models\AdminNotification;
 use App\Models\Concerns\BelongsToTenant;
 use App\Models\ModulePrice;
 use App\Models\Plan;
@@ -27,9 +28,12 @@ class TenantModelCoverageTest extends TestCase
     // module prices are the platform's own; a subscription and its payments
     // are what the platform bills a business, read across businesses by the
     // super admin and always looked up by tenant_id explicitly (Subscriptions).
+    // A notification belongs to a person and may be about a business they
+    // aren't in (platform staff); read by user_id (AdminNotification::visibleTo).
     private const PLATFORM_MODELS = [
         User::class, Tenant::class, Site::class,
         Plan::class, ModulePrice::class, Subscription::class, SubscriptionPayment::class,
+        AdminNotification::class,
     ];
 
     public function test_every_content_model_is_scoped_to_a_tenant(): void
