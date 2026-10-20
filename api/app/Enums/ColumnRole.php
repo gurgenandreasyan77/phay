@@ -29,6 +29,9 @@ enum ColumnRole: string
     /** The kind of an expense (taxes, rent...): one of the business's ExpenseCategory names. */
     case Category = 'category';
     case Performer = 'performer';
+    /** The buyer's gender and age: counted only as shares (App\Audience\Demographics), never row by row. */
+    case Gender = 'gender';
+    case Age = 'age';
     case Customer = 'customer';
     case Phone = 'phone';
     case Address = 'address';
@@ -59,6 +62,8 @@ enum ColumnRole: string
                 ? ['hy' => 'Ծախսի տեսակ', 'ru' => 'Категория расхода', 'en' => 'Expense category']
                 : ['hy' => 'Կատեգորիա', 'ru' => 'Категория', 'en' => 'Category'],
             self::Performer => ['hy' => 'Կատարող', 'ru' => 'Исполнитель', 'en' => 'Performer'],
+            self::Gender => ['hy' => 'Սեռ', 'ru' => 'Пол', 'en' => 'Gender'],
+            self::Age => ['hy' => 'Տարիք', 'ru' => 'Возраст', 'en' => 'Age'],
             self::Customer => ['hy' => 'Հաճախորդ', 'ru' => 'Клиент', 'en' => 'Customer'],
             self::Phone => ['hy' => 'Հեռախոս', 'ru' => 'Телефон', 'en' => 'Phone'],
             self::Address => ['hy' => 'Հասցե', 'ru' => 'Адрес', 'en' => 'Address'],
@@ -86,6 +91,8 @@ enum ColumnRole: string
             self::Status => 'կարգավիճակ|վիճակ|status|state|статус|состояние|kargavichak',
             self::Category => 'կատեգորիա|ծախսի\\s*տեսակ|հոդված|category|категори|статья|вид\\s*расход|kategori',
             self::Performer => 'կատարող|աշխատակից|վարպետ|մասնագետ|исполнител|сотрудник|мастер|работник|performer|employee|staff|worker|katarox|katarogh|ashxatakic',
+            self::Gender => 'սեռ|^пол$|^пол\\s|gender|\\bsex\\b|^ser$',
+            self::Age => 'տարիք|возраст|^age$|\\bage\\b|tariq',
             self::Phone => 'հեռախոս|phone|tel\b|mobile|телефон|моб|herakhos|heraxos',
             self::Address => 'հասցե|address|адрес|hasce',
             self::Customer => 'հաճախորդ|գնորդ|պատվիրատու|անուն|client|customer|buyer|клиент|покупател|заказчик|имя|фио|hachakhord|hachaxord',
@@ -99,7 +106,7 @@ enum ColumnRole: string
     {
         $header = mb_strtolower(trim($header));
 
-        foreach ([self::Date, self::Cost, self::Amount, self::UnitPrice, self::Quantity, self::Unit, self::Payment, self::Channel, self::Status, self::Category, self::Performer, self::Phone, self::Address, self::Item, self::Customer, self::Note] as $role) {
+        foreach ([self::Date, self::Cost, self::Amount, self::UnitPrice, self::Quantity, self::Unit, self::Payment, self::Channel, self::Status, self::Category, self::Performer, self::Gender, self::Age, self::Phone, self::Address, self::Item, self::Customer, self::Note] as $role) {
             if (preg_match('/'.$role->pattern().'/iu', $header)) {
                 return $role;
             }
@@ -115,7 +122,9 @@ enum ColumnRole: string
             self::Date => [DataColumnType::DateTime, DataColumnType::Date],
             self::Quantity => [DataColumnType::Number],
             self::UnitPrice, self::Amount, self::Cost => [DataColumnType::Money, DataColumnType::Number],
-            self::Unit, self::Payment, self::Channel, self::Status => [DataColumnType::Select, DataColumnType::Text],
+            self::Unit, self::Payment, self::Channel, self::Status, self::Gender => [DataColumnType::Select, DataColumnType::Text],
+            // Years ("34") or a group from a file ("25-34").
+            self::Age => [DataColumnType::Number, DataColumnType::Select, DataColumnType::Text],
             self::Item, self::Customer, self::Phone, self::Address, self::Note => [DataColumnType::Text, DataColumnType::Select],
             // The employee's name; the admin offers the business's employees.
             self::Performer => [DataColumnType::Text, DataColumnType::Select],
@@ -132,6 +141,7 @@ enum ColumnRole: string
             self::Payment => ['Կանխիկ', 'Քարտ', 'Փոխանցում'],
             self::Channel => ['Instagram', 'Facebook', 'Կայք', 'Հեռախոս', 'Խանութ'],
             self::Status => ['Նոր', 'Կատարված', 'Չեղարկված'],
+            self::Gender => ['Արական', 'Իգական'],
             default => [],
         };
     }

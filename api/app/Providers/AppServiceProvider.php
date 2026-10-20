@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Assistant\AnthropicAssistantClient;
 use App\Assistant\AssistantClient;
+use App\Audience\NullSocialSource;
+use App\Audience\SocialSource;
 use App\Features\FeatureFlag;
 use App\Models\User;
 use App\Tenancy\TenantContext;
@@ -25,6 +27,9 @@ class AppServiceProvider extends ServiceProvider
         // One tenant per request, command or queued job ("scoped" resets
         // between Octane requests and queue jobs).
         $this->app->scoped(TenantContext::class);
+
+        // No social network can be connected yet; an Instagram source replaces this.
+        $this->app->bind(SocialSource::class, NullSocialSource::class);
 
         $this->app->bind(AssistantClient::class, fn () => new AnthropicAssistantClient(
             apiKey: config('services.anthropic.api_key'),

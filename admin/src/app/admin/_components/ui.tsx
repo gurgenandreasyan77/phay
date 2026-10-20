@@ -1,5 +1,6 @@
 import type {
   ButtonHTMLAttributes,
+  CSSProperties,
   InputHTMLAttributes,
   ReactNode,
   SelectHTMLAttributes,
@@ -109,8 +110,12 @@ export function FieldLabel({ children, className }: { children: ReactNode; class
 
 /* ------------------------------------------------------------------- Card */
 
-export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cn("rounded-lg border border-border bg-surface p-5", className)}>{children}</div>;
+export function Card({ className, style, children }: { className?: string; style?: CSSProperties; children: ReactNode }) {
+  return (
+    <div className={cn("rounded-lg border border-border bg-surface p-5", className)} style={style}>
+      {children}
+    </div>
+  );
 }
 
 export function SectionCard({

@@ -10,6 +10,7 @@ import {
   type HomeUpcomingItemDto,
 } from "@/lib/adminApi";
 import { bucketLabel, bucketTitle, weekdayShort } from "./_components/analytics/BarChart";
+import { HBars, RingStat } from "./_components/analytics/Charts";
 import { formatMoment, formatMoney, formatNumber, SECTIONS, tablePath, tablesPath } from "./_components/tables/shared";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_TONES } from "./_components/leadStatus";
 import { Badge, buttonClasses, Card, cn, EmptyCard, EmptyRow, PageHeader, TableWrap, Th, Thead, Td, Tr } from "./_components/ui";
@@ -135,7 +136,7 @@ function FinanceBlock({ finance, today }: { finance: NonNullable<DashboardDto["f
           Ծախսեր և շահույթ <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className={cn("grid gap-4 sm:grid-cols-3", finance.revenue > 0 && "lg:grid-cols-4")}>
         {cards.map((card) => (
           <Card key={card.label} className={card.label === "Զուտ շահույթ" ? "border-primary-light bg-primary-light" : undefined}>
             <p className="text-sm text-ink-muted">{card.label}</p>
@@ -156,6 +157,18 @@ function FinanceBlock({ finance, today }: { finance: NonNullable<DashboardDto["f
             ) : null}
           </Card>
         ))}
+        {finance.revenue > 0 ? (
+          <Card className="flex items-center sm:col-span-3 lg:col-span-1">
+            <RingStat
+              value={Math.max(finance.netProfit, 0)}
+              of={finance.revenue}
+              size={84}
+              color={finance.netProfit < 0 ? "var(--color-danger)" : "var(--color-primary)"}
+              label="Մնում է որպես շահույթ"
+              hint="Եկամտի այն մասը, որը մնում է ծախսերից հետո"
+            />
+          </Card>
+        ) : null}
       </div>
       {!finance.has.expenses ? (
         <p className="text-sm text-ink-muted">
@@ -219,6 +232,25 @@ function SectionBlock({ section }: { section: HomeSectionDto }) {
                 />
               </p>
             </div>
+          </div>
+          <div className="mt-5">
+            <HBars
+              bars={[
+                {
+                  key: "month",
+                  label: "Այս ամիս",
+                  value: money ? (section.month.amount ?? 0) : section.month.count,
+                  color: "var(--color-primary)",
+                },
+                {
+                  key: "previous",
+                  label: "Նախորդ ամսվա նույն օրերին",
+                  value: money ? (section.previousMonth.amount ?? 0) : section.previousMonth.count,
+                  color: "#9aa39f",
+                },
+              ]}
+              format={money ? formatMoney : formatNumber}
+            />
           </div>
           <p className="mt-4 border-t border-border pt-3 text-xs text-ink-faint">
             {section.tables} աղյուսակ · {formatNumber(section.rows)} տող

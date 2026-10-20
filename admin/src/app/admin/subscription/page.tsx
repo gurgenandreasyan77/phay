@@ -1,15 +1,21 @@
 import { requireAdmin } from "@/lib/adminAuth";
 import { getSubscription } from "@/lib/adminApi";
 import { can, isPlatformStaff } from "@/lib/roles";
-import { Card, EmptyCard, EmptyRow, PageHeader, SectionCard, TableWrap, Td, Th, Thead, Tr } from "../_components/ui";
+import type { CSSProperties } from "react";
+import { Badge, Card, EmptyCard, EmptyRow, PageHeader, SectionCard, TableWrap, Td, Th, Thead, Tr } from "../_components/ui";
 import { PriceBreakdown, StatusBadge, amd, formatDay, subscriptionLine } from "../_components/subscription/shared";
+import { DaysRing } from "./DaysRing";
+import { ModuleCard } from "./ModuleCard";
+import { PremiumTeaser } from "./PremiumTeaser";
 import { RequestButton } from "./RequestButton";
+import styles from "./subscription.module.css";
 
 export const dynamic = "force-dynamic";
 
 /**
  * The business's subscription: where it stands, what it pays a month (its
- * plan plus the modules it has on) and its payments. Open even after the
+ * plan plus the modules it has on), what premium will add, the modules it
+ * can turn on and its payments. Open even after the
  * subscription ended: the owner asks to renew from here, in the chat.
  */
 export default async function SubscriptionPage() {
@@ -28,8 +34,11 @@ export default async function SubscriptionPage() {
   const { subscription, payments, plans } = data;
   // Asking goes to the chat, which the owner and admin have.
   const canAsk = can(admin, "settings") && !isPlatformStaff(admin);
-  // Modules on sale: the platform gave them a price (or a plan includes them).
-  const otherModules = subscription.pricing.modules.filter((m) => !m.active && (m.price > 0 || m.included));
+  const currentPrice = subscription.plan?.price ?? 0;
+  // A real bigger plan replaces the premium preview once the platform adds one.
+  const upgrades = plans.filter((plan) => plan.id !== subscription.plan?.id && plan.price > currentPrice);
+  // Modules a business can have: on already, priced by the platform, or inside a plan.
+  const modules = subscription.pricing.modules.filter((m) => m.active || m.price > 0 || m.included);
 
   return (
     <div className="space-y-8">
@@ -38,40 +47,46 @@ export default async function SubscriptionPage() {
         description="Ամսական վճարը կազմված է փաթեթի գնից և ձեր միացված մոդուլների գներից։ Բաժանորդագրության ավարտից հետո ձեր տվյալները չեն ջնջվում։"
       />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-base font-semibold text-ink">Կարգավիճակ</h2>
-            <StatusBadge status={subscription.status} />
+      <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+        <Card className={`${styles.hero} ${styles.rise} flex flex-col gap-5 sm:flex-row sm:items-center`}>
+          <DaysRing subscription={subscription} />
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge status={subscription.status} />
+              {subscription.plan ? (
+                <span className="text-xs font-medium text-ink-muted">Փաթեթ «{subscription.plan.name}»</span>
+              ) : null}
+            </div>
+            <p className="text-lg font-semibold text-ink">{subscriptionLine(subscription)}</p>
+            {subscription.status === "expired" ? (
+              <p className="text-sm text-ink-muted">
+                Ադմինը ժամանակավորապես փակ է, բայց ձեր բոլոր տվյալները պահպանված են։ Վճարելուց հետո ամեն ինչ կվերադառնա։
+              </p>
+            ) : null}
+            {canAsk && subscription.status !== "unlimited" ? (
+              <RequestButton body={{ kind: "renew" }} label="Երկարացնել բաժանորդագրությունը" primary />
+            ) : null}
           </div>
-          <p className="text-sm text-ink">{subscriptionLine(subscription)}</p>
-          {subscription.status === "expired" ? (
-            <p className="text-sm text-ink-muted">
-              Ադմինը ժամանակավորապես փակ է, բայց ձեր բոլոր տվյալները պահպանված են։ Վճարելուց հետո ամեն ինչ կվերադառնա։
-            </p>
-          ) : null}
-          {canAsk && subscription.status !== "unlimited" ? (
-            <RequestButton body={{ kind: "renew" }} label="Երկարացնել բաժանորդագրությունը" primary />
-          ) : null}
         </Card>
 
-        <Card className="space-y-4">
-          <h2 className="text-base font-semibold text-ink">Ամսական վճար</h2>
+        <Card className={`${styles.rise} space-y-4`} style={{ "--i": 1 } as CSSProperties}>
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-base font-semibold text-ink">Ամսական վճար</h2>
+            <p className="text-2xl font-semibold tracking-tight text-ink">{amd(subscription.pricing.total)}</p>
+          </div>
           <PriceBreakdown subscription={subscription} />
         </Card>
       </div>
 
-      {otherModules.length > 0 ? (
-        <SectionCard title="Այլ մոդուլներ" description="Կարող եք միացնել դրանք. գինը կավելանա ամսական վճարին։">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {otherModules.map((module) => (
-              <Card key={module.key} className="flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="font-medium text-ink">{module.label}</p>
-                  <p className="text-sm text-ink-muted">{module.included ? "Ներառված է" : `+ ${amd(module.price)}/ամիս`}</p>
-                </div>
-                {canAsk ? <RequestButton body={{ kind: "module", module: module.key }} label="Միացնել" /> : null}
-              </Card>
+      {upgrades.length === 0 ? (
+        <PremiumTeaser assistant={data.assistant ?? { used: 0, limit: 0 }} canAsk={canAsk} />
+      ) : null}
+
+      {modules.length > 0 ? (
+        <SectionCard title="Մոդուլներ" description="Միացրեք ձեզ անհրաժեշտ մոդուլները. դրանց գինը կավելանա ամսական վճարին։">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {modules.map((module, index) => (
+              <ModuleCard key={module.key} module={module} canAsk={canAsk} index={index} />
             ))}
           </div>
         </SectionCard>
@@ -79,20 +94,28 @@ export default async function SubscriptionPage() {
 
       {plans.length > 1 ? (
         <SectionCard title="Փաթեթներ">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {plans.map((plan) => {
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {plans.map((plan, index) => {
               const current = plan.id === subscription.plan?.id;
               return (
-                <Card key={plan.id} className="flex flex-col gap-2">
+                <Card
+                  key={plan.id}
+                  className={`${styles.rise} flex flex-col gap-3 ${current ? "border-primary ring-1 ring-primary" : ""}`}
+                  style={{ "--i": index } as CSSProperties}
+                >
                   <div className="flex items-start justify-between gap-3">
-                    <p className="font-medium text-ink">{plan.name}</p>
-                    <p className="text-sm font-semibold text-ink">{amd(plan.price)}/ամիս</p>
+                    <p className="font-semibold text-ink">{plan.name}</p>
+                    {current ? <Badge tone="primary">Ձեր փաթեթը</Badge> : null}
                   </div>
+                  <p className="text-2xl font-semibold tracking-tight text-ink">
+                    {amd(plan.price)}
+                    <span className="text-sm font-normal text-ink-muted">/ամիս</span>
+                  </p>
                   {plan.description ? <p className="text-sm text-ink-muted">{plan.description}</p> : null}
-                  {current ? (
-                    <p className="text-sm font-medium text-primary">Ձեր փաթեթը</p>
-                  ) : canAsk ? (
-                    <RequestButton body={{ kind: "plan", plan_id: plan.id }} label="Անցնել այս փաթեթին" />
+                  {!current && canAsk ? (
+                    <div className="mt-auto">
+                      <RequestButton body={{ kind: "plan", plan_id: plan.id }} label="Անցնել այս փաթեթին" />
+                    </div>
                   ) : null}
                 </Card>
               );

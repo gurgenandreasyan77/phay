@@ -114,6 +114,17 @@ export const COLUMN_ROLES: Record<ColumnRole, RoleInfo> = {
     types: ["text", "select"],
     hint: "Աշխատակիցը, ով կատարել է պատվերը․ ընտրեք «Աշխատակիցներ» ցանկից",
   },
+  gender: {
+    labels: { hy: "Սեռ", ru: "Пол", en: "Gender" },
+    types: ["select", "text"],
+    options: ["Արական", "Իգական"],
+    hint: "Գնորդի սեռը․ վերլուծությունում ցույց է տրվում միայն տոկոսներով",
+  },
+  age: {
+    labels: { hy: "Տարիք", ru: "Возраст", en: "Age" },
+    types: ["number", "select", "text"],
+    hint: "Գնորդի տարիքը կամ խումբը (25-34)․ վերլուծությունում՝ միայն տարիքային խմբերով",
+  },
   customer: {
     labels: { hy: "Հաճախորդ", ru: "Клиент", en: "Customer" },
     types: ["text", "select"],

@@ -388,7 +388,7 @@ class TableAnalytics
     {
         $columns = $this->columnsByMeaning($tables, fn (DataColumn $c) => in_array($c->type, [DataColumnType::Text, DataColumnType::Select, DataColumnType::Boolean], true)
             && ! self::isPersonalColumn($c)
-            && ! in_array($c->role, [ColumnRole::Unit, ColumnRole::Note], true));
+            && ! in_array($c->role, [ColumnRole::Unit, ColumnRole::Note, ColumnRole::Gender, ColumnRole::Age], true));
 
         return $columns
             ->map(function (array $column) use ($current) {
@@ -439,7 +439,7 @@ class TableAnalytics
         $units = $tables->mapWithKeys(fn (DataTable $t) => [$t->id => $t->roleColumn(ColumnRole::Unit)?->key]);
 
         // Quantities are in the metrics, per unit; these are the business's own number columns.
-        return $this->columnsByMeaning($tables, fn (DataColumn $c) => $c->type === DataColumnType::Number && $c->role !== ColumnRole::Quantity)
+        return $this->columnsByMeaning($tables, fn (DataColumn $c) => $c->type === DataColumnType::Number && ! in_array($c->role, [ColumnRole::Quantity, ColumnRole::Age], true))
             ->flatMap(function (array $column) use ($current, $units) {
                 $values = $current
                     ->map(fn ($r) => [
@@ -593,6 +593,8 @@ class TableAnalytics
             'item' => $role(ColumnRole::Item),
             'payment' => $role(ColumnRole::Payment),
             'channel' => $role(ColumnRole::Channel),
+            'gender' => $role(ColumnRole::Gender),
+            'age' => $role(ColumnRole::Age),
             'status' => $role(ColumnRole::Status),
             'ownColumns' => $own([DataColumnType::Text, DataColumnType::Select, DataColumnType::Boolean]),
             'ownNumbers' => $own([DataColumnType::Number]),
