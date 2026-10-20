@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requirePermission } from "@/lib/adminAuth";
 import { can } from "@/lib/roles";
@@ -6,9 +7,10 @@ import { getCalendar } from "@/lib/adminApi";
 import { buttonClasses, cn, EmptyCard, PageHeader } from "../_components/ui";
 import { bucketTitle, weekdayShort } from "../_components/analytics/BarChart";
 import { formatMoney, SECTIONS, tablePath } from "../_components/tables/shared";
-import { DayPanel } from "./DayPanel";
+import { DayView } from "./DayView";
 import { addDays, addMonths, isDay, today, visibleDays, type CalendarView } from "./dates";
 import { groupByDay, tableColor, type CalendarDay } from "./entries";
+import styles from "./calendar.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -16,14 +18,15 @@ function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function href(view: CalendarView, day: string): string {
-  return `/admin/calendar?view=${view}&day=${day}`;
+function href(view: CalendarView, day: string, open = false): string {
+  return `/admin/calendar?view=${view}&day=${day}${open ? "&open=1" : ""}`;
 }
 
 /**
  * The calendar: the orders of each day, from the order tables (rows with a
  * date) and from the site. A day opens on the right, where an order is
- * added to a table or deleted from it, and so from the analytics too.
+ * added to a table or deleted from it, and so from the analytics too. On a
+ * phone a day with orders opens them in a sheet from the bottom.
  */
 export default async function AdminCalendarPage(props: PageProps<"/admin/calendar">) {
   const me = await requirePermission("orders");
@@ -33,6 +36,8 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
   const rawDay = first(searchParams.day);
   const day = isDay(rawDay) ? rawDay : now;
   const view: CalendarView = first(searchParams.view) === "week" ? "week" : "month";
+  // A day tapped in the grid (not one opened by a link): its sheet, on a phone.
+  const open = first(searchParams.open) === "1";
 
   const days = visibleDays(day, view);
   const data = await getCalendar(days[0], days[days.length - 1]);
@@ -90,8 +95,9 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
                   </div>
                 ))}
               </div>
-              <div className="grid grid-cols-7">
-                {days.map((d) => {
+              {/* A new month or week remounts the grid, and its days come in again. */}
+              <div key={`${view}-${days[0]}`} className="grid grid-cols-7">
+                {days.map((d, i) => {
                   const info = byDay.get(d);
                   const count = (info?.entries.length ?? 0) + (info?.leads.length ?? 0);
                   const outside = view === "month" && d.slice(0, 7) !== day.slice(0, 7);
@@ -99,10 +105,12 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
                   return (
                     <Link
                       key={d}
-                      href={href(view, d)}
+                      href={href(view, d, count > 0)}
                       scroll={false}
+                      style={{ "--i": i } as CSSProperties}
                       className={cn(
-                        "flex flex-col gap-1 border-b border-r border-border p-1.5 text-left transition-colors hover:bg-primary-light/50 sm:p-2 [&:nth-child(7n)]:border-r-0",
+                        styles.cell,
+                        "flex flex-col gap-1 border-b border-r border-border p-1.5 text-left hover:bg-primary-light/50 sm:p-2 [&:nth-child(7n)]:border-r-0",
                         view === "week" ? "min-h-64" : "min-h-20 sm:min-h-24",
                         outside && "bg-surface-secondary/50 text-ink-faint",
                         d === day && "bg-primary-light ring-2 ring-inset ring-primary",
@@ -111,15 +119,15 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
                       <span
                         className={cn(
                           "inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium",
-                          d === now ? "bg-primary text-primary-foreground" : outside ? "text-ink-faint" : "text-ink",
+                          d === now ? cn(styles.today, "bg-primary text-primary-foreground") : outside ? "text-ink-faint" : "text-ink",
                         )}
                       >
                         {Number(d.slice(8))}
                       </span>
                       {view === "week" ? (
                         <ul className="space-y-1 text-xs">
-                          {info?.entries.map((e) => (
-                            <li key={e.id} className="flex items-start gap-1">
+                          {info?.entries.map((e, j) => (
+                            <li key={e.id} className={cn(styles.item, "flex items-start gap-1")} style={{ "--j": j } as CSSProperties}>
                               <span className={cn("mt-1 h-1.5 w-1.5 shrink-0 rounded-full", tableColor(data, e.tableId))} />
                               <span className="min-w-0 break-words text-ink">
                                 {e.time ? <span className="text-ink-muted">{e.time} </span> : null}
@@ -136,18 +144,26 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
                         </ul>
                       ) : count > 0 ? (
                         <>
-                          <span className="text-xs font-medium text-ink">
+                          <span className={cn(styles.count, "text-xs font-medium text-ink")}>
                             {count} <span className="hidden sm:inline">պատվեր</span>
                           </span>
                           {info && info.amount > 0 ? (
                             <span className="hidden text-xs text-ink-muted sm:block">{formatMoney(info.amount)}</span>
                           ) : null}
                           <span className="mt-auto flex flex-wrap gap-0.5">
-                            {info?.entries.slice(0, 8).map((e) => (
-                              <span key={e.id} className={cn("h-1.5 w-1.5 rounded-full", tableColor(data, e.tableId))} />
+                            {info?.entries.slice(0, 8).map((e, j) => (
+                              <span
+                                key={e.id}
+                                className={cn(styles.dot, "h-1.5 w-1.5 rounded-full", tableColor(data, e.tableId))}
+                                style={{ "--i": i, "--j": j } as CSSProperties}
+                              />
                             ))}
-                            {info?.leads.slice(0, 4).map((l) => (
-                              <span key={`lead-${l.id}`} className="h-1.5 w-1.5 rounded-full bg-info" />
+                            {info?.leads.slice(0, 4).map((l, j) => (
+                              <span
+                                key={`lead-${l.id}`}
+                                className={cn(styles.dot, "h-1.5 w-1.5 rounded-full bg-info")}
+                                style={{ "--i": i, "--j": j + 8 } as CSSProperties}
+                              />
                             ))}
                           </span>
                         </>
@@ -175,8 +191,10 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
             </div>
           </div>
 
-          <DayPanel
-            key={day}
+          <DayView
+            key={`${day}-${open}`}
+            open={open}
+            closeHref={href(view, day)}
             day={day}
             title={bucketTitle(day)}
             tables={data.tables}

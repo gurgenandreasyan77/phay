@@ -35,6 +35,7 @@ class SubscriptionResource extends JsonResource
                 'price' => $this->plan->price,
             ] : null,
             'unlimited' => $this->unlimited,
+            'premium' => $subscriptions->isPremium($this->resource),
             'trialEndsAt' => $this->trial_ends_at?->toIso8601String(),
             'paidUntil' => $this->paid_until?->toIso8601String(),
             'freeUntil' => $this->free_until?->toIso8601String(),

@@ -1,0 +1,86 @@
+/*
+ * The admin's modal windows: a card in the middle of the screen, or a sheet
+ * that slides up from the bottom on a phone. Both fade the page behind.
+ */
+
+.dialog {
+  margin: auto;
+  max-height: calc(100dvh - 2rem);
+  width: min(28rem, calc(100vw - 2rem));
+  overflow: visible;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  /* Not the colours of where it was opened from (a dark card). */
+  color: var(--color-ink);
+  text-align: left;
+}
+
+.dialog::backdrop {
+  background: rgba(20, 31, 28, 0.45);
+  backdrop-filter: blur(2px);
+  animation: fade 0.2s ease-out both;
+}
+
+.dialog[open] .panel {
+  animation: pop 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.panel {
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+}
+
+/* A sheet: the whole width, from the bottom edge up. */
+.sheet {
+  margin: auto 0 0;
+  width: 100vw;
+  max-width: 100vw;
+  max-height: 85dvh;
+}
+
+.sheet .panel {
+  max-height: 85dvh;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+}
+
+.sheet[open] .panel {
+  animation: slideUp 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.handle {
+  margin: 0 auto 0.75rem;
+  height: 4px;
+  width: 40px;
+  border-radius: 999px;
+  background: var(--color-border-strong);
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog::backdrop,
+  .dialog[open] .panel,
+  .sheet[open] .panel {
+    animation: none;
+  }
+}

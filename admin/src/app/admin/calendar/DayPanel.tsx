@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Phone, Plus, Trash2 } from "lucide-react";
@@ -10,7 +10,10 @@ import { LEAD_STATUS_LABELS, LEAD_STATUS_TONES } from "../_components/leadStatus
 import { CellInput, fromDraft, toDraft, type Draft } from "../_components/tables/RowsGrid";
 import { formatMoney, SECTIONS, tablePath, validationErrors } from "../_components/tables/shared";
 import { contains, filingLabel, isDate, periodOf } from "../_components/tables/periods";
+import { ConfirmDialog } from "../_components/dialog/ConfirmDialog";
+import { DialogClose } from "../_components/dialog/Dialog";
 import type { CalendarEntry } from "./entries";
+import styles from "./calendar.module.css";
 
 /** The table a new order went to last time, remembered in this browser. */
 const LAST_TABLE_KEY = "servio.calendar.table";
@@ -24,7 +27,20 @@ function lastTable(tables: AdminDataTableDto[]): number | undefined {
   }
 }
 
-/** One day of the calendar: its orders, adding one to a table and deleting one. */
+export type DayPanelProps = {
+  day: string;
+  title: string;
+  tables: AdminDataTableDto[];
+  entries: CalendarEntry[];
+  leads: CalendarLeadDto[];
+  colors: Record<number, string>;
+  canDesign: boolean;
+};
+
+/**
+ * One day of the calendar: its orders, adding one to a table and deleting
+ * one. `onClose` puts it in the phone's sheet, with a cross instead of a card.
+ */
 export function DayPanel({
   day,
   title,
@@ -33,33 +49,61 @@ export function DayPanel({
   leads,
   colors,
   canDesign,
-}: {
-  day: string;
-  title: string;
-  tables: AdminDataTableDto[];
-  entries: CalendarEntry[];
-  leads: CalendarLeadDto[];
-  colors: Record<number, string>;
-  canDesign: boolean;
-}) {
+  onClose,
+}: DayPanelProps & { onClose?: () => void }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
-  const [deleting, setDeleting] = useState<number | null>(null);
+  const [asking, setAsking] = useState<CalendarEntry | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [failed, setFailed] = useState(false);
   const total = entries.reduce((sum, e) => sum + (e.amount ?? 0), 0);
 
   async function remove(entry: CalendarEntry) {
-    if (!confirm(`Ջնջե՞լ «${entry.title}» պատվերը «${entry.table.name}» աղյուսակից։ Այն կհեռացվի նաև վերլուծությունից։`)) return;
-    setDeleting(entry.id);
+    setDeleting(true);
+    setFailed(false);
     try {
       const response = await fetch(`/api/admin/data-tables/${entry.tableId}/rows/${entry.id}`, { method: "DELETE" });
-      if (response.ok) router.refresh();
+      if (!response.ok) {
+        setFailed(true);
+        return;
+      }
+      setAsking(null);
+      router.refresh();
+    } catch {
+      setFailed(true);
     } finally {
-      setDeleting(null);
+      setDeleting(false);
     }
   }
 
+  const Wrapper = onClose ? "div" : Card;
+
   return (
-    <Card className="space-y-4 self-start lg:sticky lg:top-4">
+    <Wrapper className={onClose ? "space-y-4" : "space-y-4 self-start lg:sticky lg:top-4"}>
+      {asking ? (
+        <ConfirmDialog
+          open
+          content={{
+            title: "Ջնջե՞լ պատվերը",
+            description: "Պատվերը կհեռացվի աղյուսակից և վերլուծությունից։ Այս գործողությունը հետ չի շրջվում։",
+            details: [
+              { label: "Պատվեր", value: asking.title },
+              { label: "Աղյուսակ", value: asking.table.name },
+              ...(asking.amount !== null ? [{ label: "Գումար", value: formatMoney(asking.amount) }] : []),
+            ],
+            confirmLabel: "Այո, ջնջել",
+            tone: "danger",
+          }}
+          pending={deleting}
+          error={failed ? "Չհաջողվեց ջնջել։ Փորձեք կրկին։" : null}
+          onConfirm={() => remove(asking)}
+          onCancel={() => {
+            setAsking(null);
+            setFailed(false);
+          }}
+        />
+      ) : null}
+
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="font-semibold text-ink first-letter:uppercase">{title}</h3>
@@ -67,12 +111,15 @@ export function DayPanel({
             {entries.length + leads.length} պատվեր{total > 0 ? ` · ${formatMoney(total)}` : ""}
           </p>
         </div>
-        {tables.length > 0 && !adding ? (
-          <Button size="sm" onClick={() => setAdding(true)}>
-            <Plus className="h-4 w-4" />
-            Ավելացնել
-          </Button>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {tables.length > 0 && !adding ? (
+            <Button size="sm" onClick={() => setAdding(true)}>
+              <Plus className="h-4 w-4" />
+              Ավելացնել
+            </Button>
+          ) : null}
+          {onClose ? <DialogClose onClick={onClose} /> : null}
+        </div>
       </div>
 
       {adding ? (
@@ -102,8 +149,8 @@ export function DayPanel({
       ) : null}
 
       <ul className="divide-y divide-border">
-        {entries.map((entry) => (
-          <li key={entry.id} className="flex items-start gap-3 py-3">
+        {entries.map((entry, j) => (
+          <li key={entry.id} className={cn(styles.item, "flex items-start gap-3 py-3")} style={{ "--j": j } as CSSProperties}>
             <span className="w-11 shrink-0 pt-0.5 text-sm font-medium text-ink">{entry.time ?? "—"}</span>
             <div className="min-w-0 flex-1">
               <p className="break-words font-medium text-ink">{entry.title}</p>
@@ -133,16 +180,20 @@ export function DayPanel({
                 variant="ghost"
                 size="sm"
                 aria-label="Ջնջել"
-                disabled={deleting === entry.id}
-                onClick={() => remove(entry)}
+                disabled={deleting && asking?.id === entry.id}
+                onClick={() => setAsking(entry)}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>
           </li>
         ))}
-        {leads.map((lead) => (
-          <li key={`lead-${lead.id}`} className="flex items-start gap-3 py-3">
+        {leads.map((lead, j) => (
+          <li
+            key={`lead-${lead.id}`}
+            className={cn(styles.item, "flex items-start gap-3 py-3")}
+            style={{ "--j": entries.length + j } as CSSProperties}
+          >
             <span className="w-11 shrink-0 pt-0.5 text-sm text-info">Կայք</span>
             <div className="min-w-0 flex-1">
               <p className="break-words font-medium text-ink">{lead.service ?? "Պատվեր կայքից"}</p>
@@ -166,7 +217,7 @@ export function DayPanel({
           </li>
         ))}
       </ul>
-    </Card>
+    </Wrapper>
   );
 }
 

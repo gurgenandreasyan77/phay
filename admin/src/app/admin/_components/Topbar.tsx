@@ -11,6 +11,7 @@ import { findActiveNavItem, isPlatformPath } from "./nav";
 import { TenantSwitcher } from "./TenantSwitcher";
 import { HeaderSearch } from "./header/HeaderSearch";
 import { NotificationBell } from "./header/NotificationBell";
+import { PremiumChip } from "./header/PremiumChip";
 import { cn } from "./ui";
 
 const EXTRA_SEGMENT_LABELS: Record<string, string> = {
@@ -102,6 +103,8 @@ export function Topbar({
         {me?.currentTenant && !(isPlatformStaff(me) && isPlatformPath(pathname)) ? (
           <TenantSwitcher current={me.currentTenant} tenants={me.tenants} />
         ) : null}
+        {/* An invitation for a business not on premium; not on the platform level. */}
+        {me?.subscription && me.subscription.premium === false && !isPlatformPath(pathname) ? <PremiumChip /> : null}
         <HeaderSearch features={features} me={me} />
         <NotificationBell enabled={me !== null} />
 

@@ -9,10 +9,13 @@ import styles from "./subscription.module.css";
 /** One module: its picture in its colour, what it gives, its price and how to get it. */
 export function ModuleCard({
   module,
+  monthly,
   canAsk,
   index,
 }: {
   module: SubscriptionModulePriceDto;
+  /** What the business pays a month now. */
+  monthly: number;
   canAsk: boolean;
   index: number;
 }) {
@@ -43,7 +46,24 @@ export function ModuleCard({
             </p>
           )}
           {canAsk && !module.active ? (
-            <RequestButton body={{ kind: "module", module: module.key }} label="Միացնել" className={`${styles.tintButton} h-9`} />
+            <RequestButton
+              body={{ kind: "module", module: module.key }}
+              label="Միացնել"
+              className={`${styles.tintButton} h-9`}
+              confirm={{
+                title: `Միացնե՞լ «${module.label}» մոդուլը`,
+                description: module.included
+                  ? "Հայտը կուղարկվի Servio-ի թիմին։ Մոդուլը ներառված է ձեր փաթեթում, ամսական վճարը չի փոխվի։"
+                  : "Հայտը կուղարկվի Servio-ի թիմին։ Միացնելուց հետո մոդուլի գինը կավելանա ամսական վճարին։",
+                details: module.included
+                  ? [{ label: "Ամսական վճար", value: amd(monthly) }]
+                  : [
+                      { label: "Մոդուլի գինը", value: `+ ${amd(module.price)}/ամիս` },
+                      { label: "Նոր ամսական վճար", value: amd(monthly + module.price) },
+                    ],
+                confirmLabel: "Այո, միացնել",
+              }}
+            />
           ) : null}
         </div>
       </div>

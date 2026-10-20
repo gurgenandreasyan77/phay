@@ -504,6 +504,8 @@ export type SubscriptionSummaryDto = {
   ending: boolean;
   /** Ended: the business's people can open only the subscription, the chat and their account. */
   locked: boolean;
+  /** On the top plan (or unlimited): the header doesn't invite to premium. */
+  premium?: boolean;
 };
 
 export type SubscriptionModulePriceDto = {
@@ -523,6 +525,8 @@ export type SubscriptionDto = {
   statusLabel: string;
   plan: { id: number; name: string; price: number } | null;
   unlimited: boolean;
+  /** On the top plan above the default one (or unlimited). */
+  premium?: boolean;
   trialEndsAt: string | null;
   paidUntil: string | null;
   freeUntil: string | null;

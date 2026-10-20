@@ -64,7 +64,24 @@ export default async function SubscriptionPage() {
               </p>
             ) : null}
             {canAsk && subscription.status !== "unlimited" ? (
-              <RequestButton body={{ kind: "renew" }} label="Երկարացնել բաժանորդագրությունը" primary />
+              <RequestButton
+                body={{ kind: "renew" }}
+                label="Երկարացնել բաժանորդագրությունը"
+                primary
+                confirm={{
+                  title: "Երկարացնե՞լ բաժանորդագրությունը",
+                  description:
+                    "Հայտը կուղարկվի Servio-ի թիմին, որը չատում կգրի վճարման մանրամասները։ Վճարելուց հետո ժամկետը կերկարաձգվի ընթացիկ ավարտի օրից։",
+                  details: [
+                    { label: "Ամսական վճար", value: amd(subscription.pricing.total) },
+                    {
+                      label: subscription.status === "expired" ? "Ավարտվել է" : "Գործում է մինչև",
+                      value: formatDay(subscription.endsAt),
+                    },
+                  ],
+                  confirmLabel: "Այո, երկարացնել",
+                }}
+              />
             ) : null}
           </div>
         </Card>
@@ -78,7 +95,7 @@ export default async function SubscriptionPage() {
         </Card>
       </div>
 
-      {upgrades.length === 0 ? (
+      {!subscription.premium && upgrades.length === 0 ? (
         <PremiumTeaser assistant={data.assistant ?? { used: 0, limit: 0 }} canAsk={canAsk} />
       ) : null}
 
@@ -86,7 +103,7 @@ export default async function SubscriptionPage() {
         <SectionCard title="Մոդուլներ" description="Միացրեք ձեզ անհրաժեշտ մոդուլները. դրանց գինը կավելանա ամսական վճարին։">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {modules.map((module, index) => (
-              <ModuleCard key={module.key} module={module} canAsk={canAsk} index={index} />
+              <ModuleCard key={module.key} module={module} monthly={subscription.pricing.total} canAsk={canAsk} index={index} />
             ))}
           </div>
         </SectionCard>
@@ -114,7 +131,21 @@ export default async function SubscriptionPage() {
                   {plan.description ? <p className="text-sm text-ink-muted">{plan.description}</p> : null}
                   {!current && canAsk ? (
                     <div className="mt-auto">
-                      <RequestButton body={{ kind: "plan", plan_id: plan.id }} label="Անցնել այս փաթեթին" />
+                      <RequestButton
+                        body={{ kind: "plan", plan_id: plan.id }}
+                        label="Անցնել այս փաթեթին"
+                        confirm={{
+                          title: `Անցնե՞լ «${plan.name}» փաթեթին`,
+                          description: "Հայտը կուղարկվի Servio-ի թիմին, որը չատում կհաստատի անցումը։",
+                          details: [
+                            ...(subscription.plan
+                              ? [{ label: `Հիմա՝ «${subscription.plan.name}»`, value: `${amd(subscription.plan.price)}/ամիս` }]
+                              : []),
+                            { label: `Նոր փաթեթ՝ «${plan.name}»`, value: `${amd(plan.price)}/ամիս` },
+                          ],
+                          confirmLabel: "Այո, անցնել",
+                        }}
+                      />
                     </div>
                   ) : null}
                 </Card>
