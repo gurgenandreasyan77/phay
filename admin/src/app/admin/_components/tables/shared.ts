@@ -4,8 +4,6 @@ import type { AdminDataColumnDto, BusinessPermission, ColumnRole, DataCellValue,
 type SectionInfo = {
   label: string;
   base: string;
-  /** The module that turns it on; expenses have none, every business has them. */
-  feature: "orders" | "sales" | null;
   /** Who reads and fills its tables. */
   permission: BusinessPermission;
   /** Who designs its tables (name, columns). */
@@ -13,9 +11,9 @@ type SectionInfo = {
 };
 
 export const SECTIONS: Record<DataTableSection, SectionInfo> = {
-  orders: { label: "Պատվերներ", base: "/admin/orders", feature: "orders", permission: "orders", design: "catalog" },
-  sales: { label: "Վաճառքներ", base: "/admin/sales", feature: "sales", permission: "orders", design: "catalog" },
-  expenses: { label: "Ծախսեր", base: "/admin/expenses", feature: null, permission: "expenses", design: "expenses" },
+  orders: { label: "Պատվերներ", base: "/admin/orders", permission: "orders", design: "catalog" },
+  sales: { label: "Վաճառքներ", base: "/admin/sales", permission: "orders", design: "catalog" },
+  expenses: { label: "Ծախսեր", base: "/admin/expenses", permission: "expenses", design: "expenses" },
 };
 
 export function tablePath(section: DataTableSection, id?: number, suffix = ""): string {

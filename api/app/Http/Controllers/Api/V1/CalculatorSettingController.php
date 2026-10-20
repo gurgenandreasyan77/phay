@@ -5,16 +5,12 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CalculatorSettingResource;
 use App\Models\CalculatorSetting;
-use Illuminate\Http\JsonResponse;
 
 class CalculatorSettingController extends Controller
 {
-    public function show(): JsonResponse
+    /** Only a business whose services have a calculator (added in its admin) shows one. */
+    public function show(): CalculatorSettingResource
     {
-        // ::current() may transparently create the singleton row on first
-        // read (firstOrCreate) — Laravel's JsonResource response would then
-        // default to 201 because the wrapped model's wasRecentlyCreated is
-        // true, which is wrong for what is otherwise a plain GET.
-        return (new CalculatorSettingResource(CalculatorSetting::current()))->response()->setStatusCode(200);
+        return new CalculatorSettingResource(CalculatorSetting::existing() ?? abort(404));
     }
 }

@@ -10,20 +10,19 @@ use App\Enums\DataTableSection;
 use App\Enums\LeadStatus;
 use App\Enums\TablePeriod;
 use App\Expenses\Finance;
-use App\Features\FeatureFlag;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
 use App\Models\Lead;
 use App\Models\User;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
-use Laravel\Pennant\Feature;
 
 /**
  * The business admin's home: the few numbers a business looks at first,
  * read from where its work is actually kept.
  *
- *   sections   orders and sales tables (modules that are on): rows and money
+ *   sections   orders and sales tables (the ones the business keeps: orders
+ *              alone while it has no tables yet): rows and money
  *              today, this week, this month so far, and the same days of
  *              last month to compare with
  *   finance    this month so far: revenue, expenses, net profit (App\Expenses\Finance)
@@ -62,15 +61,14 @@ final class Home
         $role = $user?->businessRole($this->tenants->current());
         $money = (bool) $role?->can(BusinessRole::INSIGHTS);
         $today = $this->today();
-        $orders = Feature::active(FeatureFlag::Orders->value);
 
         return [
             'today' => $today->toDateString(),
             'money' => $money,
             'sections' => $this->sections($today, $money),
             'finance' => $money && $role->can(BusinessRole::EXPENSES) ? $this->finance($today) : null,
-            'upcoming' => $orders ? $this->upcoming($today, $money) : null,
-            'site' => $orders && Lead::query()->exists() ? $this->site($today, $money) : null,
+            'upcoming' => $this->upcoming($today, $money),
+            'site' => Lead::query()->exists() ? $this->site($today, $money) : null,
         ];
     }
 
@@ -86,10 +84,6 @@ final class Home
         $sections = [];
 
         foreach (DataTableSection::revenue() as $section) {
-            if (! $section->isActive()) {
-                continue;
-            }
-
             $tables = DataTable::query()->where('section', $section)->get();
             $hasAmount = $money && $tables->contains(fn (DataTable $t) => $t->amountColumn() !== null);
             $ids = $tables->modelKeys();
@@ -113,7 +107,11 @@ final class Home
             ];
         }
 
-        return $sections;
+        // Every business has both sections; a shop that keeps only sales
+        // shouldn't see an empty orders card, a new business sees orders.
+        $kept = array_values(array_filter($sections, fn (array $s) => $s['tables'] > 0));
+
+        return $kept === [] ? array_slice($sections, 0, 1) : $kept;
     }
 
     /**

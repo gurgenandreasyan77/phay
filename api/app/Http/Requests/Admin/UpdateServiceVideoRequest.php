@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Enums\SiteVideoKind;
 use App\Tenancy\TenantRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateServiceVideoRequest extends FormRequest
 {
@@ -16,6 +18,7 @@ class UpdateServiceVideoRequest extends FormRequest
     {
         return [
             'service_id' => ['nullable', 'integer', TenantRule::exists('services', 'id')],
+            'kind' => ['sometimes', Rule::enum(SiteVideoKind::class)],
             'title' => ['nullable', 'array'],
             'video_path' => ['sometimes', 'string', 'max:255'],
             'poster_image' => ['nullable', 'string', 'max:255'],

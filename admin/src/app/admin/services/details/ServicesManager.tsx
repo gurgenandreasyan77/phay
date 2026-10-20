@@ -13,9 +13,9 @@ import {
   toTranslated,
   fieldClasses,
   labelClasses,
-} from "../services/shared";
-import { ImageUploadField } from "../services/ImageUploadField";
-import { Badge, buttonClasses } from "../_components/ui";
+} from "../shared";
+import { ImageUploadField } from "../ImageUploadField";
+import { Badge, buttonClasses } from "../../_components/ui";
 
 const STATUS_LABELS: Record<ServiceStatus, string> = {
   draft: "Սևագիր (չհրապարակված)",
@@ -403,8 +403,7 @@ function NewServiceForm({
   onCreated: () => void;
   onCancel: () => void;
 }) {
-  const autoCareCategory = categories.find((c) => c.slug === "auto-care");
-  const [form, setForm] = useState<FormState>(() => emptyForm(autoCareCategory?.id ?? categories[0]?.id ?? ""));
+  const [form, setForm] = useState<FormState>(() => emptyForm(categories[0]?.id ?? ""));
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
 
   async function handleSubmit(e: React.FormEvent) {

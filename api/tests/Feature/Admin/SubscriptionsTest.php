@@ -61,14 +61,16 @@ class SubscriptionsTest extends TestCase
     public function test_the_price_adds_the_modules_the_business_has_on(): void
     {
         Sanctum::actingAs($this->admin);
-        $this->putJson('/api/v1/admin/module-prices', ['prices' => ['market' => 2000, 'sales' => 1500, 'orders' => 900]])
+        $this->putJson('/api/v1/admin/module-prices', ['prices' => ['market' => 2000, 'site' => 1500, 'services' => 900]])
             ->assertOk()
             ->assertJsonFragment(['key' => 'market', 'price' => 2000]);
         $this->putJson('/api/v1/admin/module-prices', ['prices' => ['nope' => 1]])->assertUnprocessable();
+        // Orders and sales are not modules: nothing to price.
+        $this->putJson('/api/v1/admin/module-prices', ['prices' => ['orders' => 1]])->assertUnprocessable();
 
         Feature::for($this->shop)->activate('market');
 
-        // Orders is in the base plan; market is added.
+        // Market is added to the plan; services and site are off.
         $this->getJson("/api/v1/admin/tenants/{$this->shop->id}/subscription")
             ->assertOk()
             ->assertJsonPath('data.subscription.pricing.total', 3900 + 2000);
@@ -82,7 +84,7 @@ class SubscriptionsTest extends TestCase
         Sanctum::actingAs($this->admin);
 
         $id = $this->postJson('/api/v1/admin/plans', [
-            'name' => 'Պրեմիում', 'price' => 9900, 'trial_days' => 30, 'included_modules' => ['orders', 'sales'], 'is_default' => true,
+            'name' => 'Պրեմիում', 'price' => 9900, 'trial_days' => 30, 'included_modules' => ['services', 'site'], 'is_default' => true,
         ])->assertCreated()->assertJsonPath('data.isDefault', true)->json('data.id');
 
         $this->assertSame(1, Plan::query()->where('is_default', true)->count());

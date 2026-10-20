@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\ProductStatus;
 use App\Enums\ServiceStatus;
-use App\Features\FeatureFlag;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ServiceResource;
 use App\Models\Service;
@@ -12,30 +11,17 @@ use App\Models\ServiceSlugRedirect;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Laravel\Pennant\Feature;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class ServiceController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
         $categorySlug = $request->query('category');
-        $autoCareActive = Feature::active(FeatureFlag::AutoCare->value);
-
-        // The category slug happens to equal the flag key ("auto-care") —
-        // the two concepts are deliberately the same identifier here.
-        if ($categorySlug === FeatureFlag::AutoCare->value && ! $autoCareActive) {
-            throw new NotFoundHttpException;
-        }
-
         $services = Service::query()
             ->with(['category', 'products' => fn ($query) => $query->where('status', ProductStatus::Published)])
             ->whereIn('status', array_map(fn ($s) => $s->value, ServiceStatus::publicallyVisible()))
             ->when($categorySlug, function ($query, $categorySlug) {
                 $query->whereHas('category', fn ($q) => $q->where('slug', $categorySlug));
-            })
-            ->when(! $autoCareActive, function ($query) {
-                $query->whereDoesntHave('category', fn ($q) => $q->where('slug', FeatureFlag::AutoCare->value));
             })
             ->orderBy('sort_order')
             ->get();
@@ -52,14 +38,9 @@ class ServiceController extends Controller
      */
     public function show(Request $request, string $slug): JsonResponse
     {
-        $autoCareActive = Feature::active(FeatureFlag::AutoCare->value);
-
         $service = Service::query()
             ->whereIn('status', array_map(fn ($s) => $s->value, ServiceStatus::publicallyVisible()))
             ->where('slug', $slug)
-            ->when(! $autoCareActive, function ($query) {
-                $query->whereDoesntHave('category', fn ($q) => $q->where('slug', FeatureFlag::AutoCare->value));
-            })
             ->with(['category.services' => function ($query) {
                 $query->whereIn('status', array_map(fn ($s) => $s->value, ServiceStatus::publicallyVisible()))
                     ->orderBy('sort_order');
@@ -81,8 +62,7 @@ class ServiceController extends Controller
             ->first();
 
         $redirectTargetVisible = $redirect?->service
-            && in_array($redirect->service->status, ServiceStatus::publicallyVisible(), true)
-            && ($autoCareActive || $redirect->service->category?->slug !== FeatureFlag::AutoCare->value);
+            && in_array($redirect->service->status, ServiceStatus::publicallyVisible(), true);
 
         if ($redirectTargetVisible) {
             return response()->json([

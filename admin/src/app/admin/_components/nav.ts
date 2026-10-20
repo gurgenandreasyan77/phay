@@ -7,8 +7,6 @@ import {
   ClipboardList,
   Users,
   Wrench,
-  Car,
-  Sofa,
   ShoppingBag,
   FolderTree,
   FileSearch,
@@ -34,6 +32,8 @@ import {
   BadgeCheck,
   CalendarClock,
   Tags,
+  Newspaper,
+  Inbox,
 } from "lucide-react";
 
 export type NavItem = {
@@ -70,9 +70,9 @@ export const BUSINESS_NAV_GROUPS: NavGroup[] = [
     label: "Հիմնական",
     items: [
       { href: "/admin", label: "Վահանակ", icon: LayoutDashboard, requires: "orders" },
-      { href: "/admin/orders", label: "Պատվերներ", icon: ClipboardList, requiresFeature: "orders", requires: "orders" },
-      { href: "/admin/calendar", label: "Օրացույց", icon: CalendarDays, requiresFeature: "orders", requires: "orders" },
-      { href: "/admin/sales", label: "Վաճառքներ", icon: Receipt, requiresFeature: "sales", requires: "orders" },
+      { href: "/admin/orders", label: "Պատվերներ", icon: ClipboardList, requires: "orders" },
+      { href: "/admin/calendar", label: "Օրացույց", icon: CalendarDays, requires: "orders" },
+      { href: "/admin/sales", label: "Վաճառքներ", icon: Receipt, requires: "orders" },
       { href: "/admin/statistics", label: "Վիճակագրություն", icon: Sigma, requires: "insights" },
       { href: "/admin/analytics", label: "Վերլուծություն", icon: TrendingUp, requires: "insights" },
       { href: "/admin/assistant", label: "AI օգնական", icon: Sparkles, requires: "insights" },
@@ -83,11 +83,12 @@ export const BUSINESS_NAV_GROUPS: NavGroup[] = [
     label: "Մոդուլներ",
     items: [
       { href: "/admin/services", label: "Ծառայություններ", icon: Wrench, requiresFeature: "services", requires: "catalog" },
-      { href: "/admin/dry-cleaning", label: "Քիմմաքրում", icon: Sofa, requiresFeature: "dryCleaning", requires: "catalog" },
-      { href: "/admin/auto-care", label: "Ավտոխնամք", icon: Car, requiresFeature: "autoCare", requires: "catalog" },
       { href: "/admin/products", label: "Խանութ", icon: ShoppingBag, requiresFeature: "market", requires: "catalog" },
       { href: "/admin/market/categories", label: "Կատեգորիաներ", icon: FolderTree, requiresFeature: "market", requires: "catalog" },
       { href: "/admin/market/tasks", label: "Խնդիրներ (SEO)", icon: FileSearch, requiresFeature: "market", requires: "catalog" },
+      { href: "/admin/site", label: "Կայք", icon: Globe, requiresFeature: "site", requires: "catalog" },
+      { href: "/admin/site/blog", label: "Բլոգ", icon: Newspaper, requiresFeature: "site", requires: "catalog" },
+      { href: "/admin/site/feedback", label: "Հետադարձ կապ", icon: Inbox, requiresFeature: "site", requires: "orders" },
     ],
   },
   {
@@ -191,7 +192,9 @@ export function findActiveNavItem(pathname: string): NavItem | undefined {
     .find((item) => isActiveHref(item.href, pathname));
 }
 
-/** /admin and /admin/platform are section homes: only active on themselves. */
+/** Section homes whose sub-pages have menu items of their own: only active on themselves. */
+const EXACT_HREFS = ["/admin", PLATFORM_HOME, "/admin/site"];
+
 export function isActiveHref(href: string, pathname: string): boolean {
-  return href === "/admin" || href === PLATFORM_HOME ? pathname === href : pathname.startsWith(href);
+  return EXACT_HREFS.includes(href) ? pathname === href : pathname.startsWith(href);
 }

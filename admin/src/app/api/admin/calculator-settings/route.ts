@@ -10,3 +10,10 @@ export async function PUT(request: NextRequest) {
   if (result.ok) await revalidateSite(CALCULATOR_SETTINGS_TAG);
   return NextResponse.json({ data: result.data }, { status: result.ok ? 200 : result.status });
 }
+
+/** Adds the calculator to the business's services (201), or returns the one it has. */
+export async function POST() {
+  const result = await adminApiFetch("/admin/calculator-settings", { method: "POST" });
+  if (result.ok) await revalidateSite(CALCULATOR_SETTINGS_TAG);
+  return NextResponse.json({ data: result.data }, { status: result.status });
+}

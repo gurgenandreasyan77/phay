@@ -3,75 +3,71 @@
 namespace App\Features;
 
 /**
- * Registry of every feature flag backed by Laravel Pennant. Flags are per
- * business: Pennant's default scope is the current tenant (see
- * AppServiceProvider), so Feature::active() answers for that business. Adding a new flag only needs a new case here plus its
+ * The modules the super admin turns on per business, backed by Laravel
+ * Pennant. Flags are per business: Pennant's default scope is the current
+ * tenant (see AppServiceProvider), so Feature::active() answers for that
+ * business. Adding a new module only needs a new case here plus its
  * metadata below — no bespoke controller/middleware logic per flag.
+ *
+ * Orders and sales are not modules: every business admin has them. What a
+ * business does (dry cleaning, car care...) isn't a module either: it is
+ * a category of its own in the Services module.
  */
 enum FeatureFlag: string
 {
-    // What the business sells: services (orders) and/or goods (sales).
-    case Orders = 'orders';
-    case Sales = 'sales';
-    case AutoCare = 'auto-care';
-    case Market = 'market';
-    case DryCleaning = 'dry-cleaning';
-    // The business's own catalog of services shown on its site: a paid
-    // module, a business without a site has nothing to put there.
+    // The business's catalog of services shown on its site: categories,
+    // services, packages, and a price calculator when the business has one.
     case Services = 'services';
+    case Market = 'market';
+    // The business's site: logo, contacts, videos, before/after photos,
+    // blog and the feedback form. On once the platform gives it a site.
+    case Site = 'site';
 
     public function label(): string
     {
         return match ($this) {
-            self::AutoCare => 'Ավտոխնամք',
-            self::Market => 'Խանութ',
-            self::DryCleaning => 'Քիմմաքրում',
             self::Services => 'Ծառայություններ',
-            self::Orders => 'Պատվերներ',
-            self::Sales => 'Վաճառքներ',
+            self::Market => 'Խանութ',
+            self::Site => 'Կայքի կառավարում',
         };
     }
 
     public function description(): string
     {
         return match ($this) {
-            self::AutoCare => 'Ակտիվացնում կամ ամբողջովին անջատում է ավտոմեքենայի խնամքի բաժինը ողջ հավելվածում։',
-            self::Market => 'Ակտիվացնում կամ ամբողջովին անջատում է Խանութ (Market) բաժինը ողջ հավելվածում։',
-            self::DryCleaning => 'Փափուկ կահույքի քիմմաքրման հաշվիչը, դրա սակագները և լրացուցիչ ծառայությունները։',
-            self::Services => 'Բիզնեսի ծառայությունների կատալոգը՝ գներով և կատեգորիաներով, որոնք երևում են նրա կայքում։',
-            self::Orders => 'Ծառայություն մատուցող բիզնեսի համար՝ կայքից եկած պատվերները և պատվերների սեփական աղյուսակները։',
-            self::Sales => 'Ապրանք վաճառող բիզնեսի համար՝ վաճառքների սեփական աղյուսակներ, ձեռքով կամ ֆայլից ներմուծմամբ։',
+            self::Services => 'Բիզնեսի ծառայությունների կատալոգը՝ կատեգորիաներով (օր.՝ ավտոքիմմաքրում, կահույքի քիմմաքրում), գներով և հաշվիչով, որոնք երևում են նրա կայքում։',
+            self::Market => 'Ապրանքների խանութը՝ կատեգորիաներով և SEO էջերով, կայքում և ադմինում։',
+            self::Site => 'Կայքի բովանդակությունը. լոգո, կոնտակտներ, «մինչև/հետո» և տեղեկատվական տեսանյութեր, լուսանկարներ, բլոգ և հետադարձ կապի ձև։',
         };
     }
 
     public function category(): string
     {
         return match ($this) {
-            self::AutoCare, self::Market, self::DryCleaning, self::Services => 'Կատալոգ',
-            self::Orders, self::Sales => 'Բիզնեսի տեսակ',
+            self::Services, self::Market => 'Կատալոգ',
+            self::Site => 'Կայք',
         };
     }
 
     /**
      * The value Pennant resolves to the first time a flag is checked,
-     * before any admin has ever toggled it.
+     * before any admin has ever toggled it. Servio has its modules on by
+     * migrations; a new business gets them off when it is created.
      */
     public function default(): bool
     {
         return match ($this) {
-            self::AutoCare, self::Market, self::Orders => true,
-            // Servio has it on by a migration; anyone else starts without it.
-            self::DryCleaning, self::Services, self::Sales => false,
+            self::Market => true,
+            self::Services, self::Site => false,
         };
     }
 
     /**
-     * Whether a business created on the platform starts with it on. Most
-     * modules wait for the super admin; orders stay on so a new business
-     * gets what every business had before they became a module.
+     * Whether a business created on the platform starts with it on: none,
+     * every module waits for the super admin.
      */
     public function onForNewBusiness(): bool
     {
-        return $this === self::Orders;
+        return false;
     }
 }

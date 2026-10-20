@@ -6,7 +6,6 @@ use App\Analytics\Dashboard;
 use App\Analytics\DashboardWidget;
 use App\DataTables\TableAnalytics;
 use App\Enums\DataTableSection;
-use App\Features\FeatureFlag;
 use App\Http\Controllers\Controller;
 use App\Models\DataTable;
 use App\Services\BusinessAnalytics;
@@ -14,7 +13,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
-use Laravel\Pennant\Feature;
 
 /**
  * Figures of the business's own tables, per section, for the analytics
@@ -52,7 +50,7 @@ class TableAnalyticsController extends Controller
                 $tables = $tables->values();
                 $summary = $analytics->section($section, $tables, $days);
 
-                if ($section === DataTableSection::Orders && Feature::active(FeatureFlag::Orders->value)) {
+                if ($section === DataTableSection::Orders) {
                     $summary['withSite'] = TableAnalytics::withSiteOrders($summary, $site->summary($days));
                 }
 

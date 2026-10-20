@@ -8,10 +8,11 @@ use App\DataTables\PeriodTables;
 use App\DataTables\RowMetrics;
 use App\Enums\DataTableSection;
 use App\Enums\TablePeriod;
-use App\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\DataTableResource;
 use App\Models\DataTable;
+use App\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -20,8 +21,7 @@ use Illuminate\Validation\Rule;
 
 /**
  * The business's own tables (orders, sales, expenses): their names and
- * columns. A table is only reachable while its section's module is on and
- * by roles that may see the section.
+ * columns. A table is only reachable by roles that may see its section.
  */
 class DataTableController extends Controller
 {
@@ -30,7 +30,7 @@ class DataTableController extends Controller
         $request->validate(['section' => ['nullable', Rule::enum(DataTableSection::class)]]);
 
         $sections = collect(DataTableSection::cases())
-            ->filter(fn (DataTableSection $section) => self::moduleActive($section))
+            ->filter(fn (DataTableSection $section) => self::sectionAllowed($section))
             ->when($request->filled('section'), fn ($sections) => $sections->filter(
                 fn (DataTableSection $section) => $section->value === $request->input('section'),
             ))
@@ -62,7 +62,7 @@ class DataTableController extends Controller
         ]);
 
         $section = DataTableSection::from($validated['section']);
-        abort_unless(self::moduleActive($section), 404);
+        abort_unless(self::sectionAllowed($section), 404);
 
         $table = DataTable::create([
             'section' => $section,
@@ -161,7 +161,7 @@ class DataTableController extends Controller
      * the table already holds, else today's. Nothing when the request
      * doesn't choose a period.
      *
-     * @return array{period?: ?TablePeriod, period_start?: ?\Carbon\CarbonImmutable}
+     * @return array{period?: ?TablePeriod, period_start?: ?CarbonImmutable}
      */
     private static function periodFields(array $validated, ?DataTable $table = null): array
     {
@@ -184,15 +184,15 @@ class DataTableController extends Controller
         return ['period' => $kind, 'period_start' => Period::of($kind, $day)->start];
     }
 
-    /** The section's module is on, and the person's role may see it (expenses: the owner). */
-    public static function moduleActive(DataTableSection $section): bool
+    /** The person's role may see the section (expenses: the owner). */
+    public static function sectionAllowed(DataTableSection $section): bool
     {
-        return $section->isActive() && $section->allows(auth()->user(), $section->permission());
+        return $section->allows(auth()->user(), $section->permission());
     }
 
-    /** A table of a module that is off behaves as if it doesn't exist. */
+    /** A table of a section the role doesn't see behaves as if it doesn't exist. */
     public static function ensureReachable(DataTable $table): void
     {
-        abort_unless(self::moduleActive($table->section), 404);
+        abort_unless(self::sectionAllowed($table->section), 404);
     }
 }

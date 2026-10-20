@@ -182,20 +182,24 @@ class BusinessOwnerAccessTest extends TestCase
         $shop = $this->createTenant('test-shop');
 
         $this->assertFalse(Feature::for($shop)->active('market'));
-        $this->assertFalse(Feature::for($shop)->active('auto-care'));
         $this->assertFalse(Feature::for($shop)->active('services'));
+        $this->assertFalse(Feature::for($shop)->active('site'));
         $this->assertTrue(Feature::for(Tenant::default())->active('services'));
         $this->assertTrue(Feature::for(Tenant::default())->active('market'));
+        $this->assertTrue(Feature::for(Tenant::default())->active('site'));
 
         Sanctum::actingAs($this->createOwnerLogin($shop));
-        // Orders and sales come first; only orders is on.
+        // Only the managed modules: orders and sales are always there.
         $this->getJson('/api/v1/admin/feature-flags')
             ->assertOk()
-            ->assertJsonPath('data.0.key', 'orders')
-            ->assertJsonPath('data.0.active', true)
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('data.0.key', 'services')
+            ->assertJsonPath('data.1.key', 'market')
+            ->assertJsonPath('data.2.key', 'site')
+            ->assertJsonPath('data.0.active', false)
             ->assertJsonPath('data.1.active', false)
-            ->assertJsonPath('data.2.active', false)
-            ->assertJsonPath('data.3.active', false);
+            ->assertJsonPath('data.2.active', false);
+        $this->getJson('/api/v1/admin/leads')->assertOk();
     }
 
     public function test_a_super_admin_turns_a_module_on_for_one_business_from_the_platform(): void
@@ -205,8 +209,8 @@ class BusinessOwnerAccessTest extends TestCase
 
         $this->getJson("/api/v1/admin/tenants/{$shop->id}/features")
             ->assertOk()
-            ->assertJsonPath('data.3.key', 'market')
-            ->assertJsonPath('data.3.active', false);
+            ->assertJsonPath('data.1.key', 'market')
+            ->assertJsonPath('data.1.active', false);
 
         $this->patchJson("/api/v1/admin/tenants/{$shop->id}/features/market", ['active' => true])
             ->assertOk()
@@ -214,7 +218,7 @@ class BusinessOwnerAccessTest extends TestCase
             ->assertJsonPath('data.lastChangedBy', User::query()->where('is_super_admin', true)->value('name'));
 
         $this->assertTrue(Feature::for($shop)->active('market'));
-        $this->assertFalse(Feature::for($shop)->active('auto-care'));
+        $this->assertFalse(Feature::for($shop)->active('services'));
         $this->assertSame($shop->id, FeatureFlagLog::withoutTenancy()->sole()->tenant_id);
 
         $this->patchJson("/api/v1/admin/tenants/{$shop->id}/features/unknown", ['active' => true])

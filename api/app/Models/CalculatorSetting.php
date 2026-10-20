@@ -33,10 +33,15 @@ class CalculatorSetting extends Model
         'dry_cleaning_rates' => 'array',
     ];
 
-    // Calculator rates are per business, not per record — callers always want
-    // the current business's one row. Defaults here mirror the original
-    // hardcoded placeholder rates from src/config/pricing.ts, so the very
-    // first read (before the seeder runs) doesn't produce a broken calculator.
+    /** The business's calculator, or null: a business without one has none. */
+    public static function existing(): ?self
+    {
+        return static::query()->first();
+    }
+
+    // Calculator rates are per business, not per record: one row each. Made
+    // when a business adds a calculator to its services, with defaults that
+    // mirror the original placeholder rates from src/config/pricing.ts.
     public static function current(): self
     {
         return static::query()->firstOrCreate([], [

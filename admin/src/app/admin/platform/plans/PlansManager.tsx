@@ -22,7 +22,7 @@ function draftOf(plan?: PlanDto): Draft {
     description: plan?.description ?? "",
     price: String(plan?.price ?? ""),
     trial_days: String(plan?.trialDays ?? 14),
-    included_modules: plan?.includedModules ?? ["orders"],
+    included_modules: plan?.includedModules ?? [],
     is_default: plan?.isDefault ?? false,
     is_active: plan?.isActive ?? true,
   };

@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Features\FeatureFlag;
+use App\Models\ServiceCategory;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Str;
@@ -22,6 +23,12 @@ class SiteSettingsResource extends JsonResource
             // who-changed-it, since this endpoint is unauthenticated.
             'features' => collect(FeatureFlag::cases())->mapWithKeys(
                 fn (FeatureFlag $flag) => [Str::camel($flag->value) => Feature::active($flag->value)]
+            )->put(
+                // Car care is a category of the services catalog now; the site
+                // still asks whether to show its page.
+                'autoCare',
+                Feature::active(FeatureFlag::Services->value)
+                    && ServiceCategory::query()->where('slug', 'auto-care')->exists(),
             ),
         ];
     }

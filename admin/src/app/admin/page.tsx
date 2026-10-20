@@ -4,7 +4,6 @@ import { requireAdmin } from "@/lib/adminAuth";
 import { can } from "@/lib/roles";
 import {
   getDashboard,
-  getFeatureFlagsAdmin,
   type DashboardDto,
   type HomeFiguresDto,
   type HomeSectionDto,
@@ -25,8 +24,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function AdminDashboardPage() {
   const me = await requireAdmin();
-  const [flags, dashboard] = await Promise.all([getFeatureFlagsAdmin(), getDashboard()]);
-  const orders = flags.find((f) => f.key === "orders")?.active ?? true;
+  const dashboard = await getDashboard();
 
   return (
     <div className="space-y-8">
@@ -35,11 +33,9 @@ export default async function AdminDashboardPage() {
         description={dashboard ? `Այսօր՝ ${bucketTitle(dashboard.today)}` : undefined}
         actions={
           <>
-            {orders ? (
-              <Link href="/admin/calendar" className={buttonClasses("secondary")}>
-                Օրացույց
-              </Link>
-            ) : null}
+            <Link href="/admin/calendar" className={buttonClasses("secondary")}>
+              Օրացույց
+            </Link>
             {can(me, "insights") ? (
               <Link href="/admin/statistics" className={buttonClasses("secondary")}>
                 Վիճակագրություն

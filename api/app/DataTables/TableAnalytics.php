@@ -36,15 +36,14 @@ class TableAnalytics
     public function __construct(private readonly TenantContext $tenants) {}
 
     /**
-     * Tables of the sections that bring money in (orders, sales) whose
-     * module is on; expenses are figured by App\Expenses\Finance.
+     * Tables of the sections that bring money in (orders, sales);
+     * expenses are figured by App\Expenses\Finance.
      *
      * @return Collection<int, DataTable>
      */
     public function tables(): Collection
     {
         $sections = collect(DataTableSection::revenue())
-            ->filter(fn (DataTableSection $s) => $s->isActive())
             ->map(fn (DataTableSection $s) => $s->value);
 
         return DataTable::query()->whereIn('section', $sections)->orderBy('sort_order')->orderBy('id')->get();
@@ -235,7 +234,7 @@ class TableAnalytics
                 $quantity = $priced->sum('quantity');
 
                 $metrics[] = ['key' => 'quantity', 'unit' => $unit, 'label' => "Քանակ{$in}", 'format' => 'number', 'value' => $this->round($rows->sum('quantity')), 'previous' => $before->isEmpty() ? null : $this->round($before->sum('quantity'))];
-                $metrics[] = ['key' => 'averageQuantity', 'unit' => $unit, 'label' => "Միջինը մեկ ".($orders ? 'պատվերում' : 'վաճառքում').$in, 'format' => 'number', 'value' => $this->round($rows->avg('quantity')), 'previous' => $before->isEmpty() ? null : $this->round($before->avg('quantity'))];
+                $metrics[] = ['key' => 'averageQuantity', 'unit' => $unit, 'label' => 'Միջինը մեկ '.($orders ? 'պատվերում' : 'վաճառքում').$in, 'format' => 'number', 'value' => $this->round($rows->avg('quantity')), 'previous' => $before->isEmpty() ? null : $this->round($before->avg('quantity'))];
                 if ($hasAmount && $quantity > 0) {
                     $metrics[] = ['key' => 'unitPrice', 'unit' => $unit, 'label' => $unit ? "1 {$unit}-ի միջին գինը" : 'Մեկ միավորի միջին գինը', 'format' => 'money', 'value' => $this->round($priced->sum('amount') / $quantity), 'previous' => null];
                 }

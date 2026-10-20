@@ -835,8 +835,12 @@ export type AdminServiceGalleryItemDto = {
   createdAt: string | null;
 };
 
+/** What a video on the site shows: the result of the work, or about the business. */
+export type SiteVideoKind = "before_after" | "info";
+
 export type AdminServiceVideoDto = {
   id: number;
+  kind: SiteVideoKind;
   serviceId: number | null;
   title: AdminTranslated;
   videoPath: string;
@@ -1377,4 +1381,59 @@ export async function getSubscriptionsAdmin(status?: SubscriptionStatus): Promis
 export async function getTenantSubscriptionAdmin(tenantId: number): Promise<TenantSubscriptionDetailDto | null> {
   const result = await adminApiFetch<TenantSubscriptionDetailDto>(`/admin/tenants/${tenantId}/subscription`);
   return result.data;
+}
+
+/** A blog post of the business's site (the site module). */
+export type PostCategory = "cleaning-tips" | "upholstery-care" | "auto-care" | "guides" | "company-news";
+export type PostStatus = "draft" | "published";
+
+export type AdminPostDto = {
+  id: number;
+  slug: string;
+  category: PostCategory;
+  status: PostStatus;
+  publishedAt: string | null;
+  authorName: string;
+  featuredImagePath: string | null;
+  title: AdminTranslated;
+  excerpt: AdminTranslated;
+  updatedAt: string | null;
+  /** Only when one post is read. */
+  content?: AdminTranslated;
+  seoTitle?: AdminTranslated;
+  seoDescription?: AdminTranslated;
+};
+
+export async function getPostsAdmin(): Promise<AdminPostDto[] | null> {
+  const result = await adminApiFetch<AdminPostDto[]>("/admin/posts");
+  return result.ok ? (result.data ?? []) : null;
+}
+
+export async function getPostAdmin(id: number): Promise<AdminPostDto | null> {
+  const result = await adminApiFetch<AdminPostDto>(`/admin/posts/${id}`);
+  return result.data;
+}
+
+/** A message from the feedback form of the business's site. */
+export type FeedbackMessageDto = {
+  id: number;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  message: string;
+  locale: string | null;
+  readAt: string | null;
+  createdAt: string | null;
+};
+
+export type FeedbackPageDto = {
+  items: FeedbackMessageDto[];
+  meta: { total: number; currentPage: number; lastPage: number; unread: number };
+};
+
+export async function getFeedbackMessages(page = 1): Promise<FeedbackPageDto | null> {
+  const { status, json } = await adminApiFetchRaw(`/admin/feedback?page=${page}`);
+  if (status !== 200 || !json) return null;
+  const body = json as { data: FeedbackMessageDto[]; meta: FeedbackPageDto["meta"] };
+  return { items: body.data, meta: body.meta };
 }

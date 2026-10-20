@@ -5,21 +5,21 @@ use App\Http\Controllers\Api\V1\AdditionalServiceController;
 use App\Http\Controllers\Api\V1\Admin\AdditionalServiceController as AdminAdditionalServiceController;
 use App\Http\Controllers\Api\V1\Admin\AnalyticsController as AdminAnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\AssistantController as AdminAssistantController;
-use App\Http\Controllers\Api\V1\Admin\CalendarController as AdminCalendarController;
-use App\Http\Controllers\Api\V1\Admin\CalendarRowController as AdminCalendarRowController;
 use App\Http\Controllers\Api\V1\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Api\V1\Admin\CalculatorSettingController as AdminCalculatorSettingController;
+use App\Http\Controllers\Api\V1\Admin\CalendarController as AdminCalendarController;
+use App\Http\Controllers\Api\V1\Admin\CalendarRowController as AdminCalendarRowController;
 use App\Http\Controllers\Api\V1\Admin\ContactChannelController as AdminContactChannelController;
-use App\Http\Controllers\Api\V1\Admin\EmployeeController as AdminEmployeeController;
-use App\Http\Controllers\Api\V1\Admin\EmployeeGroupController as AdminEmployeeGroupController;
-use App\Http\Controllers\Api\V1\Admin\ExpenseCategoryController as AdminExpenseCategoryController;
-use App\Http\Controllers\Api\V1\Admin\FinanceController as AdminFinanceController;
-use App\Http\Controllers\Api\V1\Admin\RecurringExpenseController as AdminRecurringExpenseController;
 use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Api\V1\Admin\DataImportController as AdminDataImportController;
 use App\Http\Controllers\Api\V1\Admin\DataTableController as AdminDataTableController;
 use App\Http\Controllers\Api\V1\Admin\DataTableRowController as AdminDataTableRowController;
+use App\Http\Controllers\Api\V1\Admin\EmployeeController as AdminEmployeeController;
+use App\Http\Controllers\Api\V1\Admin\EmployeeGroupController as AdminEmployeeGroupController;
+use App\Http\Controllers\Api\V1\Admin\ExpenseCategoryController as AdminExpenseCategoryController;
 use App\Http\Controllers\Api\V1\Admin\FeatureFlagController as AdminFeatureFlagController;
+use App\Http\Controllers\Api\V1\Admin\FeedbackController as AdminFeedbackController;
+use App\Http\Controllers\Api\V1\Admin\FinanceController as AdminFinanceController;
 use App\Http\Controllers\Api\V1\Admin\LeadController as AdminLeadController;
 use App\Http\Controllers\Api\V1\Admin\ModulePriceController as AdminModulePriceController;
 use App\Http\Controllers\Api\V1\Admin\NotificationController as AdminNotificationController;
@@ -28,9 +28,11 @@ use App\Http\Controllers\Api\V1\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Api\V1\Admin\PlatformSubscriptionController as AdminPlatformSubscriptionController;
 use App\Http\Controllers\Api\V1\Admin\PlatformSupportController as AdminPlatformSupportController;
 use App\Http\Controllers\Api\V1\Admin\PlatformUserController as AdminPlatformUserController;
-use App\Http\Controllers\Api\V1\Admin\SearchController as AdminSearchController;
+use App\Http\Controllers\Api\V1\Admin\PostController as AdminPostController;
 use App\Http\Controllers\Api\V1\Admin\ProductCategoryController as AdminProductCategoryController;
 use App\Http\Controllers\Api\V1\Admin\ProductController as AdminProductController;
+use App\Http\Controllers\Api\V1\Admin\RecurringExpenseController as AdminRecurringExpenseController;
+use App\Http\Controllers\Api\V1\Admin\SearchController as AdminSearchController;
 use App\Http\Controllers\Api\V1\Admin\ServiceCategoryController as AdminServiceCategoryController;
 use App\Http\Controllers\Api\V1\Admin\ServiceController as AdminServiceController;
 use App\Http\Controllers\Api\V1\Admin\ServiceGalleryItemController as AdminServiceGalleryItemController;
@@ -47,6 +49,7 @@ use App\Http\Controllers\Api\V1\Admin\TenantFeatureController as AdminTenantFeat
 use App\Http\Controllers\Api\V1\Admin\TenantUserController as AdminTenantUserController;
 use App\Http\Controllers\Api\V1\Admin\UploadController as AdminUploadController;
 use App\Http\Controllers\Api\V1\CalculatorSettingController;
+use App\Http\Controllers\Api\V1\FeedbackController;
 use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\PostController;
 use App\Http\Controllers\Api\V1\ProductCategoryController;
@@ -66,23 +69,26 @@ Route::prefix('v1')->group(function () {
     // Public API: the X-Site-Key header decides which business's content is
     // served (no header: the default business).
     Route::middleware('tenant.site')->group(function () {
-        // The services catalog: the "services" module, or auto-care, which
-        // keeps its price list, gallery and videos in the same catalog.
-        Route::middleware('feature:services,auto-care')->group(function () {
+        // The services module: the catalog (every kind of work the business
+        // does is a category of it: car care, upholstery...), and the price
+        // calculator with its add-ons for a business that has one.
+        Route::middleware('feature:services')->group(function () {
             Route::get('/categories', [ServiceCategoryController::class, 'index']);
             Route::get('/services', [ServiceController::class, 'index']);
             Route::get('/services/{slug}', [ServiceController::class, 'show']);
             Route::get('/service-packages', [ServicePackageController::class, 'index']);
             Route::get('/service-packages/{slug}', [ServicePackageController::class, 'show']);
-            Route::get('/service-gallery', [ServiceGalleryItemController::class, 'index']);
-            Route::get('/service-videos', [ServiceVideoController::class, 'index']);
-        });
-
-        // Servio's upholstery dry cleaning: the calculator and its
-        // add-on services exist only for a business with this module on.
-        Route::middleware('feature:dry-cleaning')->group(function () {
             Route::get('/additional-services', [AdditionalServiceController::class, 'index']);
             Route::get('/calculator-settings', [CalculatorSettingController::class, 'show']);
+        });
+
+        // The site module: what the business shows about itself.
+        Route::middleware('feature:site')->group(function () {
+            Route::get('/service-gallery', [ServiceGalleryItemController::class, 'index']);
+            Route::get('/service-videos', [ServiceVideoController::class, 'index']);
+            Route::get('/posts', [PostController::class, 'index']);
+            Route::get('/posts/{post:slug}', [PostController::class, 'show']);
+            Route::post('/feedback', [FeedbackController::class, 'store'])->middleware('throttle:leads');
         });
 
         // Products, their categories and SEO task pages are exclusively the
@@ -98,8 +104,6 @@ Route::prefix('v1')->group(function () {
             Route::get('/task-pages/{slug}', [TaskPageController::class, 'show']);
         });
 
-        Route::get('/posts', [PostController::class, 'index']);
-        Route::get('/posts/{post:slug}', [PostController::class, 'show']);
         Route::get('/settings', [SettingsController::class, 'show']);
         Route::post('/leads', [LeadController::class, 'store'])->middleware('throttle:leads');
     });
@@ -180,17 +184,22 @@ Route::prefix('v1')->group(function () {
             Route::middleware('business.can:orders')->group(function () {
                 Route::get('/dashboard', AdminDashboardController::class);
 
-                // Orders from the site: the "orders" module (a business that sells services).
-                Route::middleware('feature:orders')->group(function () {
-                    Route::get('/leads', [AdminLeadController::class, 'index']);
-                    Route::post('/leads', [AdminLeadController::class, 'store']);
-                    Route::get('/leads/{lead}', [AdminLeadController::class, 'show']);
-                    Route::patch('/leads/{lead}', [AdminLeadController::class, 'update']);
+                // Orders from the site: every business has them.
+                Route::get('/leads', [AdminLeadController::class, 'index']);
+                Route::post('/leads', [AdminLeadController::class, 'store']);
+                Route::get('/leads/{lead}', [AdminLeadController::class, 'show']);
+                Route::patch('/leads/{lead}', [AdminLeadController::class, 'update']);
 
-                    // Orders by day: rows of the order tables and the site's orders.
-                    Route::get('/calendar', AdminCalendarController::class);
-                    // An order added on a day goes to the table of its month (made when missing).
-                    Route::post('/calendar/rows', [AdminCalendarRowController::class, 'store']);
+                // Orders by day: rows of the order tables and the site's orders.
+                Route::get('/calendar', AdminCalendarController::class);
+                // An order added on a day goes to the table of its month (made when missing).
+                Route::post('/calendar/rows', [AdminCalendarRowController::class, 'store']);
+
+                // What visitors wrote through the site's feedback form.
+                Route::middleware('feature:site')->group(function () {
+                    Route::get('/feedback', [AdminFeedbackController::class, 'index']);
+                    Route::patch('/feedback/{feedbackMessage}', [AdminFeedbackController::class, 'update']);
+                    Route::delete('/feedback/{feedbackMessage}', [AdminFeedbackController::class, 'destroy']);
                 });
 
                 // The business's own tables (orders, sales): everyone who works
@@ -274,10 +283,6 @@ Route::prefix('v1')->group(function () {
                 Route::patch('/data-tables/{dataTable}', [AdminDataTableController::class, 'update']);
                 Route::delete('/data-tables/{dataTable}', [AdminDataTableController::class, 'destroy']);
 
-                Route::get('/additional-services', [AdminAdditionalServiceController::class, 'index']);
-                Route::post('/additional-services', [AdminAdditionalServiceController::class, 'store']);
-                Route::patch('/additional-services/{additionalService}', [AdminAdditionalServiceController::class, 'update']);
-                Route::delete('/additional-services/{additionalService}', [AdminAdditionalServiceController::class, 'destroy']);
                 Route::get('/products', [AdminProductController::class, 'index']);
                 Route::post('/products', [AdminProductController::class, 'store']);
                 Route::patch('/products/{product}', [AdminProductController::class, 'update']);
@@ -290,10 +295,16 @@ Route::prefix('v1')->group(function () {
                 Route::post('/task-pages', [AdminTaskPageController::class, 'store']);
                 Route::patch('/task-pages/{taskPage}', [AdminTaskPageController::class, 'update']);
                 Route::delete('/task-pages/{taskPage}', [AdminTaskPageController::class, 'destroy']);
-                Route::get('/calculator-settings', [AdminCalculatorSettingController::class, 'show']);
-                Route::put('/calculator-settings', [AdminCalculatorSettingController::class, 'update']);
-                // The services catalog, as on the site (see above).
-                Route::middleware('feature:services,auto-care')->group(function () {
+                // The services module, as on the site (see above).
+                Route::middleware('feature:services')->group(function () {
+                    // The price calculator: added by hand, a business without one has none.
+                    Route::get('/calculator-settings', [AdminCalculatorSettingController::class, 'show']);
+                    Route::post('/calculator-settings', [AdminCalculatorSettingController::class, 'store']);
+                    Route::put('/calculator-settings', [AdminCalculatorSettingController::class, 'update']);
+                    Route::get('/additional-services', [AdminAdditionalServiceController::class, 'index']);
+                    Route::post('/additional-services', [AdminAdditionalServiceController::class, 'store']);
+                    Route::patch('/additional-services/{additionalService}', [AdminAdditionalServiceController::class, 'update']);
+                    Route::delete('/additional-services/{additionalService}', [AdminAdditionalServiceController::class, 'destroy']);
                     Route::get('/service-categories', [AdminServiceCategoryController::class, 'index']);
                     Route::post('/service-categories', [AdminServiceCategoryController::class, 'store']);
                     Route::patch('/service-categories/{serviceCategory}', [AdminServiceCategoryController::class, 'update']);
@@ -306,6 +317,15 @@ Route::prefix('v1')->group(function () {
                     Route::post('/service-packages', [AdminServicePackageController::class, 'store']);
                     Route::patch('/service-packages/{servicePackage}', [AdminServicePackageController::class, 'update']);
                     Route::delete('/service-packages/{servicePackage}', [AdminServicePackageController::class, 'destroy']);
+                });
+
+                // The site module (see above).
+                Route::middleware('feature:site')->group(function () {
+                    Route::get('/posts', [AdminPostController::class, 'index']);
+                    Route::post('/posts', [AdminPostController::class, 'store']);
+                    Route::get('/posts/{post}', [AdminPostController::class, 'show']);
+                    Route::patch('/posts/{post}', [AdminPostController::class, 'update']);
+                    Route::delete('/posts/{post}', [AdminPostController::class, 'destroy']);
                     Route::get('/service-gallery-items', [AdminServiceGalleryItemController::class, 'index']);
                     Route::post('/service-gallery-items', [AdminServiceGalleryItemController::class, 'store']);
                     Route::patch('/service-gallery-items/{serviceGalleryItem}', [AdminServiceGalleryItemController::class, 'update']);

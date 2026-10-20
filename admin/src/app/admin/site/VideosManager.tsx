@@ -2,12 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { AdminServiceDto, AdminServiceVideoDto, AdminTranslated } from "@/lib/adminApi";
+import type { AdminServiceDto, AdminServiceVideoDto, AdminTranslated, SiteVideoKind } from "@/lib/adminApi";
 import { TranslatedFields, emptyTranslated, toTranslated, fieldClasses, labelClasses } from "../services/shared";
 import { ImageUploadField } from "../services/ImageUploadField";
-import { buttonClasses } from "../_components/ui";
+import { Badge, buttonClasses } from "../_components/ui";
+
+export const VIDEO_KIND_LABELS: Record<SiteVideoKind, string> = {
+  before_after: "Մինչև/հետո",
+  info: "Տեղեկատվական",
+};
 
 type FormState = {
+  kind: SiteVideoKind;
   serviceId: string;
   title: AdminTranslated;
   videoPath: string;
@@ -18,6 +24,7 @@ type FormState = {
 
 function toFormState(item: AdminServiceVideoDto): FormState {
   return {
+    kind: item.kind,
     serviceId: item.serviceId != null ? String(item.serviceId) : "",
     title: toTranslated(item.title),
     videoPath: item.videoPath,
@@ -28,11 +35,12 @@ function toFormState(item: AdminServiceVideoDto): FormState {
 }
 
 function emptyForm(): FormState {
-  return { serviceId: "", title: emptyTranslated(), videoPath: "", posterImage: "", sortOrder: "0", isPublished: false };
+  return { kind: "before_after", serviceId: "", title: emptyTranslated(), videoPath: "", posterImage: "", sortOrder: "0", isPublished: false };
 }
 
 function payloadFrom(form: FormState) {
   return {
+    kind: form.kind,
     service_id: form.serviceId ? Number(form.serviceId) : null,
     title: form.title,
     video_path: form.videoPath.trim(),
@@ -50,7 +58,12 @@ function VideoFields({ form, setForm, services, disabled }: {
 }) {
   return (
     <>
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className="grid gap-2 sm:grid-cols-4">
+        <select value={form.kind} disabled={disabled} onChange={(e) => setForm({ ...form, kind: e.target.value as SiteVideoKind })} className={fieldClasses}>
+          {(Object.keys(VIDEO_KIND_LABELS) as SiteVideoKind[]).map((kind) => (
+            <option key={kind} value={kind}>{VIDEO_KIND_LABELS[kind]}</option>
+          ))}
+        </select>
         <select value={form.serviceId} disabled={disabled} onChange={(e) => setForm({ ...form, serviceId: e.target.value })} className={fieldClasses}>
           <option value="">— ընդհանուր (ոչ մեկին կապված) —</option>
           {services.map((s) => (
@@ -124,7 +137,10 @@ function VideoCard({ item, services, onChanged }: { item: AdminServiceVideoDto; 
 
   return (
     <div className="space-y-3 rounded-lg border border-border bg-surface p-4">
-      <p className={labelClasses}>#{item.id}</p>
+      <div className="flex items-center gap-2">
+        <p className={labelClasses}>#{item.id}</p>
+        <Badge tone={item.kind === "before_after" ? "success" : "default"}>{VIDEO_KIND_LABELS[item.kind]}</Badge>
+      </div>
       <VideoFields form={form} setForm={setForm} services={services} disabled={pending} />
       <div className="flex items-center gap-3">
         <button type="button" onClick={save} disabled={pending} className={buttonClasses("primary", "sm")}>

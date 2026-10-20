@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AdditionalServiceCategory, PriceUnit } from "@/lib/api";
 import type { AdminAdditionalServiceDto, AdminTranslated } from "@/lib/adminApi";
-import { ImageUploadField } from "../services/ImageUploadField";
+import { ImageUploadField } from "./ImageUploadField";
 import { Badge, Button, EmptyCard, FieldLabel, Input, Select } from "../_components/ui";
 
 type Locale = "hy" | "ru" | "en";

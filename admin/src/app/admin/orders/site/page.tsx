@@ -7,7 +7,6 @@ import { OrderStatusSelect } from "./OrderStatusSelect";
 import { OrderPriceInput } from "./OrderPriceInput";
 import { LEAD_STATUS_LABELS } from "../../_components/leadStatus";
 import { Badge, buttonClasses, EmptyRow, PageHeader, TableWrap, Th, Thead, Td, Tr } from "../../_components/ui";
-import { requireSectionModule } from "../../_components/tables/views";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +17,6 @@ function first(value: string | string[] | undefined): string | undefined {
 /** Orders from the site's form: a table of their own, kept by status and final price. */
 export default async function AdminSiteOrdersPage(props: PageProps<"/admin/orders/site">) {
   await requirePermission("orders");
-  await requireSectionModule("orders");
 
   const searchParams = await props.searchParams;
   const status = first(searchParams.status);

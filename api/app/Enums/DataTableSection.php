@@ -2,40 +2,21 @@
 
 namespace App\Enums;
 
-use App\Features\FeatureFlag;
 use App\Models\User;
 use App\Tenancy\TenantContext;
-use Laravel\Pennant\Feature;
 
 /**
  * Which part of the business admin a custom table lives in. Orders and
- * sales are modules the super admin turns on per business (orders for a
- * business that sells services, sales for one that sells goods) and bring
+ * sales are in every business's admin (no module to turn on) and bring
  * money in. Expenses are what the business spends (taxes, rent, stock...):
- * every business has them, so there's no module, but only roles that may
- * see them (BusinessRole::EXPENSES) reach their tables.
+ * every business has them too, but only roles that may see them
+ * (BusinessRole::EXPENSES) reach their tables.
  */
 enum DataTableSection: string
 {
     case Orders = 'orders';
     case Sales = 'sales';
     case Expenses = 'expenses';
-
-    /** The module that turns the section on; expenses have none. */
-    public function feature(): ?FeatureFlag
-    {
-        return match ($this) {
-            self::Orders => FeatureFlag::Orders,
-            self::Sales => FeatureFlag::Sales,
-            self::Expenses => null,
-        };
-    }
-
-    /** On for the current business. */
-    public function isActive(): bool
-    {
-        return ($feature = $this->feature()) === null || Feature::active($feature->value);
-    }
 
     /** Rows of the section bring money in (orders, sales), not spend it. */
     public function isRevenue(): bool

@@ -12,7 +12,6 @@ import {
   getDataTableRows,
   getDataTables,
   getEmployeeStats,
-  getFeatureFlagsAdmin,
   getLeads,
   type DataTableSection,
   type PeriodKind,
@@ -27,14 +26,6 @@ import { SECTIONS, tablePath, tablesPath } from "./shared";
 import { TABLE_PERIOD_LABELS } from "./periods";
 import { periodFromParams } from "./PeriodNav";
 import { PerformerStats } from "./PerformerStats";
-
-/** 404 while the section's module (orders, sales) is off for this business; expenses have none. */
-export async function requireSectionModule(section: DataTableSection): Promise<void> {
-  const feature = SECTIONS[section].feature;
-  if (feature === null) return;
-  const flags = await getFeatureFlagsAdmin();
-  if (!flags.find((f) => f.key === feature)?.active) notFound();
-}
 
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -90,7 +81,6 @@ export async function TablesListView({
   children?: ReactNode;
 }) {
   const me = await requirePermission(SECTIONS[section].permission);
-  await requireSectionModule(section);
   const current = periodFromParams(searchParams);
   const [tables, site, performers] = await Promise.all([
     getDataTables(section),
@@ -159,7 +149,6 @@ export async function TableView({
   searchParams: Record<string, string | string[] | undefined>;
 }) {
   const me = await requirePermission(SECTIONS[section].permission);
-  await requireSectionModule(section);
 
   const search = first(searchParams.search);
   const page = Number(first(searchParams.page)) || undefined;
@@ -200,7 +189,6 @@ export async function TableView({
 
 export async function NewTableView({ section }: { section: DataTableSection }) {
   await requirePermission(SECTIONS[section].design);
-  await requireSectionModule(section);
 
   return (
     <div className="space-y-6">
@@ -216,7 +204,6 @@ export async function NewTableView({ section }: { section: DataTableSection }) {
 
 export async function TableSettingsView({ section, id }: { section: DataTableSection; id: string }) {
   await requirePermission(SECTIONS[section].design);
-  await requireSectionModule(section);
   const table = await loadTable(section, id);
 
   return (
@@ -244,7 +231,6 @@ export async function ImportView({
   searchParams: Record<string, string | string[] | undefined>;
 }) {
   await requirePermission(SECTIONS[section].permission);
-  await requireSectionModule(section);
   const table = await loadTable(section, id);
 
   // ?import=: a file already uploaded (a table just made from it).

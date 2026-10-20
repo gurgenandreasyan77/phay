@@ -53,15 +53,6 @@ class ServicesModuleTest extends TestCase
         $this->getJson('/api/v1/admin/services')->assertOk()->assertJsonCount(1, 'data');
     }
 
-    public function test_auto_care_alone_still_opens_the_catalog_it_is_built_on(): void
-    {
-        $shop = $this->createTenant('test-shop');
-        $key = $this->createSite($shop)->public_key;
-        Feature::for($shop)->activate('auto-care');
-
-        $this->getJson('/api/v1/services', ['X-Site-Key' => $key])->assertOk();
-    }
-
     public function test_the_module_has_its_own_price_in_the_subscription(): void
     {
         $this->superAdmin();

@@ -2,12 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { BadgeCheck, Bell, CalendarDays, CheckCheck, ClipboardList, MessageCircle } from "lucide-react";
+import { BadgeCheck, Bell, CalendarDays, CheckCheck, ClipboardList, Inbox, MessageCircle } from "lucide-react";
 import { cn } from "../ui";
 import { timeAgo, useNotifications, type AdminNotificationDto } from "./notifications";
 
 const ICONS = {
   new_lead: ClipboardList,
+  feedback: Inbox,
   support_message: MessageCircle,
   subscription: BadgeCheck,
   today_orders: CalendarDays,

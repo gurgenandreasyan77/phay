@@ -7,6 +7,7 @@ use App\Models\ServiceCategory;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Pennant\Feature;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -104,6 +105,7 @@ class AdminTenantTest extends TestCase
             'service_slug' => $servioService->slug,
         ])->assertUnprocessable()->assertJsonValidationErrors('service_slug');
 
+        Feature::for($this->shop)->activate('site');
         $this->postJson('/api/v1/admin/service-videos', [
             'service_id' => $servioService->id,
         ])->assertUnprocessable()->assertJsonValidationErrors('service_id');

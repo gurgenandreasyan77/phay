@@ -24,7 +24,7 @@ export function ImageUploadField({
   label: string;
   value: string;
   onChange: (path: string) => void;
-  folder: "services" | "service-packages" | "service-gallery" | "service-videos" | "additional-services";
+  folder: "services" | "service-packages" | "service-gallery" | "service-videos" | "additional-services" | "posts";
   accept?: string;
   disabled?: boolean;
 }) {

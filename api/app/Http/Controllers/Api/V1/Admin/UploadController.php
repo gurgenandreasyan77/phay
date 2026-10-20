@@ -22,7 +22,7 @@ class UploadController extends Controller
      * `public/`. Video and image folders get different mime/size rules,
      * since a short process clip is legitimately much larger than a photo.
      */
-    private const IMAGE_FOLDERS = ['services', 'service-packages', 'service-gallery', 'additional-services'];
+    private const IMAGE_FOLDERS = ['services', 'service-packages', 'service-gallery', 'additional-services', 'posts'];
 
     private const VIDEO_FOLDERS = ['service-videos'];
 

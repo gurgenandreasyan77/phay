@@ -8,7 +8,6 @@ use App\Models\Lead;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Pennant\Feature;
 use Laravel\Sanctum\Sanctum;
 use Tests\Feature\Tenancy\TenancyTestHelpers;
 use Tests\TestCase;
@@ -111,7 +110,6 @@ class AdminCalendarTest extends TestCase
 
     public function test_sales_tables_and_other_businesses_stay_out(): void
     {
-        Feature::for($this->salon)->activate('sales');
         $sales = $this->table('Վաճառքներ', 'date', 'sales');
         $this->addRow($sales, 'Մոմ', '2026-10-05', 3000);
 
@@ -128,14 +126,10 @@ class AdminCalendarTest extends TestCase
         $this->assertSame([], $response->json('data.leads'));
     }
 
-    public function test_it_needs_the_orders_module_and_a_short_range(): void
+    public function test_it_needs_a_short_range(): void
     {
         $this->getJson('/api/v1/admin/calendar?from=2026-10-01&to=2027-01-31')->assertStatus(422);
         $this->getJson('/api/v1/admin/calendar?from=2026-10-31&to=2026-10-01')->assertStatus(422);
-
-        Feature::for($this->salon)->deactivate('orders');
-
-        $this->getJson('/api/v1/admin/calendar?from=2026-10-01&to=2026-10-31')->assertNotFound();
     }
 
     public function test_a_moderator_sees_the_calendar(): void
