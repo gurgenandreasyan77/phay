@@ -1,0 +1,103 @@
+/*
+ * The premium invitation in the header: a gold chip whose text shimmers
+ * and changes every few seconds. Still under reduced motion.
+ */
+
+.chip {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(217, 178, 99, 0.55);
+  background: linear-gradient(135deg, #1f3a33 0%, #24404d 100%);
+  color: #f3dc9e;
+  box-shadow: 0 6px 16px -10px rgba(19, 36, 31, 0.7);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px -12px rgba(19, 36, 31, 0.8);
+}
+
+/* A band of light passing over the chip now and then. */
+.chip::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 246, 220, 0.28) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: sweep 4.5s ease-in-out infinite;
+}
+
+@keyframes sweep {
+  0%,
+  55% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+.gold {
+  background: linear-gradient(100deg, #f3dc9e 0%, #fff6dc 35%, #d9b263 60%, #f3dc9e 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.hint {
+  display: inline-block;
+  animation: hintIn 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes hintIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.crown {
+  animation: bob 3s ease-in-out infinite;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: rotate(-6deg);
+  }
+  50% {
+    transform: rotate(6deg) translateY(-1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip::after,
+  .gold,
+  .hint,
+  .crown {
+    animation: none;
+  }
+
+  .chip,
+  .chip:hover {
+    transition: none;
+    transform: none;
+  }
+}

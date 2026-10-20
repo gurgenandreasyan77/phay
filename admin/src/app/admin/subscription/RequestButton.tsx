@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { ConfirmDialog, type ConfirmContent } from "../_components/dialog/ConfirmDialog";
 import { Button, cn } from "../_components/ui";
 
 type RequestBody =
@@ -11,34 +12,52 @@ type RequestBody =
   | { kind: "plan"; plan_id: number };
 
 /**
- * Writes the request to the platform in the business's chat, then points
- * there. `className` replaces the button's own look (cards in colour).
+ * Asks «are you sure?» with what the request means, then writes it to the
+ * platform in the business's chat and points there. `className` replaces
+ * the button's own look (cards in colour).
  */
 export function RequestButton({
   body,
   label,
+  confirm,
   primary,
   className,
   onDark,
 }: {
   body: RequestBody;
   label: string;
+  confirm: ConfirmContent;
   primary?: boolean;
   className?: string;
   /** Sits on a dark card: messages in light colours. */
   onDark?: boolean;
 }) {
-  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [state, setState] = useState<"idle" | "asking" | "sending" | "sent" | "error">("idle");
 
   async function send() {
     setState("sending");
-    const response = await fetch("/api/admin/subscription/request", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setState(response.ok ? "sent" : "error");
+    try {
+      const response = await fetch("/api/admin/subscription/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      setState(response.ok ? "sent" : "error");
+    } catch {
+      setState("error");
+    }
   }
+
+  const dialog = (
+    <ConfirmDialog
+      open={state === "asking" || state === "sending" || state === "error"}
+      content={confirm}
+      pending={state === "sending"}
+      error={state === "error" ? "Չհաջողվեց ուղարկել։ Փորձեք կրկին։" : null}
+      onConfirm={send}
+      onCancel={() => setState("idle")}
+    />
+  );
 
   if (state === "sent") {
     return (
@@ -62,18 +81,16 @@ export function RequestButton({
             className,
           )}
           disabled={state === "sending"}
-          onClick={send}
+          onClick={() => setState("asking")}
         >
           {label}
         </button>
       ) : (
-        <Button variant={primary ? "primary" : "secondary"} size={primary ? "md" : "sm"} disabled={state === "sending"} onClick={send}>
+        <Button variant={primary ? "primary" : "secondary"} size={primary ? "md" : "sm"} disabled={state === "sending"} onClick={() => setState("asking")}>
           {label}
         </Button>
       )}
-      {state === "error" ? (
-        <span className={cn("text-sm", onDark ? "text-[#f3b0a8]" : "text-danger")}>Չհաջողվեց ուղարկել։</span>
-      ) : null}
+      {dialog}
     </div>
   );
 }

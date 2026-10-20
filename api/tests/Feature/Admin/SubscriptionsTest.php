@@ -9,6 +9,7 @@ use App\Models\Subscription;
 use App\Models\SupportMessage;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Subscriptions\Subscriptions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Pennant\Feature;
 use Laravel\Sanctum\Sanctum;
@@ -104,6 +105,29 @@ class SubscriptionsTest extends TestCase
         Sanctum::actingAs($this->owner);
         $this->getJson('/api/v1/admin/plans')->assertForbidden();
         $this->getJson('/api/v1/admin/subscriptions')->assertForbidden();
+    }
+
+    public function test_premium_is_the_top_plan_above_the_default_one(): void
+    {
+        Sanctum::actingAs($this->owner);
+        // The default plan is not premium, even while it is the only one.
+        $this->getJson('/api/v1/admin/me')->assertJsonPath('data.subscription.premium', false);
+        $this->getJson('/api/v1/admin/subscription')->assertJsonPath('data.subscription.premium', false);
+
+        Sanctum::actingAs($this->admin);
+        $premium = $this->postJson('/api/v1/admin/plans', ['name' => 'Պրեմիում', 'price' => 9900, 'trial_days' => 0])
+            ->assertCreated()->json('data.id');
+        $this->patchJson("/api/v1/admin/tenants/{$this->shop->id}/subscription", ['plan_id' => $premium])->assertOk();
+
+        Sanctum::actingAs($this->owner);
+        $this->getJson('/api/v1/admin/me')->assertJsonPath('data.subscription.premium', true);
+
+        // A pricier plan appears: the business is no longer on the top one.
+        Plan::query()->create(['name' => 'Բիզնես', 'price' => 19900, 'trial_days' => 0, 'included_modules' => [], 'is_active' => true]);
+        $this->getJson('/api/v1/admin/me')->assertJsonPath('data.subscription.premium', false);
+
+        // Servio itself never sees the invitation.
+        $this->assertTrue(app(Subscriptions::class)->isPremium(app(Subscriptions::class)->for(Tenant::default())));
     }
 
     public function test_free_access_is_given_and_extended_by_the_super_admin(): void

@@ -52,6 +52,24 @@ class Subscriptions
         return $subscription;
     }
 
+    /**
+     * On the premium plan: a plan above the default one with nothing pricier
+     * to move to. Unlimited (Servio) counts as premium: it is never offered one.
+     */
+    public function isPremium(Subscription $subscription): bool
+    {
+        if ($subscription->unlimited) {
+            return true;
+        }
+
+        $plan = $subscription->plan;
+        if (! $plan || $plan->id === Plan::default()?->id) {
+            return false;
+        }
+
+        return ! Plan::query()->where('is_active', true)->where('price', '>', $plan->price)->exists();
+    }
+
     /** @return array<string, mixed> */
     private function starting(Tenant $tenant): array
     {

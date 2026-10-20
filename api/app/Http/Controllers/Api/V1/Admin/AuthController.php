@@ -117,6 +117,8 @@ class AuthController extends Controller
             'daysLeft' => $subscription->daysLeft(),
             'ending' => $subscription->isEnding($subscriptions->warnDays()),
             'locked' => ! $status->allowsAccess() && ! $user->isPlatformStaff(),
+            // Not on premium: the header invites the owner to it.
+            'premium' => $subscriptions->isPremium($subscription),
         ];
     }
 }

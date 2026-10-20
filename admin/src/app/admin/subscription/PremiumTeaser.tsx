@@ -34,7 +34,7 @@ export function PremiumTeaser({ assistant, canAsk }: { assistant: { used: number
   ];
 
   return (
-    <section className={`${styles.premium} ${styles.rise} p-6 sm:p-8`} style={{ "--i": 2 } as CSSProperties}>
+    <section id="premium" className={`${styles.premium} ${styles.rise} scroll-mt-20 p-6 sm:p-8`} style={{ "--i": 2 } as CSSProperties}>
       <Sparkles className={styles.sparkle} style={{ top: 18, right: "46%", "--d": "0s" } as CSSProperties} size={14} />
       <Sparkles className={styles.sparkle} style={{ bottom: 22, left: 24, "--d": "1.1s" } as CSSProperties} size={12} />
       <Sparkles className={styles.sparkle} style={{ top: 40, left: "38%", "--d": "2s" } as CSSProperties} size={10} />
@@ -95,6 +95,12 @@ export function PremiumTeaser({ assistant, canAsk }: { assistant: { used: number
             <RequestButton
               body={{ kind: "premium" }}
               label="Տեղեկացնել ինձ, երբ հասանելի լինի"
+              confirm={{
+                title: "Տեղեկացնե՞լ ձեզ Պրեմիումի մասին",
+                description:
+                  "Պրեմիումը դեռ պատրաստվում է։ Երբ այն հասանելի լինի, Servio-ի թիմը կգրի ձեզ չատում։ Սա ձեզ ոչնչի չի պարտավորեցնում, գումար չի գանձվի։",
+                confirmLabel: "Այո, տեղեկացնել",
+              }}
               className={`${styles.cta} h-11 px-5`}
               onDark
             />
