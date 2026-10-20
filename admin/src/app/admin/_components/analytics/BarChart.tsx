@@ -1,4 +1,6 @@
+import type { CSSProperties } from "react";
 import { cn } from "../ui";
+import styles from "./charts.module.css";
 import { formatNumber } from "../tables/shared";
 
 export type ChartBar = {
@@ -106,12 +108,15 @@ export function BarChart({
   bars,
   format,
   axis = compact,
+  color = "var(--color-primary)",
 }: {
   bars: ChartBar[];
   /** The value in full, for the hover card: "12 500 դր.", "3 վաճառք". */
   format: (n: number) => string;
   /** The value on the axis and above the bars, short. */
   axis?: (n: number) => string;
+  /** The bars' colour; losses stay red. */
+  color?: string;
 }) {
   if (bars.every((bar) => bar.value === 0)) {
     return <p className="py-10 text-center text-sm text-ink-muted">Այս ժամանակահատվածում տվյալներ դեռ չկան։</p>;
@@ -163,18 +168,28 @@ export function BarChart({
                   ) : (
                     <div
                       className={cn(
-                        "absolute left-1/2 w-4/5 max-w-14 -translate-x-1/2 transition-colors",
-                        negative
-                          ? "rounded-b-sm bg-danger/60 group-hover:bg-danger group-focus:bg-danger"
-                          : "rounded-t-sm bg-primary/70 group-hover:bg-primary group-focus:bg-primary",
+                        "absolute left-1/2 w-4/5 max-w-14 -translate-x-1/2",
+                        negative ? `rounded-b-sm ${styles.barDown}` : `rounded-t-md ${styles.barUp}`,
                       )}
-                      style={negative ? { top: `${100 - zero}%`, height: `${height}%` } : { bottom: `${zero}%`, height: `${height}%` }}
+                      style={
+                        {
+                          ...(negative ? { top: `${100 - zero}%` } : { bottom: `${zero}%` }),
+                          height: `${height}%`,
+                          "--bar": negative ? "var(--color-danger)" : color,
+                          "--i": i,
+                        } as unknown as CSSProperties
+                      }
                     />
                   )}
                   {withValues && bar.value !== 0 ? (
                     <span
-                      className="absolute inset-x-0 text-center text-[10px] font-medium whitespace-nowrap text-ink-muted"
-                      style={negative ? { top: `calc(${100 - bottom}% + 2px)` } : { bottom: `calc(${top}% + 2px)` }}
+                      className={`absolute inset-x-0 text-center text-[10px] font-medium whitespace-nowrap text-ink-muted ${styles.fadeIn}`}
+                      style={
+                        {
+                          ...(negative ? { top: `calc(${100 - bottom}% + 2px)` } : { bottom: `calc(${top}% + 2px)` }),
+                          "--i": i,
+                        } as unknown as CSSProperties
+                      }
                     >
                       {axis(bar.value)}
                     </span>

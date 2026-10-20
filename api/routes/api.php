@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AdditionalServiceController;
 use App\Http\Controllers\Api\V1\Admin\AdditionalServiceController as AdminAdditionalServiceController;
 use App\Http\Controllers\Api\V1\Admin\AnalyticsController as AdminAnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\AssistantController as AdminAssistantController;
+use App\Http\Controllers\Api\V1\Admin\AudienceController as AdminAudienceController;
 use App\Http\Controllers\Api\V1\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Api\V1\Admin\CalculatorSettingController as AdminCalculatorSettingController;
 use App\Http\Controllers\Api\V1\Admin\CalendarController as AdminCalendarController;
@@ -231,6 +232,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('/analytics/tables', AdminTableAnalyticsController::class);
                 Route::put('/analytics/dashboard', [AdminTableAnalyticsController::class, 'update']);
                 Route::get('/analytics/statistics', [AdminTableAnalyticsController::class, 'statistics']);
+                Route::get('/analytics/audience', AdminAudienceController::class);
                 // What each employee did: orders, revenue, costs.
                 Route::get('/employees/stats', [AdminEmployeeController::class, 'stats']);
                 Route::get('/assistant', [AdminAssistantController::class, 'show']);

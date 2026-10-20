@@ -183,6 +183,8 @@ export type ColumnRole =
   | "status"
   | "category"
   | "performer"
+  | "gender"
+  | "age"
   | "customer"
   | "phone"
   | "address"
@@ -472,6 +474,20 @@ export type AdminUserDto = {
   tenants: AdminTenantDto[];
   /** The current business's subscription (absent from an older API). */
   subscription?: SubscriptionSummaryDto | null;
+};
+
+/* --------------------------------------------------------------- Audience */
+
+export type AudienceGroupDto = { key: string; rows: number; amount: number | null };
+
+/** Who buys and from where, over a period; null: the tables have no such column. */
+export type AudienceDto = {
+  period: { days: number; from: string; to: string };
+  channels: (AudienceGroupDto & { label: string })[] | null;
+  gender: AudienceGroupDto[] | null;
+  age: AudienceGroupDto[] | null;
+  /** Connected social accounts; empty until one can be connected. */
+  social: { network: string; handle: string; followers: number; followersChange: number; reach: number; engagement: number }[];
 };
 
 /* ---------------------------------------------------------- Subscriptions */
@@ -911,6 +927,11 @@ export async function getAnalytics(period: AnalyticsPeriod): Promise<AnalyticsDt
 export async function getTableAnalytics(period: AnalyticsPeriod): Promise<TableAnalyticsDto[]> {
   const result = await adminApiFetch<TableAnalyticsDto[]>(`/admin/analytics/tables?period=${period}`);
   return result.data ?? [];
+}
+
+export async function getAudience(period: AnalyticsPeriod): Promise<AudienceDto | null> {
+  const result = await adminApiFetch<AudienceDto>(`/admin/analytics/audience?period=${period}`);
+  return result.data;
 }
 
 /** The statistics screen: every figure of each section, whatever the analytics dashboard shows. */

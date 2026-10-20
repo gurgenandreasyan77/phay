@@ -1,0 +1,155 @@
+/*
+ * Motion of the analytics charts: bars grow from the axis, rings and donut
+ * slices draw themselves, horizontal bars slide out. Pure CSS, so charts
+ * stay server components. Everything stands still under reduced motion.
+ */
+
+.barUp,
+.barDown {
+  animation: grow 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(min(var(--i, 0), 30) * 22ms);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bar) 62%, white), var(--bar));
+  opacity: 0.88;
+  transition:
+    opacity 0.2s ease,
+    filter 0.2s ease;
+}
+
+.barUp {
+  transform-origin: bottom;
+}
+
+.barDown {
+  transform-origin: top;
+  background: linear-gradient(0deg, color-mix(in srgb, var(--bar) 62%, white), var(--bar));
+}
+
+:global(.group):hover .barUp,
+:global(.group):hover .barDown,
+:global(.group):focus .barUp,
+:global(.group):focus .barDown {
+  opacity: 1;
+  filter: saturate(1.15) drop-shadow(0 4px 8px color-mix(in srgb, var(--bar) 35%, transparent));
+}
+
+@keyframes grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+.fadeIn {
+  animation: fade 0.6s ease both;
+  animation-delay: calc(min(var(--i, 0), 30) * 22ms + 350ms);
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Donut slices and rings: pathLength is 100, so dash values are percents. */
+.slice {
+  animation: draw 1.1s cubic-bezier(0.3, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 110ms);
+  transition:
+    stroke-width 0.2s ease,
+    opacity 0.2s ease;
+  cursor: default;
+}
+
+.slice:hover {
+  stroke-width: 15;
+}
+
+.donut:hover .slice:not(:hover) {
+  opacity: 0.45;
+}
+
+@keyframes draw {
+  from {
+    stroke-dasharray: 0 100;
+  }
+}
+
+.ring {
+  stroke-linecap: round;
+  animation: ring 1.3s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes ring {
+  from {
+    stroke-dashoffset: 100;
+  }
+}
+
+.spin {
+  animation: turn 1.3s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  transform-origin: center;
+}
+
+@keyframes turn {
+  from {
+    transform: rotate(-120deg);
+    opacity: 0;
+  }
+}
+
+.hbar {
+  transform-origin: left;
+  animation: slide 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 80ms);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--bar) 55%, white), var(--bar));
+}
+
+@keyframes slide {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.legendItem {
+  transition: background-color 0.2s ease;
+}
+
+.legendItem:hover {
+  background: var(--color-surface-secondary);
+}
+
+/* A sample chart: what the block will show once data arrives. */
+.sample {
+  position: relative;
+}
+
+.sampleBody {
+  filter: grayscale(0.25);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.sampleBadge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barUp,
+  .barDown,
+  .fadeIn,
+  .slice,
+  .ring,
+  .spin,
+  .hbar {
+    animation: none !important;
+  }
+
+  .barUp,
+  .barDown,
+  .slice,
+  .legendItem {
+    transition: none;
+  }
+}

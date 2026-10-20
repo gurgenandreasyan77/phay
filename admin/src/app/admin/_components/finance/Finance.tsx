@@ -2,6 +2,7 @@
 // came in, the cost of goods, the expenses and what was left (see the API's
 // Finance). Server components: the period is in the page's search params
 // (?by=&at=), stepped with links.
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
 import type { FinanceCategoryDto, FinanceDto, FinancePeriodDto, PeriodKind } from "@/lib/adminApi";
@@ -9,6 +10,8 @@ import { buttonClasses, Card, cn, TableWrap, Td, Th, Thead, Tr } from "../ui";
 import { money as formatMoney } from "../analytics/format";
 import { PERIOD_KINDS, PERIOD_UNIT_LABELS, shiftPeriod, today } from "../tables/periods";
 import { BarChart } from "../analytics/BarChart";
+import { PALETTE } from "../analytics/Charts";
+import chartStyles from "../analytics/charts.module.css";
 
 /** The view's kind and day from ?by=&at=; months up to today by default. */
 export function financeParams(params: Record<string, string | string[] | undefined>): { by: PeriodKind; date: string } {
@@ -100,7 +103,7 @@ export function FinanceCategories({ categories }: { categories: FinanceCategoryD
 
   return (
     <ul className="space-y-2.5">
-      {spent.map((c) => (
+      {spent.map((c, i) => (
         <li key={`${c.id ?? ""}-${c.name}`} className="space-y-1">
           <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
             <span className={cn("text-ink", !c.inProfit && "text-ink-muted")}>
@@ -112,8 +115,17 @@ export function FinanceCategories({ categories }: { categories: FinanceCategoryD
               {formatMoney(c.amount)} <span className="text-xs text-ink-faint">· {Math.round((c.amount / total) * 100)}%</span>
             </span>
           </div>
-          <div className="h-1.5 rounded-full bg-surface-secondary">
-            <div className={cn("h-full rounded-full", c.inProfit ? "bg-primary/70" : "bg-ink-faint/50")} style={{ width: `${(c.amount / max) * 100}%` }} />
+          <div className="h-2 overflow-hidden rounded-full bg-surface-secondary">
+            <div
+              className={cn("h-full rounded-full", chartStyles.hbar)}
+              style={
+                {
+                  width: `${(c.amount / max) * 100}%`,
+                  "--bar": c.inProfit ? PALETTE[i % PALETTE.length] : "#b9c0bc",
+                  "--i": i,
+                } as CSSProperties
+              }
+            />
           </div>
           {c.recurring > 0 ? <p className="text-xs text-ink-faint">որից կրկնվող՝ {formatMoney(c.recurring)}</p> : null}
         </li>

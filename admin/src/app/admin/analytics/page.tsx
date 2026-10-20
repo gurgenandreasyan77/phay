@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/adminAuth";
 import { can } from "@/lib/roles";
 import {
   getAnalytics,
+  getAudience,
   getFinance,
   type FinanceDto,
   getTableAnalytics,
@@ -19,6 +20,8 @@ import { LEAD_STATUS_LABELS, LEAD_STATUSES } from "../_components/leadStatus";
 import { WidgetPicker } from "../_components/analytics/WidgetPicker";
 import { formatMetric, money, PeriodTabs, periodFrom, SOURCE_LABELS } from "../_components/analytics/format";
 import { BarChart, bucketTitle, dateBars, weekdayShort, WEEKDAYS } from "../_components/analytics/BarChart";
+import { DonutChart, HBars, RingStat } from "../_components/analytics/Charts";
+import { AudienceSection } from "../_components/analytics/Audience";
 import { FinanceCategories, FinanceNotes, FinanceTiles, NetProfitChart } from "../_components/finance/Finance";
 import {
   buttonClasses,
@@ -80,10 +83,11 @@ export default async function AdminAnalyticsPage(props: {
   const me = await requirePermission("insights");
   const searchParams = await props.searchParams;
   const period = periodFrom(searchParams.period);
-  const [analytics, tables, finance] = await Promise.all([
+  const [analytics, tables, finance, audience] = await Promise.all([
     getAnalytics(period),
     getTableAnalytics(period),
     can(me, "expenses") ? getFinance({ by: "month" }) : null,
+    getAudience(period),
   ]);
   // Only what the business has: its site orders if it ever had one, and
   // each section whose tables have rows. Nothing yet: how to start.
@@ -122,6 +126,8 @@ export default async function AdminAnalyticsPage(props: {
           {sections.map((summary) => (
             <SectionFigures key={summary.section} summary={summary} besideSite={Boolean(site)} />
           ))}
+
+          <AudienceSection audience={audience} />
         </>
       )}
     </div>
@@ -213,6 +219,7 @@ function SiteOrders({
             <BarChart
               bars={dateBars(analytics.series, (p) => p.orders, (p) => (p.revenue ? [`Եկամուտ՝ ${money(p.revenue)}`] : []))}
               format={(n) => `${formatNumber(n)} պատվեր`}
+              color="var(--color-info)"
             />
           </Card>
         </SectionCard>
@@ -232,43 +239,34 @@ function SiteOrders({
         <div className="grid gap-6 lg:grid-cols-2">
           {analytics.topServices.length > 0 ? (
             <SectionCard title="Լավագույն ծառայություններ">
-              <TableWrap>
-                <Thead>
-                  <Th>Ծառայություն</Th>
-                  <Th className="text-right">Պատվերներ</Th>
-                  <Th className="text-right">Եկամուտ</Th>
-                </Thead>
-                <tbody>
-                  {analytics.topServices.map((row) => (
-                    <Tr key={row.serviceId ?? "none"}>
-                      <Td className="font-medium">{row.name ?? "Առանց ծառայության"}</Td>
-                      <Td className="text-right">{row.orders}</Td>
-                      <Td className="whitespace-nowrap text-right">{money(row.revenue)}</Td>
-                    </Tr>
-                  ))}
-                </tbody>
-              </TableWrap>
+              <Card>
+                <HBars
+                  bars={analytics.topServices.map((row) => ({
+                    key: String(row.serviceId ?? "none"),
+                    label: row.name ?? "Առանց ծառայության",
+                    value: analytics.totals.revenue > 0 ? row.revenue : row.orders,
+                    note: analytics.totals.revenue > 0 ? `${row.orders} պատվեր` : undefined,
+                  }))}
+                  format={analytics.totals.revenue > 0 ? money : (n) => `${formatNumber(n)} պատվեր`}
+                />
+              </Card>
             </SectionCard>
           ) : null}
 
           {analytics.sources.length > 0 ? (
             <SectionCard title="Որտեղից են գալիս պատվերները">
-              <TableWrap>
-                <Thead>
-                  <Th>Աղբյուր</Th>
-                  <Th className="text-right">Պատվերներ</Th>
-                  <Th className="text-right">Կատարված</Th>
-                </Thead>
-                <tbody>
-                  {analytics.sources.map((row) => (
-                    <Tr key={row.source}>
-                      <Td className="font-medium">{SOURCE_LABELS[row.source] ?? row.source}</Td>
-                      <Td className="text-right">{row.orders}</Td>
-                      <Td className="text-right">{row.completed}</Td>
-                    </Tr>
-                  ))}
-                </tbody>
-              </TableWrap>
+              <Card>
+                <DonutChart
+                  slices={analytics.sources.map((row) => ({
+                    key: row.source,
+                    label: SOURCE_LABELS[row.source] ?? row.source,
+                    value: row.orders,
+                    note: `${row.completed} կատարված`,
+                  }))}
+                  total="պատվեր"
+                  caption="Պատվերներն ըստ աղբյուրի"
+                />
+              </Card>
             </SectionCard>
           ) : null}
         </div>
@@ -279,14 +277,25 @@ function SiteOrders({
           title="Պատվերներն ըստ կարգավիճակի"
           description={`Այս ժամանակահատվածի պատվերները։ Հիմա բաց են ${analytics.openOrders} պատվեր։`}
         >
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-            {statuses.map((status) => (
-              <Card key={status} className="p-4">
-                <p className="text-xs text-ink-muted">{LEAD_STATUS_LABELS[status]}</p>
-                <p className="mt-1 text-xl font-semibold text-ink">{analytics.statuses[status]}</p>
-              </Card>
-            ))}
-          </div>
+          <Card className="grid items-center gap-6 lg:grid-cols-[2fr_1fr]">
+            <DonutChart
+              slices={statuses.map((status) => ({
+                key: status,
+                label: LEAD_STATUS_LABELS[status],
+                value: analytics.statuses[status],
+                color: STATUS_COLORS[status],
+              }))}
+              total="պատվեր"
+              caption="Պատվերներն ըստ կարգավիճակի"
+            />
+            <RingStat
+              value={analytics.statuses.completed ?? 0}
+              of={statuses.reduce((sum, status) => sum + analytics.statuses[status], 0)}
+              color="var(--color-success)"
+              label="Ավարտված պատվերներ"
+              hint="Այս ժամանակահատվածի բոլոր պատվերներից"
+            />
+          </Card>
         </SectionCard>
       ) : null}
     </section>
@@ -314,6 +323,7 @@ function AllOrders({ summary, period }: { summary: TableAnalyticsDto; period: An
             <BarChart
               bars={dateBars(all.series, (p) => p.rows, (p) => (p.amount ? [`Եկամուտ՝ ${money(p.amount)}`] : []))}
               format={(n) => `${formatNumber(n)} պատվեր`}
+              color="var(--color-info)"
             />
           </Card>
         </SectionCard>
@@ -364,6 +374,7 @@ function SectionFigures({ summary, besideSite }: { summary: TableAnalyticsDto; b
               (p) => [`Եկամուտ՝ ${money(p.amount)}`, `${p.rows} ${unit}`],
             )}
             format={money}
+            color="#5f9e8a"
           />
         </Card>
       </SectionCard>
@@ -374,6 +385,7 @@ function SectionFigures({ summary, besideSite }: { summary: TableAnalyticsDto; b
           <BarChart
             bars={dateBars(series, (p) => p.rows, (p) => (amount ? [`Եկամուտ՝ ${money(p.amount)}`] : []))}
             format={(n) => `${formatNumber(n)} ${unit}`}
+            color="var(--color-info)"
           />
         </Card>
       </SectionCard>
@@ -390,6 +402,7 @@ function SectionFigures({ summary, besideSite }: { summary: TableAnalyticsDto; b
               details: amount ? [`${d.rows} ${unit}`] : [],
             }))}
             format={(n) => (amount ? money(n) : `${formatNumber(n)} ${unit}`)}
+            color="var(--color-warning)"
           />
         </Card>
       </SectionCard>
@@ -405,6 +418,7 @@ function SectionFigures({ summary, besideSite }: { summary: TableAnalyticsDto; b
               value: h.rows,
             }))}
             format={(n) => `${formatNumber(n)} ${unit}`}
+            color="#8a6bb0"
           />
         </Card>
       </SectionCard>
@@ -473,23 +487,24 @@ function SectionFigures({ summary, besideSite }: { summary: TableAnalyticsDto; b
       {breakdowns.length > 0 ? (
         <div className="grid gap-6 lg:grid-cols-2">
           {breakdowns.map((breakdown) => (
-            <SectionCard key={breakdown.label} title={`Ըստ «${breakdown.label}»`}>
-              <TableWrap>
-                <Thead>
-                  <Th>{breakdown.label}</Th>
-                  <Th className="text-right">{section === "orders" ? "Պատվերներ" : "Վաճառքներ"}</Th>
-                  {amount ? <Th className="text-right">Եկամուտ</Th> : null}
-                </Thead>
-                <tbody>
-                  {breakdown.values.map((row) => (
-                    <Tr key={row.value}>
-                      <Td className="font-medium">{row.value}</Td>
-                      <Td className="text-right">{row.rows}</Td>
-                      {amount ? <Td className="whitespace-nowrap text-right">{money(row.amount)}</Td> : null}
-                    </Tr>
-                  ))}
-                </tbody>
-              </TableWrap>
+            <SectionCard
+              key={breakdown.label}
+              title={`Ըստ «${breakdown.label}»`}
+              description={amount ? "Եկամտի բաժինը" : `${section === "orders" ? "Պատվերների" : "Վաճառքների"} բաժինը`}
+            >
+              <Card>
+                <DonutChart
+                  slices={breakdown.values.map((row) => ({
+                    key: row.value,
+                    label: row.value,
+                    value: amount ? (row.amount ?? 0) : row.rows,
+                    note: amount ? `${row.rows} ${unit}` : undefined,
+                  }))}
+                  format={amount ? money : (n) => `${formatNumber(n)} ${unit}`}
+                  total={amount ? "դր." : unit}
+                  caption={`Ըստ «${breakdown.label}»`}
+                />
+              </Card>
               {breakdown.distinct > breakdown.values.length ? (
                 <p className="text-xs text-ink-muted">
                   Ցույց են տրված առաջին {breakdown.values.length}-ը {breakdown.distinct} տարբեր արժեքներից։
@@ -542,6 +557,18 @@ function SectionFigures({ summary, besideSite }: { summary: TableAnalyticsDto; b
     </section>
   );
 }
+
+/** A status's colour in the donut, as its badge elsewhere. */
+const STATUS_COLORS: Partial<Record<string, string>> = {
+  new: "#527589",
+  contacted: "#88715c",
+  waiting_for_photos: "#d39a52",
+  estimated: "#b98232",
+  confirmed: "#5f9e8a",
+  in_progress: "#3f6f62",
+  completed: "#3f7658",
+  cancelled: "#b85d5d",
+};
 
 const PER_UNIT: TableMetricDto["key"][] = ["quantity", "averageQuantity", "unitPrice"];
 

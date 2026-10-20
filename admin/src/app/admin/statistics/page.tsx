@@ -4,6 +4,8 @@ import { requirePermission } from "@/lib/adminAuth";
 import { can } from "@/lib/roles";
 import {
   getAnalytics,
+  getAudience,
+  type AudienceDto,
   getFinance,
   type FinanceDto,
   getTableStatistics,
@@ -13,7 +15,8 @@ import {
 } from "@/lib/adminApi";
 import { buttonClasses, Card, EmptyCard, EmptyRow, PageHeader, SectionCard, TableWrap, Td, Th, Thead, Tr, cn } from "../_components/ui";
 import { formatMetric, money, PeriodTabs, periodFrom, SOURCE_LABELS } from "../_components/analytics/format";
-import { bucketTitle } from "../_components/analytics/BarChart";
+import { BarChart, bucketTitle, dateBars } from "../_components/analytics/BarChart";
+import { DonutChart, type Slice } from "../_components/analytics/Charts";
 import { formatMoment, formatNumber, SECTIONS, tablePath } from "../_components/tables/shared";
 import { FinanceCategories, FinanceNav, FinanceNotes, FinanceTable, FinanceTiles, financeParams, NetProfitChart } from "../_components/finance/Finance";
 
@@ -52,10 +55,11 @@ export default async function AdminStatisticsPage(props: PageProps<"/admin/stati
   const me = await requirePermission("insights");
   const searchParams = await props.searchParams;
   const period = periodFrom(searchParams.period);
-  const [sections, site, finance] = await Promise.all([
+  const [sections, site, finance, audience] = await Promise.all([
     getTableStatistics(period),
     getAnalytics(period),
     can(me, "expenses") ? getFinance(financeParams(searchParams)) : null,
+    getAudience(period),
   ]);
   const siteOrders = site && site.everOrders > 0 ? site : null;
 
@@ -96,6 +100,7 @@ export default async function AdminStatisticsPage(props: PageProps<"/admin/stati
           {stats.map((s) => (
             <SectionStats key={s.key} stats={s} />
           ))}
+          {audience ? <AudienceStats audience={audience} /> : null}
         </>
       )}
     </div>
@@ -172,6 +177,11 @@ function fromSite(site: AnalyticsDto, period: number): Stats {
 }
 
 /** "2026-10-18" → "18.10.2026"; a month "2026-10" → "10.2026". */
+/** "Պատվերներ" → "պատվեր": what follows a number. */
+function single(unit: string): string {
+  return unit === "Վաճառքներ" ? "վաճառք" : unit === "Պատվերներ" ? "պատվեր" : unit.toLowerCase();
+}
+
 function day(date: string): string {
   return date.split("-").reverse().join(".");
 }
@@ -219,6 +229,18 @@ function SectionStats({ stats }: { stats: Stats }) {
       </div>
 
       <SectionCard title={stats.byMonth ? "Ըստ ամիսների" : "Ըստ օրերի"}>
+        {active > 0 ? (
+          <Card>
+            <BarChart
+              bars={dateBars(
+                started > 0 ? buckets.slice(started) : buckets,
+                (b) => (hasAmount ? b.amount : b.rows),
+                (b) => (hasAmount ? [`${b.rows} ${single(unit)}`] : []),
+              )}
+              format={hasAmount ? money : (n) => `${formatNumber(n)} ${single(unit)}`}
+            />
+          </Card>
+        ) : null}
         <TableWrap>
           <Thead>
             <Th>{stats.byMonth ? "Ամիս" : "Օր"}</Th>
@@ -332,6 +354,15 @@ function ShareTable({ share, unit, rows, amount }: { share: Stats["shares"][numb
   const withAmount = share.values.some((v) => v.amount !== null);
   return (
     <SectionCard title={share.title}>
+      <Card>
+        <DonutChart
+          slices={share.values.map((v) => ({ key: v.label, label: v.label, value: withAmount ? (v.amount ?? 0) : v.rows }))}
+          format={withAmount ? money : formatNumber}
+          total={withAmount ? "դր." : single(unit)}
+          caption={share.title}
+          size={140}
+        />
+      </Card>
       <TableWrap>
         <Thead>
           <Th>{share.head}</Th>
@@ -353,6 +384,56 @@ function ShareTable({ share, unit, rows, amount }: { share: Stats["shares"][numb
         </tbody>
       </TableWrap>
     </SectionCard>
+  );
+}
+
+const GENDER_LABELS: Record<string, string> = { female: "Իգական", male: "Արական", other: "Այլ" };
+const AGE_LABELS: Record<string, string> = { "<18": "մինչև 18", "55+": "55 և ավելի" };
+
+/** Channels, gender and age as exact numbers with shares; only what the tables have. */
+function AudienceStats({ audience }: { audience: AudienceDto }) {
+  const blocks = [
+    audience.channels ? { title: "Ըստ աղբյուրի", head: "Աղբյուր", rows: audience.channels.map((c) => ({ ...c, name: c.label })) } : null,
+    audience.gender ? { title: "Ըստ սեռի", head: "Սեռ", rows: audience.gender.map((g) => ({ ...g, name: GENDER_LABELS[g.key] ?? g.key })) } : null,
+    audience.age ? { title: "Ըստ տարիքի", head: "Տարիք", rows: audience.age.map((g) => ({ ...g, name: AGE_LABELS[g.key] ?? g.key })) } : null,
+  ].filter((b) => b !== null);
+  if (blocks.length === 0) return null;
+
+  return (
+    <section className="space-y-6 border-t border-border pt-8">
+      <h2 className="text-lg font-semibold text-ink">Հաճախորդներ</h2>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {blocks.map((block) => {
+          const total = block.rows.reduce((sum, r) => sum + r.rows, 0);
+          const slices: Slice[] = block.rows.map((r) => ({ key: r.key, label: r.name, value: r.rows }));
+          return (
+            <SectionCard key={block.title} title={block.title}>
+              <Card>
+                <DonutChart slices={slices} total="գնում" caption={block.title} size={140} />
+              </Card>
+              <TableWrap>
+                <Thead>
+                  <Th>{block.head}</Th>
+                  <Th className="text-right">Գնումներ</Th>
+                  <Th className="text-right">%</Th>
+                  <Th className="text-right">Եկամուտ</Th>
+                </Thead>
+                <tbody>
+                  {block.rows.map((r) => (
+                    <Tr key={r.key}>
+                      <Td className="font-medium">{r.name}</Td>
+                      <Td className="text-right">{r.rows}</Td>
+                      <Td className="text-right text-ink-muted">{percent(r.rows, total)}</Td>
+                      <Td className="whitespace-nowrap text-right">{r.amount === null ? "—" : money(r.amount)}</Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </TableWrap>
+            </SectionCard>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
