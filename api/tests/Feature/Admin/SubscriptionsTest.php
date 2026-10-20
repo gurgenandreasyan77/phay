@@ -9,6 +9,7 @@ use App\Models\Subscription;
 use App\Models\SupportMessage;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Subscriptions\Subscriptions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Pennant\Feature;
 use Laravel\Sanctum\Sanctum;
@@ -126,7 +127,7 @@ class SubscriptionsTest extends TestCase
         $this->getJson('/api/v1/admin/me')->assertJsonPath('data.subscription.premium', false);
 
         // Servio itself never sees the invitation.
-        $this->assertTrue(app(\App\Subscriptions\Subscriptions::class)->isPremium(app(\App\Subscriptions\Subscriptions::class)->for(Tenant::default())));
+        $this->assertTrue(app(Subscriptions::class)->isPremium(app(Subscriptions::class)->for(Tenant::default())));
     }
 
     public function test_free_access_is_given_and_extended_by_the_super_admin(): void
