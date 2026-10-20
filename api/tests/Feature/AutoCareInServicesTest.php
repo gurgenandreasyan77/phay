@@ -12,7 +12,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Pennant\Feature;
 use Tests\TestCase;
 
-class AutoCareFeatureFlagTest extends TestCase
+/**
+ * Car care is not a module of its own any more: it is a category of the
+ * services catalog (Servio's), its videos and before/after photos belong to
+ * the site module.
+ */
+class AutoCareInServicesTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -77,35 +82,38 @@ class AutoCareFeatureFlagTest extends TestCase
         $this->getJson('/api/v1/service-packages/auto-care-package')->assertOk();
     }
 
-    public function test_when_disabled_auto_care_endpoints_return_404_or_hide_the_data(): void
+    public function test_without_the_services_module_the_catalog_is_gone(): void
     {
-        Feature::deactivate(FeatureFlag::AutoCare->value);
+        Feature::deactivate(FeatureFlag::Services->value);
 
-        $this->getJson('/api/v1/categories')->assertOk()->assertJsonMissing(['slug' => 'auto-care']);
+        $this->getJson('/api/v1/categories')->assertNotFound();
         $this->getJson('/api/v1/services?category=auto-care')->assertNotFound();
-        $this->getJson('/api/v1/services')->assertOk()->assertJsonCount(0, 'data');
         $this->getJson('/api/v1/services/car-interior-cleaning')->assertNotFound();
-        $this->getJson('/api/v1/service-videos')->assertOk()->assertJsonCount(0, 'data');
-        $this->getJson('/api/v1/service-gallery')->assertOk()->assertJsonCount(0, 'data');
-        $this->getJson('/api/v1/service-packages?category=auto-care')->assertNotFound();
         $this->getJson('/api/v1/service-packages/auto-care-package')->assertNotFound();
+        // Videos and photos are the site's.
+        $this->getJson('/api/v1/service-videos')->assertOk()->assertJsonCount(1, 'data');
     }
 
-    public function test_disabling_does_not_delete_any_data(): void
+    public function test_without_the_site_module_its_videos_and_photos_are_gone(): void
     {
-        Feature::deactivate(FeatureFlag::AutoCare->value);
+        Feature::deactivate(FeatureFlag::Site->value);
+
+        $this->getJson('/api/v1/service-videos')->assertNotFound();
+        $this->getJson('/api/v1/service-gallery')->assertNotFound();
+        $this->getJson('/api/v1/services/car-interior-cleaning')->assertOk();
+    }
+
+    public function test_turning_modules_off_does_not_delete_any_data(): void
+    {
+        Feature::deactivate(FeatureFlag::Services->value);
+        Feature::deactivate(FeatureFlag::Site->value);
 
         $this->assertDatabaseHas('service_categories', ['id' => $this->category->id]);
         $this->assertDatabaseHas('services', ['id' => $this->service->id]);
         $this->assertDatabaseHas('service_packages', ['slug' => 'auto-care-package']);
-    }
+        $this->assertDatabaseCount('service_videos', 1);
 
-    public function test_re_enabling_restores_access_to_the_same_data(): void
-    {
-        Feature::deactivate(FeatureFlag::AutoCare->value);
-        $this->getJson('/api/v1/services/car-interior-cleaning')->assertNotFound();
-
-        Feature::activate(FeatureFlag::AutoCare->value);
+        Feature::activate(FeatureFlag::Services->value);
 
         $this->getJson('/api/v1/services/car-interior-cleaning')
             ->assertOk()

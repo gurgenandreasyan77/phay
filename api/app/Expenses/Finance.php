@@ -8,7 +8,6 @@ use App\Enums\ColumnRole;
 use App\Enums\DataTableSection;
 use App\Enums\LeadStatus;
 use App\Enums\TablePeriod;
-use App\Features\FeatureFlag;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
 use App\Models\ExpenseCategory;
@@ -17,7 +16,6 @@ use App\Models\RecurringExpense;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Laravel\Pennant\Feature;
 
 /**
  * What the business earned and what was left, per day, week, month,
@@ -137,7 +135,7 @@ final class Finance
     }
 
     /**
-     * Money in: rows of the orders and sales tables (modules that are on)
+     * Money in: rows of the orders and sales tables
      * and the site's completed orders, each with its cost of goods.
      *
      * @return array{rows: list<array{at: string, amount: int|float, cogs: int|float}>, tables: int, site: bool, withCost: bool, priced: int, costed: int}
@@ -145,7 +143,7 @@ final class Finance
     private function revenue(CarbonImmutable $from, CarbonImmutable $to): array
     {
         $tables = DataTable::query()
-            ->whereIn('section', collect(DataTableSection::revenue())->filter->isActive()->map->value->all())
+            ->whereIn('section', collect(DataTableSection::revenue())->map->value->all())
             ->get();
         $costs = $tables->mapWithKeys(fn (DataTable $t) => [$t->id => [
             'cost' => $t->roleColumn(ColumnRole::Cost)?->key,
@@ -179,25 +177,23 @@ final class Finance
                 }
             });
 
-        $site = Feature::active(FeatureFlag::Orders->value);
-        if ($site) {
-            $timezone = $this->timezone();
-            Lead::query()
-                ->where('status', LeadStatus::Completed)
-                ->whereNotNull('final_price')
-                ->whereNotNull('completed_at')
-                ->where('completed_at', '>=', $from->shiftTimezone($timezone)->utc())
-                ->where('completed_at', '<=', $to->endOfDay()->shiftTimezone($timezone)->utc())
-                ->get(['final_price', 'completed_at'])
-                ->each(function (Lead $lead) use (&$rows, $timezone) {
-                    $rows[] = [
-                        'at' => CarbonImmutable::parse($lead->completed_at)->setTimezone($timezone)->toDateString(),
-                        'amount' => (float) $lead->final_price,
-                        'cogs' => 0,
-                    ];
-                });
-            $site = Lead::query()->exists();
-        }
+        $timezone = $this->timezone();
+        Lead::query()
+            ->where('status', LeadStatus::Completed)
+            ->whereNotNull('final_price')
+            ->whereNotNull('completed_at')
+            ->where('completed_at', '>=', $from->shiftTimezone($timezone)->utc())
+            ->where('completed_at', '<=', $to->endOfDay()->shiftTimezone($timezone)->utc())
+            ->get(['final_price', 'completed_at'])
+            ->each(function (Lead $lead) use (&$rows, $timezone) {
+                $rows[] = [
+                    'at' => CarbonImmutable::parse($lead->completed_at)->setTimezone($timezone)->toDateString(),
+                    'amount' => (float) $lead->final_price,
+                    'cogs' => 0,
+                ];
+            });
+
+        $site = Lead::query()->exists();
 
         return [
             'rows' => $rows,

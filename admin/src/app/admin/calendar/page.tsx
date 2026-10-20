@@ -6,7 +6,6 @@ import { getCalendar } from "@/lib/adminApi";
 import { buttonClasses, cn, EmptyCard, PageHeader } from "../_components/ui";
 import { bucketTitle, weekdayShort } from "../_components/analytics/BarChart";
 import { formatMoney, SECTIONS, tablePath } from "../_components/tables/shared";
-import { requireSectionModule } from "../_components/tables/views";
 import { DayPanel } from "./DayPanel";
 import { addDays, addMonths, isDay, today, visibleDays, type CalendarView } from "./dates";
 import { groupByDay, tableColor, type CalendarDay } from "./entries";
@@ -28,7 +27,6 @@ function href(view: CalendarView, day: string): string {
  */
 export default async function AdminCalendarPage(props: PageProps<"/admin/calendar">) {
   const me = await requirePermission("orders");
-  await requireSectionModule("orders");
 
   const searchParams = await props.searchParams;
   const now = today();

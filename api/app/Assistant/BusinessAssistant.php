@@ -4,9 +4,9 @@ namespace App\Assistant;
 
 use App\Analytics\Dashboard;
 use App\DataTables\TableAnalytics;
+use App\Enums\DataTableSection;
 use App\Enums\TablePeriod;
 use App\Expenses\Finance;
-use App\Enums\DataTableSection;
 use App\Features\FeatureFlag;
 use App\Models\AssistantUsage;
 use App\Models\DataTable;
@@ -75,7 +75,7 @@ class BusinessAssistant
     {
         $tenant = $this->tenants->current();
         // Site orders only for a business that has any: no empty figures to talk about.
-        $siteOrders = Feature::active(FeatureFlag::Orders->value) && Lead::query()->exists();
+        $siteOrders = Lead::query()->exists();
         $data = json_encode(array_filter([
             'business' => [
                 'name' => $tenant->name,
@@ -84,11 +84,11 @@ class BusinessAssistant
                 'today' => now($tenant->timezone ?: config('app.timezone'))->toDateString(),
                 'sells' => array_values(array_filter([
                     $siteOrders ? 'services (orders)' : null,
-                    Feature::active(FeatureFlag::Sales->value) ? 'goods (sales)' : null,
+                    DataTable::query()->where('section', DataTableSection::Sales->value)->exists() ? 'goods (sales)' : null,
                 ])),
             ],
             'services' => $this->services(),
-            // Orders that came from the site (only for a business with the orders module).
+            // Orders that came from the site (only for a business that has any).
             'siteOrders' => $siteOrders ? [
                 'last30Days' => $this->analytics->summary(30),
                 'last365Days' => $this->analytics->summary(365),
@@ -182,7 +182,7 @@ class BusinessAssistant
     private function services(): array
     {
         // Without the catalog module the business has no services to talk about.
-        if (! Feature::someAreActive([FeatureFlag::Services->value, FeatureFlag::AutoCare->value])) {
+        if (! Feature::active(FeatureFlag::Services->value)) {
             return [];
         }
 

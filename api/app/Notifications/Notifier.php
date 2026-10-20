@@ -7,10 +7,10 @@ use App\Enums\ColumnRole;
 use App\Enums\DataColumnType;
 use App\Enums\DataTableSection;
 use App\Enums\LeadStatus;
-use App\Features\FeatureFlag;
 use App\Models\AdminNotification;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
+use App\Models\FeedbackMessage;
 use App\Models\Lead;
 use App\Models\SupportMessage;
 use App\Models\Tenant;
@@ -19,7 +19,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
-use Laravel\Pennant\Feature;
 use Throwable;
 
 /**
@@ -37,7 +36,7 @@ class Notifier
     {
         $this->safely(function () use ($lead) {
             $tenant = Tenant::query()->find($lead->tenant_id);
-            if (! $tenant || ! Feature::for($tenant)->active(FeatureFlag::Orders->value)) {
+            if (! $tenant) {
                 return;
             }
 
@@ -48,6 +47,26 @@ class Notifier
                 'Նոր պատվեր կայքից',
                 $this->line([$lead->name, $lead->phone, $lead->service?->trans('name', 'hy') ?? $lead->product?->trans('name', 'hy')]),
                 '/admin/orders/site?search='.rawurlencode((string) ($lead->phone ?: $lead->name)),
+            );
+        });
+    }
+
+    /** A message from the site's feedback form: for everyone who works with orders. */
+    public function feedback(FeedbackMessage $message): void
+    {
+        $this->safely(function () use ($message) {
+            $tenant = Tenant::query()->find($message->tenant_id);
+            if (! $tenant) {
+                return;
+            }
+
+            $this->toBusiness(
+                $tenant,
+                BusinessRole::ORDERS,
+                NotificationType::Feedback,
+                'Նոր հաղորդագրություն կայքից',
+                $this->line([$message->name, $message->phone ?: $message->email, Str::limit($message->message, 80)]),
+                '/admin/site/feedback',
             );
         });
     }
@@ -106,8 +125,7 @@ class Notifier
     public function todayOrders(User $user, Tenant $tenant): void
     {
         if ($user->isPlatformStaff()
-            || ! $user->businessRole($tenant)?->can(BusinessRole::ORDERS)
-            || ! Feature::for($tenant)->active(FeatureFlag::Orders->value)) {
+            || ! $user->businessRole($tenant)?->can(BusinessRole::ORDERS)) {
             return;
         }
 

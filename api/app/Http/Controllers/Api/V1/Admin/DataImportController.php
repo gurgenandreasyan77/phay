@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\DataTables\Import\ColumnMatcher;
-use App\DataTables\Moment;
-use App\Enums\DataTableSection;
 use App\DataTables\Import\DataImporter;
 use App\DataTables\Import\FileReader;
 use App\DataTables\Import\Sheet;
 use App\DataTables\Import\UnreadableFile;
+use App\DataTables\Moment;
+use App\Enums\DataTableSection;
 use App\Http\Controllers\Controller;
 use App\Models\DataImport;
 use App\Models\DataTable;
@@ -194,7 +194,7 @@ class DataImportController extends Controller
      */
     private function matchingTables(DataTableSection $section, Sheet $sheet): array
     {
-        if (! DataTableController::moduleActive($section)) {
+        if (! DataTableController::sectionAllowed($section)) {
             return [];
         }
 

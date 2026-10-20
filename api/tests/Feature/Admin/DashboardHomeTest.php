@@ -6,7 +6,6 @@ use App\Models\Lead;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Pennant\Feature;
 use Laravel\Sanctum\Sanctum;
 use Tests\Feature\Tenancy\TenancyTestHelpers;
 use Tests\TestCase;
@@ -28,8 +27,6 @@ class DashboardHomeTest extends TestCase
         // A Monday: the week starts today.
         $this->travelTo('2026-10-19 12:00');
         $this->salon = $this->createTenant('test-salon');
-        Feature::for($this->salon)->activate('orders');
-        Feature::for($this->salon)->deactivate('sales');
         Sanctum::actingAs(User::factory()->forTenant($this->salon, 'owner')->create());
     }
 
@@ -143,10 +140,8 @@ class DashboardHomeTest extends TestCase
         $this->assertNull($data['finance']);
     }
 
-    public function test_a_shop_without_orders_gets_its_sales_and_no_site_or_calendar(): void
+    public function test_a_shop_that_keeps_only_sales_gets_its_sales_and_no_site(): void
     {
-        Feature::for($this->salon)->deactivate('orders');
-        Feature::for($this->salon)->activate('sales');
         $sales = $this->table('sales', [
             ['label' => 'Ապրանք', 'type' => 'text', 'role' => 'item'],
             ['label' => 'Ամսաթիվ', 'type' => 'date', 'role' => 'date'],
@@ -159,7 +154,7 @@ class DashboardHomeTest extends TestCase
 
         $this->assertSame(['sales'], array_column($data['sections'], 'section'));
         $this->assertSame(['count' => 1, 'amount' => 4500], $data['sections'][0]['today']);
-        $this->assertNull($data['upcoming']);
+        $this->assertSame([], $data['upcoming']['items']);
         $this->assertNull($data['site']);
     }
 

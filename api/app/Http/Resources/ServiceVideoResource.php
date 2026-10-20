@@ -11,6 +11,7 @@ class ServiceVideoResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'kind' => $this->kind->value,
             'title' => $this->title ? $this->trans('title') : null,
             'videoPath' => $this->video_path,
             'posterImage' => $this->poster_image,

@@ -7,6 +7,9 @@ enum NotificationType: string
     /** A customer sent an order from the business's site. */
     case NewLead = 'new_lead';
 
+    /** A visitor wrote through the feedback form of the business's site. */
+    case Feedback = 'feedback';
+
     /** A message in the chat between a business and the platform team. */
     case SupportMessage = 'support_message';
 

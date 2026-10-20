@@ -16,7 +16,8 @@ const STATUS_LABELS: Record<ServiceStatus, string> = {
   archived: "Արխիվ",
 };
 
-// "By car type" belongs to the Auto Care module's own editor.
+// "By car type" is set in the detailed editor (/admin/services/details);
+// a service priced that way keeps it here.
 const PRICE_TYPE_LABELS: Partial<Record<ServicePriceType, string>> = {
   fixed: "Ֆիքսված գին",
   from: "Սկսած",
@@ -44,7 +45,7 @@ function formFrom(service: AdminServiceDto | null, defaultCategoryId: string): F
     description: service ? toTranslated(service.description) : emptyTranslated(),
     categoryId: service ? String(service.categoryId) : defaultCategoryId,
     status: service?.status ?? "draft",
-    priceType: service?.priceType && service.priceType !== "by_car_type" ? service.priceType : "",
+    priceType: service?.priceType ?? "",
     priceAmount: service?.priceAmount?.toString() ?? "",
     priceMin: service?.priceMin?.toString() ?? "",
     priceMax: service?.priceMax?.toString() ?? "",
@@ -98,9 +99,10 @@ function payloadFrom(form: Form) {
     status: form.status,
     image: form.image.trim() || null,
     price_type: form.priceType || null,
-    price_amount: form.priceType === "fixed" || form.priceType === "from" ? toInt(form.priceAmount) : null,
-    price_min: form.priceType === "range" ? toInt(form.priceMin) : null,
-    price_max: form.priceType === "range" ? toInt(form.priceMax) : null,
+    // By car type: whatever the detailed editor set stays as it is.
+    price_amount: ["fixed", "from", "by_car_type"].includes(form.priceType) ? toInt(form.priceAmount) : null,
+    price_min: ["range", "by_car_type"].includes(form.priceType) ? toInt(form.priceMin) : null,
+    price_max: ["range", "by_car_type"].includes(form.priceType) ? toInt(form.priceMax) : null,
   };
 }
 
@@ -334,6 +336,7 @@ function ServiceEditor({
                 {label}
               </option>
             ))}
+            {form.priceType === "by_car_type" ? <option value="by_car_type">Ըստ մեքենայի տեսակի</option> : null}
           </select>
         </label>
         {form.priceType === "fixed" || form.priceType === "from" ? (

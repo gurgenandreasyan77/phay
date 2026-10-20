@@ -6,7 +6,6 @@ use App\Models\DataTable;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Pennant\Feature;
 use Laravel\Sanctum\Sanctum;
 use Tests\Feature\Tenancy\TenancyTestHelpers;
 use Tests\TestCase;
@@ -25,7 +24,6 @@ class AdminDataTableTest extends TestCase
         parent::setUp();
 
         $this->shop = $this->createTenant('test-shop');
-        Feature::for($this->shop)->activate('sales');
     }
 
     private function actingAsMember(string $role = 'owner'): User
@@ -57,22 +55,17 @@ class AdminDataTableTest extends TestCase
         return $this->postJson('/api/v1/admin/data-tables', $this->salesTablePayload())->assertCreated()->json('data');
     }
 
-    public function test_a_new_business_has_orders_on_and_sales_off(): void
+    public function test_a_new_business_has_orders_and_sales_without_any_module(): void
     {
-        $tenant = $this->createTenant('new-salon');
-
-        $this->assertTrue(Feature::for($tenant)->active('orders'));
-        $this->assertFalse(Feature::for($tenant)->active('sales'));
-    }
-
-    public function test_orders_from_the_site_disappear_with_the_orders_module(): void
-    {
+        $this->shop = $this->createTenant('new-salon');
         $this->actingAsMember();
+
         $this->getJson('/api/v1/admin/leads')->assertOk();
-
-        Feature::for($this->shop)->deactivate('orders');
-
-        $this->getJson('/api/v1/admin/leads')->assertNotFound();
+        $this->postJson('/api/v1/admin/data-tables', $this->salesTablePayload())->assertCreated();
+        $this->postJson('/api/v1/admin/data-tables', ['section' => 'orders', 'name' => 'Պատվերներ', 'columns' => [
+            ['label' => 'Ծառայություն', 'type' => 'text'],
+        ]])->assertCreated();
+        $this->getJson('/api/v1/admin/data-tables')->assertOk()->assertJsonCount(2, 'data');
     }
 
     public function test_an_owner_designs_a_table_with_typed_columns(): void
@@ -116,14 +109,6 @@ class AdminDataTableTest extends TestCase
         $payload['columns'][0]['type'] = 'formula';
         $this->postJson('/api/v1/admin/data-tables', $payload)
             ->assertUnprocessable()->assertJsonValidationErrors('columns.0.type');
-    }
-
-    public function test_a_table_can_only_be_made_in_a_section_whose_module_is_on(): void
-    {
-        $this->actingAsMember();
-        Feature::for($this->shop)->deactivate('sales');
-
-        $this->postJson('/api/v1/admin/data-tables', $this->salesTablePayload())->assertNotFound();
     }
 
     public function test_rows_are_parsed_by_column_type(): void
@@ -243,18 +228,6 @@ class AdminDataTableTest extends TestCase
         $this->deleteJson("/api/v1/admin/data-tables/{$table['id']}")->assertForbidden();
     }
 
-    public function test_tables_of_a_module_that_was_turned_off_are_hidden(): void
-    {
-        $this->actingAsMember();
-        $table = $this->createSalesTable();
-
-        Feature::for($this->shop)->deactivate('sales');
-
-        $this->getJson('/api/v1/admin/data-tables')->assertOk()->assertJsonCount(0, 'data');
-        $this->getJson("/api/v1/admin/data-tables/{$table['id']}")->assertNotFound();
-        $this->getJson("/api/v1/admin/data-tables/{$table['id']}/rows")->assertNotFound();
-    }
-
     public function test_another_business_cannot_reach_the_table_or_its_rows(): void
     {
         $this->actingAsMember();
@@ -263,7 +236,6 @@ class AdminDataTableTest extends TestCase
         $rowId = $this->postJson("/api/v1/admin/data-tables/{$table['id']}/rows", ['values' => [$product => 'Մոմ']])->json('data.id');
 
         $other = $this->createTenant('other-shop');
-        Feature::for($other)->activate('sales');
         Sanctum::actingAs(User::factory()->forTenant($other)->create());
 
         $this->getJson('/api/v1/admin/data-tables')->assertOk()->assertJsonCount(0, 'data');

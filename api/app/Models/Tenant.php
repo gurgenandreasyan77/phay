@@ -39,8 +39,8 @@ class Tenant extends Model implements FeatureScopeSerializeable
 
     protected static function booted(): void
     {
-        // A new business starts with only the basic sections and orders:
-        // the other modules (Sales, Auto Care, Market...) stay off until the
+        // A new business starts with the basic sections (orders and sales
+        // included): the modules (Services, Market, Site) stay off until the
         // platform administrator turns them on for it. Servio itself was
         // inserted by a migration and keeps its own flags.
         static::created(function (Tenant $tenant) {

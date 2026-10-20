@@ -85,13 +85,13 @@ class HeaderSearchTest extends TestCase
 
     public function test_modules_that_are_off_are_not_searched(): void
     {
-        Feature::for($this->salon)->deactivate('orders');
         Feature::for($this->salon)->deactivate('services');
 
         $found = $this->search('sof');
 
-        $this->assertEqualsCanonicalizing(['tables', 'rows', 'employees'], array_keys($found));
-        $this->assertSame(['Sofa supplies'], array_column($found['tables'], 'title'));
+        // Orders and sales are in every business, the services catalog is a module.
+        $this->assertEqualsCanonicalizing(['tables', 'rows', 'leads', 'employees'], array_keys($found));
+        $this->assertEqualsCanonicalizing(['Sofa orders', 'Sofa supplies'], array_column($found['tables'], 'title'));
     }
 
     public function test_platform_staff_also_find_businesses(): void

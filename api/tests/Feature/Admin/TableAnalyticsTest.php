@@ -3,13 +3,13 @@
 namespace Tests\Feature\Admin;
 
 use App\Assistant\AssistantClient;
+use App\Assistant\AssistantReply;
 use App\Models\DataTableRow;
 use App\Models\Lead;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
-use Laravel\Pennant\Feature;
 use Laravel\Sanctum\Sanctum;
 use Tests\Feature\Tenancy\TenancyTestHelpers;
 use Tests\TestCase;
@@ -32,8 +32,6 @@ class TableAnalyticsTest extends TestCase
         Carbon::setTestNow('2026-10-17 12:00:00');
 
         $this->shop = $this->createTenant('test-shop');
-        Feature::for($this->shop)->activate('sales');
-        Feature::for($this->shop)->deactivate('orders');
         Sanctum::actingAs(User::factory()->forTenant($this->shop)->create());
 
         $this->table = $this->salesTable('Instagram');
@@ -189,8 +187,6 @@ class TableAnalyticsTest extends TestCase
 
     public function test_a_service_business_gets_orders_a_day_and_its_months_not_money_or_kilograms(): void
     {
-        Feature::for($this->shop)->deactivate('sales');
-        Feature::for($this->shop)->activate('orders');
         $table = $this->postJson('/api/v1/admin/data-tables', [
             'section' => 'orders',
             'name' => 'Զանգեր',
@@ -206,7 +202,7 @@ class TableAnalyticsTest extends TestCase
             ['Լվացք', '2026-10-01'], ['Լվացք', '2026-10-15'],
         ]);
 
-        $year = $this->getJson('/api/v1/admin/analytics/tables?period=365')->assertOk()->json('data.0');
+        $year = collect($this->getJson('/api/v1/admin/analytics/tables?period=365')->assertOk()->json('data'))->firstWhere('section', 'orders');
 
         // Without money: what fits a service business, nothing about money or kilograms.
         $this->assertSame(['count', 'perDay', 'countChart', 'peaks', 'byItem'], $year['dashboard']['enabled']);
@@ -216,7 +212,7 @@ class TableAnalyticsTest extends TestCase
 
         // The owner adds orders a month and the months of the year.
         $this->putJson('/api/v1/admin/analytics/dashboard', ['section' => 'orders', 'widgets' => ['count', 'perDay', 'perMonth', 'peaks', 'months']])->assertOk();
-        $year = $this->getJson('/api/v1/admin/analytics/tables?period=365')->assertOk()->json('data.0');
+        $year = collect($this->getJson('/api/v1/admin/analytics/tables?period=365')->assertOk()->json('data'))->firstWhere('section', 'orders');
 
         $this->assertTrue($year['dashboard']['saved']);
         $this->assertSame('orders', $year['section']);
@@ -297,11 +293,11 @@ class TableAnalyticsTest extends TestCase
                 return true;
             }
 
-            public function reply(string $system, array $messages): \App\Assistant\AssistantReply
+            public function reply(string $system, array $messages): AssistantReply
             {
                 $this->system = $system;
 
-                return new \App\Assistant\AssistantReply('ok', 1, 1);
+                return new AssistantReply('ok', 1, 1);
             }
         };
         $this->app->instance(AssistantClient::class, $client);
@@ -326,7 +322,6 @@ class TableAnalyticsTest extends TestCase
 
     public function test_table_orders_and_site_orders_are_counted_together(): void
     {
-        Feature::for($this->shop)->activate('orders');
         $orders = $this->postJson('/api/v1/admin/data-tables', [
             'section' => 'orders',
             'name' => 'Excel',

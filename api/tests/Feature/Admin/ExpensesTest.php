@@ -9,7 +9,6 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Laravel\Pennant\Feature;
 use Laravel\Sanctum\Sanctum;
 use Tests\Feature\Tenancy\TenancyTestHelpers;
 use Tests\TestCase;
@@ -34,8 +33,6 @@ class ExpensesTest extends TestCase
 
         $this->travelTo('2026-10-19 12:00');
         $this->shop = $this->createTenant('test-shop');
-        Feature::for($this->shop)->activate('sales');
-        Feature::for($this->shop)->deactivate('orders');
         Sanctum::actingAs(User::factory()->forTenant($this->shop, 'owner')->create());
     }
 

@@ -6,7 +6,6 @@ use App\Models\Lead;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Pennant\Feature;
 use Laravel\Sanctum\Sanctum;
 use Tests\Feature\Tenancy\TenancyTestHelpers;
 use Tests\TestCase;
@@ -24,7 +23,6 @@ class HeaderNotificationsTest extends TestCase
     public function test_an_order_from_the_site_notifies_everyone_who_works_with_orders(): void
     {
         $servio = Tenant::default();
-        Feature::for($servio)->activate('orders');
         $owner = User::factory()->forTenant($servio, 'owner')->create();
         $moderator = User::factory()->forTenant($servio, 'moderator')->create();
         $other = User::factory()->forTenant($this->createTenant('test-shop'))->create();

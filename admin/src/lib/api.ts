@@ -309,14 +309,11 @@ export type ContactChannelDto = {
   isPrimary: boolean;
 };
 
+/** The modules the platform turns on per business; orders and sales every business has. */
 export type FeatureFlags = {
-  /** What the business sells: services (orders) and/or goods (sales). */
-  orders: boolean;
-  sales: boolean;
-  autoCare: boolean;
-  market: boolean;
-  dryCleaning: boolean;
   services: boolean;
+  market: boolean;
+  site: boolean;
 };
 
 export type SiteSettingsDto = {

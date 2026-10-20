@@ -51,9 +51,17 @@ class Post extends Model
         return $this->belongsToMany(Service::class);
     }
 
+    /**
+     * The site finds a post by slug, and only a published one; the admin
+     * by id, drafts included.
+     */
     public function resolveRouteBinding($value, $field = null)
     {
-        return $this->where($field ?? 'slug', $value)
+        if ($field !== 'slug') {
+            return parent::resolveRouteBinding($value, $field);
+        }
+
+        return $this->where('slug', $value)
             ->where('status', PostStatus::Published)
             ->where('published_at', '<=', now())
             ->firstOrFail();

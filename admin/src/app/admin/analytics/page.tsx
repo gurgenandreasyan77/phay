@@ -4,7 +4,6 @@ import { requirePermission } from "@/lib/adminAuth";
 import { can } from "@/lib/roles";
 import {
   getAnalytics,
-  getFeatureFlagsAdmin,
   getFinance,
   type FinanceDto,
   getTableAnalytics,
@@ -81,17 +80,14 @@ export default async function AdminAnalyticsPage(props: {
   const me = await requirePermission("insights");
   const searchParams = await props.searchParams;
   const period = periodFrom(searchParams.period);
-  const [analytics, flags, tables, finance] = await Promise.all([
+  const [analytics, tables, finance] = await Promise.all([
     getAnalytics(period),
-    getFeatureFlagsAdmin(),
     getTableAnalytics(period),
     can(me, "expenses") ? getFinance({ by: "month" }) : null,
   ]);
-  const ordersOn = flags.find((f) => f.key === "orders")?.active ?? true;
-  const salesOn = flags.find((f) => f.key === "sales")?.active ?? false;
   // Only what the business has: its site orders if it ever had one, and
   // each section whose tables have rows. Nothing yet: how to start.
-  const site = ordersOn && analytics && analytics.everOrders > 0 ? analytics : null;
+  const site = analytics && analytics.everOrders > 0 ? analytics : null;
   const sections = tables.filter((t) => t.rows.total > 0);
   const orderTables = sections.find((t) => t.section === "orders");
   const empty = !site && sections.length === 0;
@@ -114,7 +110,7 @@ export default async function AdminAnalyticsPage(props: {
       {finance?.has.expenses ? <NetProfit report={finance} /> : null}
 
       {empty ? (
-        <EmptyStart ordersOn={ordersOn} salesOn={salesOn} hasTables={tables.length > 0} failed={ordersOn && !analytics} />
+        <EmptyStart hasTables={tables.length > 0} failed={!analytics} />
       ) : (
         <>
           <PeriodTabs base="/admin/analytics" period={period} />
@@ -160,18 +156,8 @@ function NetProfit({ report }: { report: FinanceDto }) {
 }
 
 /** No orders and no rows yet: analytics starts from the business's own tables. */
-function EmptyStart({
-  ordersOn,
-  salesOn,
-  hasTables,
-  failed,
-}: {
-  ordersOn: boolean;
-  salesOn: boolean;
-  hasTables: boolean;
-  failed: boolean;
-}) {
-  const sections = (["orders", "sales"] as const).filter((s) => (s === "orders" ? ordersOn : salesOn));
+function EmptyStart({ hasTables, failed }: { hasTables: boolean; failed: boolean }) {
+  const sections = ["orders", "sales"] as const;
 
   return (
     <Card className="space-y-4 py-10 text-center">

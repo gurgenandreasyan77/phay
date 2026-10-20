@@ -4,7 +4,6 @@ import { requirePermission } from "@/lib/adminAuth";
 import { can } from "@/lib/roles";
 import {
   getAnalytics,
-  getFeatureFlagsAdmin,
   getFinance,
   type FinanceDto,
   getTableStatistics,
@@ -53,14 +52,12 @@ export default async function AdminStatisticsPage(props: PageProps<"/admin/stati
   const me = await requirePermission("insights");
   const searchParams = await props.searchParams;
   const period = periodFrom(searchParams.period);
-  const [sections, flags, site, finance] = await Promise.all([
+  const [sections, site, finance] = await Promise.all([
     getTableStatistics(period),
-    getFeatureFlagsAdmin(),
     getAnalytics(period),
     can(me, "expenses") ? getFinance(financeParams(searchParams)) : null,
   ]);
-  const ordersOn = flags.find((f) => f.key === "orders")?.active ?? true;
-  const siteOrders = ordersOn && site && site.everOrders > 0 ? site : null;
+  const siteOrders = site && site.everOrders > 0 ? site : null;
 
   const stats: Stats[] = sections.filter((s) => s.rows.total > 0).map((s) => fromTables(s, Boolean(siteOrders)));
   // Site orders and no order tables: the site's orders are the section.

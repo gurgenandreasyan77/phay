@@ -19,7 +19,7 @@ class FeatureFlagTest extends TestCase
 
         $response = $this->getJson('/api/v1/admin/feature-flags')->assertOk();
 
-        $response->assertJsonFragment(['key' => FeatureFlag::AutoCare->value, 'active' => true]);
+        $response->assertJsonFragment(['key' => FeatureFlag::Market->value, 'active' => true]);
     }
 
     public function test_regular_admin_can_view_but_not_change_flags(): void
@@ -28,55 +28,55 @@ class FeatureFlagTest extends TestCase
 
         $this->getJson('/api/v1/admin/feature-flags')->assertOk();
 
-        $this->patchJson('/api/v1/admin/feature-flags/auto-care', ['active' => false])
+        $this->patchJson('/api/v1/admin/feature-flags/market', ['active' => false])
             ->assertForbidden();
 
-        $this->assertTrue(Feature::active(FeatureFlag::AutoCare->value));
+        $this->assertTrue(Feature::active(FeatureFlag::Market->value));
     }
 
     public function test_unauthenticated_requests_are_rejected(): void
     {
         $this->getJson('/api/v1/admin/feature-flags')->assertUnauthorized();
-        $this->patchJson('/api/v1/admin/feature-flags/auto-care', ['active' => false])->assertUnauthorized();
+        $this->patchJson('/api/v1/admin/feature-flags/market', ['active' => false])->assertUnauthorized();
     }
 
-    public function test_super_admin_can_disable_auto_care(): void
+    public function test_super_admin_can_disable_the_market(): void
     {
         $admin = User::factory()->create(['is_super_admin' => true]);
         Sanctum::actingAs($admin);
 
-        $response = $this->patchJson('/api/v1/admin/feature-flags/auto-care', ['active' => false])
+        $response = $this->patchJson('/api/v1/admin/feature-flags/market', ['active' => false])
             ->assertOk();
 
         $response->assertJsonPath('data.active', false);
-        $this->assertFalse(Feature::active(FeatureFlag::AutoCare->value));
+        $this->assertFalse(Feature::active(FeatureFlag::Market->value));
 
         $this->assertDatabaseHas('feature_flag_logs', [
-            'feature' => 'auto-care',
+            'feature' => 'market',
             'old_value' => 1,
             'new_value' => 0,
             'changed_by_id' => $admin->id,
         ]);
     }
 
-    public function test_super_admin_can_re_enable_auto_care(): void
+    public function test_super_admin_can_re_enable_the_market(): void
     {
         Sanctum::actingAs(User::factory()->create(['is_super_admin' => true]));
 
-        Feature::deactivate(FeatureFlag::AutoCare->value);
+        Feature::deactivate(FeatureFlag::Market->value);
 
-        $response = $this->patchJson('/api/v1/admin/feature-flags/auto-care', ['active' => true])
+        $response = $this->patchJson('/api/v1/admin/feature-flags/market', ['active' => true])
             ->assertOk();
 
         $response->assertJsonPath('data.active', true);
-        $this->assertTrue(Feature::active(FeatureFlag::AutoCare->value));
+        $this->assertTrue(Feature::active(FeatureFlag::Market->value));
     }
 
     public function test_toggling_the_same_value_does_not_create_a_duplicate_log_entry(): void
     {
         Sanctum::actingAs(User::factory()->create(['is_super_admin' => true]));
 
-        $this->patchJson('/api/v1/admin/feature-flags/auto-care', ['active' => true])->assertOk();
+        $this->patchJson('/api/v1/admin/feature-flags/market', ['active' => true])->assertOk();
 
         $this->assertDatabaseCount('feature_flag_logs', 0);
     }

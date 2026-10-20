@@ -8,20 +8,29 @@ use App\Http\Resources\CalculatorSettingResource;
 use App\Models\CalculatorSetting;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * The price calculator of the services module. A business has none until
+ * someone adds it (it starts with the cleaning rates Servio began with);
+ * reading never makes one.
+ */
 class CalculatorSettingController extends Controller
 {
-    public function show(): JsonResponse
+    public function show(): CalculatorSettingResource
     {
-        // ::current() may transparently create the singleton row on first
-        // read (firstOrCreate) — Laravel's JsonResource::response() would
-        // then default to 201 because the wrapped model's wasRecentlyCreated
-        // is true, which is wrong for what is otherwise a plain GET.
-        return (new CalculatorSettingResource(CalculatorSetting::current()))->response()->setStatusCode(200);
+        return new CalculatorSettingResource(CalculatorSetting::existing() ?? abort(404));
+    }
+
+    public function store(): JsonResponse
+    {
+        $setting = CalculatorSetting::current();
+
+        return (new CalculatorSettingResource($setting))->response()
+            ->setStatusCode($setting->wasRecentlyCreated ? 201 : 200);
     }
 
     public function update(UpdateCalculatorSettingRequest $request): JsonResponse
     {
-        $setting = CalculatorSetting::current();
+        $setting = CalculatorSetting::existing() ?? abort(404);
         $setting->update($request->validated());
 
         return (new CalculatorSettingResource($setting->fresh()))->response();

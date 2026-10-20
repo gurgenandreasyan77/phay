@@ -9,7 +9,6 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Laravel\Pennant\Feature;
 use Laravel\Sanctum\Sanctum;
 use Tests\Feature\Tenancy\TenancyTestHelpers;
 use Tests\TestCase;
@@ -32,7 +31,6 @@ class AdminDataImportTest extends TestCase
         Storage::fake('local');
 
         $this->shop = $this->createTenant('test-shop');
-        Feature::for($this->shop)->activate('sales');
         Sanctum::actingAs(User::factory()->forTenant($this->shop)->create());
 
         $this->table = $this->postJson('/api/v1/admin/data-tables', [
@@ -354,7 +352,6 @@ class AdminDataImportTest extends TestCase
         $preview = $this->upload($this->csv("Ապրանք\nՄոմ\n"));
 
         $other = $this->createTenant('other-shop');
-        Feature::for($other)->activate('sales');
         Sanctum::actingAs(User::factory()->forTenant($other)->create());
 
         $this->getJson("/api/v1/admin/data-imports/{$preview['id']}")->assertNotFound();

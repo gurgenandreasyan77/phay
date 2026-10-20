@@ -20,14 +20,14 @@ use Illuminate\Support\Collection;
 final class EmployeeStats
 {
     /**
-     * Tables with a performer column, of the sections whose module is on.
+     * Tables with a performer column, of the sections that bring money in.
      *
      * @return Collection<int, DataTable>
      */
     public static function tables(?DataTableSection $section = null): Collection
     {
         return Performers::tables()
-            ->filter(fn (DataTable $t) => $t->section->isRevenue() && $t->section->isActive() && ($section === null || $t->section === $section))
+            ->filter(fn (DataTable $t) => $t->section->isRevenue() && ($section === null || $t->section === $section))
             ->values();
     }
 

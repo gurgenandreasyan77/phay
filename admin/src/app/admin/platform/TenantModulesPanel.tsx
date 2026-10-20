@@ -12,7 +12,7 @@ async function fetchModules(tenantId: number): Promise<AdminFeatureFlagDto[] | n
 }
 
 /**
- * Optional modules of one business (Auto Care, Market...). A module that is
+ * Managed modules of one business (Services, Market, Site). A module that is
  * off doesn't exist for that business: not in its admin menu, not on its
  * site, and its API answers 404.
  */
@@ -36,7 +36,7 @@ export function TenantModulesPanel({ tenant, onClose }: { tenant: AdminTenantDto
   return (
     <SectionCard
       title={`«${tenant.name}» բիզնեսի մոդուլները`}
-      description="Լրացուցիչ բաժիններ, որոնք պետք են միայն որոշ բիզնեսների։ Անջատված մոդուլը չի երևում այդ բիզնեսի ադմինում և կայքում։"
+      description="Կառավարվող մոդուլներ՝ ծառայություններ, խանութ և կայքի կառավարում։ Պատվերներն ու վաճառքները կան յուրաքանչյուր բիզնեսում և չեն միացվում։ Անջատված մոդուլը չի երևում այդ բիզնեսի ադմինում և կայքում։"
       actions={
         <Button size="sm" variant="ghost" onClick={onClose}>
           Փակել

@@ -49,15 +49,15 @@ class SearchController extends Controller
         $groups = [];
         if (mb_strlen($needle) >= 2) {
             $sections = collect(DataTableSection::cases())
-                ->filter(fn (DataTableSection $section) => DataTableController::moduleActive($section))
+                ->filter(fn (DataTableSection $section) => DataTableController::sectionAllowed($section))
                 ->values();
             $groups = [
                 'tables' => $sections->isEmpty() ? [] : $this->tables($sections, $needle),
                 'rows' => $sections->isEmpty() ? [] : $this->rows($sections, $query, $needle),
-                'leads' => $role?->can(BusinessRole::ORDERS) && Feature::active(FeatureFlag::Orders->value)
+                'leads' => $role?->can(BusinessRole::ORDERS)
                     ? $this->leads($needle) : [],
                 'employees' => $role?->can(BusinessRole::SETTINGS) ? $this->employees($needle) : [],
-                'services' => $role?->can(BusinessRole::CATALOG) && Feature::someAreActive([FeatureFlag::Services->value, FeatureFlag::AutoCare->value])
+                'services' => $role?->can(BusinessRole::CATALOG) && Feature::active(FeatureFlag::Services->value)
                     ? $this->services($needle) : [],
                 'businesses' => $user->isPlatformStaff() ? $this->businesses($needle) : [],
             ];
@@ -201,7 +201,7 @@ class SearchController extends Controller
     /** Names are translated (hy/ru/en), so matched in PHP: a business has tens of services. */
     private function services(string $needle): array
     {
-        $url = Feature::active(FeatureFlag::Services->value) ? '/admin/services' : '/admin/auto-care';
+        $url = '/admin/services';
 
         return Service::query()
             ->orderBy('sort_order')

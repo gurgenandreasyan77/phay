@@ -16,19 +16,19 @@ class RequireFeatureMiddlewareTest extends TestCase
     {
         parent::setUp();
 
-        Route::get('/__test/auto-care-gated', fn () => response()->json(['data' => 'ok']))
-            ->middleware('feature:auto-care');
+        Route::get('/__test/market-gated', fn () => response()->json(['data' => 'ok']))
+            ->middleware('feature:market');
     }
 
     public function test_passes_through_when_the_flag_is_active(): void
     {
-        $this->getJson('/__test/auto-care-gated')->assertOk()->assertJsonPath('data', 'ok');
+        $this->getJson('/__test/market-gated')->assertOk()->assertJsonPath('data', 'ok');
     }
 
     public function test_returns_404_when_the_flag_is_inactive(): void
     {
-        Feature::deactivate(FeatureFlag::AutoCare->value);
+        Feature::deactivate(FeatureFlag::Market->value);
 
-        $this->getJson('/__test/auto-care-gated')->assertNotFound();
+        $this->getJson('/__test/market-gated')->assertNotFound();
     }
 }
