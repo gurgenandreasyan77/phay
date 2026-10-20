@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Features\FeatureFlag;
 use App\Models\ModulePrice;
 use App\Models\Plan;
 use App\Models\Subscription;
@@ -233,6 +234,14 @@ class SubscriptionsTest extends TestCase
         $this->postJson('/api/v1/admin/subscription/request', ['kind' => 'module'])->assertUnprocessable();
 
         $this->assertStringContainsString('Խանութ', $this->messages()[0]);
+
+        $this->postJson('/api/v1/admin/subscription/request', ['kind' => 'premium'])->assertCreated();
+        $this->assertStringContainsString('Պրեմիում', $this->messages()[1]);
+        $this->getJson('/api/v1/admin/subscription')
+            ->assertOk()
+            ->assertJsonPath('data.assistant.used', 0)
+            ->assertJsonPath('data.assistant.limit', (int) config('services.anthropic.monthly_limit'))
+            ->assertJsonPath('data.subscription.pricing.modules.1.description', FeatureFlag::Market->description());
 
         $moderator = User::factory()->forTenant($this->shop, 'moderator')->create();
         Sanctum::actingAs($moderator);

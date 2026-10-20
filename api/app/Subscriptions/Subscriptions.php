@@ -72,7 +72,7 @@ class Subscriptions
      * What the business pays a month: its plan's price plus every module it
      * has on that the plan doesn't include.
      *
-     * @return array{plan: int, modules: list<array{key: string, label: string, price: int, active: bool, included: bool}>, total: int}
+     * @return array{plan: int, modules: list<array{key: string, label: string, description: string, price: int, active: bool, included: bool}>, total: int}
      */
     public function pricing(Tenant $tenant, ?Subscription $subscription = null, ?array $prices = null): array
     {
@@ -95,6 +95,7 @@ class Subscriptions
             $modules[] = [
                 'key' => $flag->value,
                 'label' => $flag->label(),
+                'description' => $flag->description(),
                 'price' => $price,
                 'active' => $active,
                 'included' => $included,

@@ -493,6 +493,8 @@ export type SubscriptionSummaryDto = {
 export type SubscriptionModulePriceDto = {
   key: string;
   label: string;
+  /** What the module gives, one sentence. */
+  description: string;
   price: number;
   /** On for this business. */
   active: boolean;
@@ -547,6 +549,8 @@ export type ModulePriceDto = { key: string; label: string; description: string; 
 /** The business's own subscription page. */
 export type BusinessSubscriptionDto = {
   subscription: SubscriptionDto;
+  /** This month's AI assistant requests and the monthly limit. */
+  assistant: { used: number; limit: number };
   payments: SubscriptionPaymentDto[];
   plans: { id: number; name: string; description: string | null; price: number; includedModules: string[] }[];
 };
