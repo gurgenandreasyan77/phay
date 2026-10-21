@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\DataTableResource;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
+use App\Models\GoogleEvent;
 use App\Models\Lead;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -57,7 +58,7 @@ class CalendarController extends Controller
             ->orderBy('occurred_at')
             ->orderBy('id')
             ->limit(self::MAX_ROWS + 1)
-            ->get(['id', 'data_table_id', 'data', 'occurred_at', 'amount']);
+            ->get(['id', 'data_table_id', 'data', 'occurred_at', 'amount', 'source', 'external_id']);
 
         $timed = $tables->mapWithKeys(fn (DataTable $table) => [$table->id => $table->dateColumn()->type === DataColumnType::DateTime]);
 
@@ -70,6 +71,22 @@ class CalendarController extends Controller
             ->orderBy('preferred_date')
             ->orderBy('id')
             ->get();
+
+        // Events of the synced Google calendars (everyone's in the business),
+        // except those already turned into rows of a table shown here.
+        $inTables = $rows->pluck('external_id')->filter()->flip();
+        $events = GoogleEvent::query()
+            ->with('calendar:id,name,color,google_connection_id', 'calendar.connection:id,email')
+            ->whereHas('calendar', fn ($q) => $q->where('selected', true))
+            ->where('starts_at', '>=', $from->format('Y-m-d H:i:s'))
+            ->where('starts_at', '<', $to->addDay()->format('Y-m-d H:i:s'))
+            ->orderBy('starts_at')
+            ->orderBy('id')
+            ->limit(self::MAX_ROWS)
+            ->get()
+            ->unique('event_id')
+            ->reject(fn (GoogleEvent $event) => $inTables->has($event->event_id))
+            ->values();
 
         return response()->json(['data' => [
             'from' => $from->toDateString(),
@@ -92,6 +109,8 @@ class CalendarController extends Controller
                     'time' => $timed[$row->data_table_id] ? $at->format('H:i') : null,
                     'amount' => $row->amount,
                     'values' => (object) ($row->data ?? []),
+                    // "google": made from a Google Calendar event.
+                    'source' => $row->source,
                 ];
             })->values(),
             'truncated' => $rows->count() > self::MAX_ROWS,
@@ -104,6 +123,24 @@ class CalendarController extends Controller
                 'status' => $lead->status->value,
                 'finalPrice' => $lead->final_price,
             ])->values(),
+            'google' => $events->map(function (GoogleEvent $event) {
+                $at = CarbonImmutable::parse($event->getRawOriginal('starts_at'));
+
+                return [
+                    'id' => $event->id,
+                    'eventId' => $event->event_id,
+                    'date' => $at->toDateString(),
+                    'time' => $event->all_day ? null : $at->format('H:i'),
+                    'end' => $event->ends_at && ! $event->all_day ? CarbonImmutable::parse($event->getRawOriginal('ends_at'))->format('H:i') : null,
+                    'title' => $event->summary ?? 'Առանց անվանման',
+                    'location' => $event->location,
+                    'description' => $event->description ? mb_substr($event->description, 0, 300) : null,
+                    'calendar' => $event->calendar->name,
+                    'color' => $event->calendar->color,
+                    'account' => $event->calendar->connection?->email,
+                    'link' => str_starts_with((string) $event->html_link, 'https://') ? $event->html_link : null,
+                ];
+            })->values(),
         ]]);
     }
 }

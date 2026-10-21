@@ -7,6 +7,8 @@ use App\Assistant\AssistantClient;
 use App\Audience\NullSocialSource;
 use App\Audience\SocialSource;
 use App\Features\FeatureFlag;
+use App\Google\GoogleCalendarClient;
+use App\Google\HttpGoogleCalendarClient;
 use App\Models\User;
 use App\Tenancy\TenantContext;
 use Illuminate\Auth\Middleware\Authenticate;
@@ -30,6 +32,12 @@ class AppServiceProvider extends ServiceProvider
 
         // No social network can be connected yet; an Instagram source replaces this.
         $this->app->bind(SocialSource::class, NullSocialSource::class);
+
+        $this->app->bind(GoogleCalendarClient::class, fn () => new HttpGoogleCalendarClient(
+            clientId: config('services.google.client_id'),
+            clientSecret: config('services.google.client_secret'),
+            redirectUri: config('services.google.redirect_uri'),
+        ));
 
         $this->app->bind(AssistantClient::class, fn () => new AnthropicAssistantClient(
             apiKey: config('services.anthropic.api_key'),
@@ -67,6 +75,11 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // Reading a big spreadsheet is heavy: a few uploads a minute is plenty.
+        // Each sync reads Google; a few a minute is plenty.
+        RateLimiter::for('google-sync', function (Request $request) {
+            return Limit::perMinute(6)->by('user:'.$request->user()?->id);
+        });
+
         RateLimiter::for('data-imports', function (Request $request) {
             return Limit::perMinute(10)->by('user:'.$request->user()?->id);
         });

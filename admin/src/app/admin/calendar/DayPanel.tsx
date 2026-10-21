@@ -3,8 +3,8 @@
 import { useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Phone, Plus, Trash2 } from "lucide-react";
-import type { AdminDataTableDto, CalendarLeadDto } from "@/lib/adminApi";
+import { ExternalLink, MapPin, Phone, Plus, Trash2 } from "lucide-react";
+import type { AdminDataTableDto, CalendarGoogleEventDto, CalendarLeadDto } from "@/lib/adminApi";
 import { Badge, Button, buttonClasses, Card, cn, FieldLabel, Select } from "../_components/ui";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_TONES } from "../_components/leadStatus";
 import { CellInput, fromDraft, toDraft, type Draft } from "../_components/tables/RowsGrid";
@@ -12,7 +12,7 @@ import { formatMoney, SECTIONS, tablePath, validationErrors } from "../_componen
 import { contains, filingLabel, isDate, periodOf } from "../_components/tables/periods";
 import { ConfirmDialog } from "../_components/dialog/ConfirmDialog";
 import { DialogClose } from "../_components/dialog/Dialog";
-import type { CalendarEntry } from "./entries";
+import { GOOGLE_DOT, type CalendarEntry } from "./entries";
 import styles from "./calendar.module.css";
 
 /** The table a new order went to last time, remembered in this browser. */
@@ -33,6 +33,7 @@ export type DayPanelProps = {
   tables: AdminDataTableDto[];
   entries: CalendarEntry[];
   leads: CalendarLeadDto[];
+  google: CalendarGoogleEventDto[];
   colors: Record<number, string>;
   canDesign: boolean;
 };
@@ -47,6 +48,7 @@ export function DayPanel({
   tables,
   entries,
   leads,
+  google,
   colors,
   canDesign,
   onClose,
@@ -108,7 +110,7 @@ export function DayPanel({
         <div>
           <h3 className="font-semibold text-ink first-letter:uppercase">{title}</h3>
           <p className="mt-0.5 text-sm text-ink-muted">
-            {entries.length + leads.length} պատվեր{total > 0 ? ` · ${formatMoney(total)}` : ""}
+            {entries.length + leads.length + google.length} պատվեր{total > 0 ? ` · ${formatMoney(total)}` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -144,7 +146,7 @@ export function DayPanel({
         </p>
       ) : null}
 
-      {entries.length === 0 && leads.length === 0 && !adding ? (
+      {entries.length === 0 && leads.length === 0 && google.length === 0 && !adding ? (
         <p className="py-6 text-center text-sm text-ink-muted">Այս օրը պատվերներ չկան։</p>
       ) : null}
 
@@ -172,6 +174,7 @@ export function DayPanel({
                   {entry.table.name}
                 </Link>
                 {entry.status ? <Badge>{entry.status}</Badge> : null}
+                {entry.source === "google" ? <Badge tone="info">Google</Badge> : null}
               </p>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1">
@@ -216,7 +219,52 @@ export function DayPanel({
             ) : null}
           </li>
         ))}
+        {google.map((event, j) => (
+          <li
+            key={`google-${event.id}`}
+            className={cn(styles.item, "flex items-start gap-3 py-3")}
+            style={{ "--j": entries.length + leads.length + j } as CSSProperties}
+          >
+            <span className="w-11 shrink-0 pt-0.5 text-sm font-medium text-ink">{event.time ?? "—"}</span>
+            <div className="min-w-0 flex-1">
+              <p className="break-words font-medium text-ink">{event.title}</p>
+              {event.time && event.end ? (
+                <p className="mt-0.5 text-sm text-ink-muted">
+                  {event.time}–{event.end}
+                </p>
+              ) : !event.time ? (
+                <p className="mt-0.5 text-sm text-ink-muted">Ամբողջ օրը</p>
+              ) : null}
+              {event.location ? (
+                <p className="mt-0.5 flex items-center gap-1 text-sm text-ink-muted">
+                  <MapPin className="h-3 w-3 shrink-0" />
+                  <span className="break-words">{event.location}</span>
+                </p>
+              ) : null}
+              {event.description ? (
+                <p className="mt-0.5 line-clamp-3 whitespace-pre-line break-words text-sm text-ink-muted">{event.description}</p>
+              ) : null}
+              <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
+                <span className="inline-flex items-center gap-1">
+                  <span className={cn("h-2 w-2 rounded-full", GOOGLE_DOT)} />
+                  Google · {event.calendar}
+                </span>
+                {event.link ? (
+                  <a href={event.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-ink">
+                    Բացել Google-ում
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                ) : null}
+              </p>
+            </div>
+          </li>
+        ))}
       </ul>
+      {google.length > 0 ? (
+        <p className="text-xs text-ink-faint">
+          Google-ի իրադարձությունները դեռ աղյուսակում չեն և չեն հաշվվում վերլուծության մեջ։ Սեղմեք «Դարձնել աղյուսակ» օրացույցի վերևում։
+        </p>
+      ) : null}
     </Wrapper>
   );
 }

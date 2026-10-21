@@ -18,7 +18,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        DataTable::withoutTenancy()->each(function (DataTable $table) {
+        DataTable::withoutGlobalScopes()->each(function (DataTable $table) {
             $chosen = array_filter([
                 $table->getAttribute('date_column') => ColumnRole::Date,
                 $table->getAttribute('quantity_column') => ColumnRole::Quantity,
@@ -60,7 +60,7 @@ return new class extends Migration
             $table->string('quantity_column', 20)->nullable()->after('amount_column');
         });
 
-        DataTable::withoutTenancy()->each(function (DataTable $table) {
+        DataTable::withoutGlobalScopes()->each(function (DataTable $table) {
             $key = fn (ColumnRole $role) => $table->roleColumn($role)?->key;
             $table->forceFill([
                 'date_column' => $key(ColumnRole::Date),

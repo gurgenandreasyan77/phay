@@ -37,13 +37,15 @@ class DataTableController extends Controller
             ->map(fn (DataTableSection $section) => $section->value)
             ->values();
 
-        $tables = DataTable::query()
+        // Older versions too, after the current ones.
+        $tables = DataTable::withArchived()
             ->whereIn('section', $sections)
             ->withCount(['rows', 'rows as rows_without_date_count' => fn ($q) => $q->whereNull('occurred_at')])
             ->withMin('rows', 'occurred_at')
             ->withMax('rows', 'occurred_at')
             ->withSum('rows', 'amount')
             ->withMax('imports', 'created_at')
+            ->orderByRaw('CASE WHEN archived_at IS NULL THEN 0 ELSE 1 END')
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
@@ -139,7 +141,7 @@ class DataTableController extends Controller
             'ids.*' => ['integer'],
         ]);
 
-        $tables = DataTable::query()->whereIn('id', $validated['ids'])->get();
+        $tables = DataTable::withArchived()->whereIn('id', $validated['ids'])->get();
         $tables->each(fn (DataTable $table) => self::ensureReachable($table));
         $tables->each->delete();
 

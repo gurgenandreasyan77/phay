@@ -17,6 +17,11 @@ class DataTableResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description,
             'columns' => $this->columns,
+            // What it was made from: null (by hand or from a file) or "google" (the calendars).
+            'source' => $this->source,
+            // An older version, replaced by a newer one: kept, but no longer counted.
+            'archivedAt' => $this->archived_at?->toIso8601String(),
+            'replacedById' => $this->replaced_by_id,
             // What the table is kept for (TablePeriod; null: not chosen) and
             // the period it holds: the chosen one, or the month read from its
             // name or rows (inferred) for a table made before periods.

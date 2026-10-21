@@ -15,7 +15,10 @@ class DataTableRow extends Model
 
     public const SOURCE_IMPORT = 'import';
 
-    protected $fillable = ['data_table_id', 'data', 'source', 'data_import_id', 'created_by_id'];
+    /** Made from a Google Calendar event (external_id is the event's id). */
+    public const SOURCE_GOOGLE = 'google';
+
+    protected $fillable = ['data_table_id', 'data', 'source', 'data_import_id', 'created_by_id', 'external_id', 'external_hash'];
 
     protected $casts = [
         'data' => 'array',
