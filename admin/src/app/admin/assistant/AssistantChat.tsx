@@ -13,6 +13,14 @@ const ERRORS: Record<string, string> = {
   not_configured: "AI օգնականը դեռ միացված չէ։",
   limit_reached: "Այս ամսվա հարցերը սպառվել են։",
   unavailable: "AI օգնականը հիմա հասանելի չէ։ Փորձեք մեկ րոպեից։",
+  // Set-up problems: the platform fixes them, the detail says what to fix.
+  invalid_key: "AI օգնականի բանալին սխալ է։ Դիմեք Servio-ի թիմին։",
+  no_credit: "AI ծառայության հաշվեկշիռը սպառվել է։ Դիմեք Servio-ի թիմին։",
+  bad_model: "Ընտրված AI մոդելը հասանելի չէ։ Դիմեք Servio-ի թիմին։",
+  forbidden: "AI ծառայությունը մերժեց հարցումը։ Դիմեք Servio-ի թիմին։",
+  rate_limited: "Շատ հարցումներ են։ Փորձեք մեկ րոպեից։",
+  network: "Սերվերը չի կարողանում կապվել AI ծառայության հետ։ Փորձեք մի փոքր ուշ։",
+  bad_request: "AI ծառայությունը մերժեց հարցումը։ Դիմեք Servio-ի թիմին։",
 };
 
 /** **bold** inside a line of the model's answer. */
@@ -63,6 +71,7 @@ export function AssistantChat({
   initialUsage,
   plans,
   canAsk,
+  showDetails = false,
 }: {
   suggestions?: string[];
   configured: boolean;
@@ -70,6 +79,8 @@ export function AssistantChat({
   /** Plans with more questions, offered once they run out. */
   plans: AssistantPlanOfferDto[];
   canAsk: boolean;
+  /** Platform staff (or a dev build) see the API's own error under the message. */
+  showDetails?: boolean;
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
@@ -124,7 +135,8 @@ export function AssistantChat({
           if (json.offer?.plans) setOffer(json.offer.plans);
           return;
         }
-        setError(ERRORS[json?.code] ?? "Չհաջողվեց ստանալ պատասխան։ Փորձեք կրկին։");
+        const message = ERRORS[json?.code] ?? "Չհաջողվեց ստանալ պատասխան։ Փորձեք կրկին։";
+        setError(showDetails && json?.detail ? `${message} (${json.code}: ${json.detail})` : message);
         return;
       }
 

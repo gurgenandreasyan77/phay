@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use Anthropic\Core\Exceptions\APIStatusException;
 use App\Assistant\AssistantClient;
 use App\Assistant\BusinessTools;
 use App\Models\AssistantUsage;
@@ -9,6 +10,8 @@ use App\Models\Lead;
 use App\Models\Plan;
 use App\Models\Tenant;
 use App\Models\User;
+use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
@@ -174,5 +177,29 @@ class AdminAssistantTest extends TestCase
     {
         $this->expectException(\InvalidArgumentException::class);
         app(BusinessTools::class)->run('group_rows', ['from' => '2026-10-01', 'to' => '2026-10-31', 'by' => 'Հեռախոս']);
+    }
+
+    public function test_a_failed_api_call_says_what_is_wrong_and_costs_no_request(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+        $fail = fn (int $status, string $message) => APIStatusException::from(
+            new Request('POST', 'https://api.anthropic.com/v1/messages'),
+            new Response($status, ['Content-Type' => 'application/json'], json_encode(['type' => 'error', 'error' => ['type' => 'x', 'message' => $message]])),
+        );
+        $ask = fn () => $this->postJson('/api/v1/admin/assistant', ['messages' => [['role' => 'user', 'content' => 'Hi']]]);
+
+        $this->client->throw = $fail(401, 'invalid x-api-key');
+        $ask()->assertStatus(502)->assertJsonPath('code', 'invalid_key')->assertJsonPath('detail', 'invalid x-api-key');
+
+        $this->client->throw = $fail(400, 'Your credit balance is too low to access the Anthropic API.');
+        $ask()->assertStatus(502)->assertJsonPath('code', 'no_credit');
+
+        $this->client->throw = $fail(404, 'model: claude-x');
+        $ask()->assertStatus(502)->assertJsonPath('code', 'bad_model');
+
+        $this->client->throw = $fail(529, 'Overloaded');
+        $ask()->assertStatus(503)->assertJsonPath('code', 'unavailable');
+
+        $this->getJson('/api/v1/admin/assistant')->assertJsonPath('data.used', 0);
     }
 }

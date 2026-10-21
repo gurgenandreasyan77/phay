@@ -3,6 +3,7 @@
 namespace App\Assistant;
 
 use Anthropic\Client;
+use Anthropic\Core\Exceptions\BadRequestException;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Throwable;
@@ -19,6 +20,9 @@ class AnthropicAssistantClient implements AssistantClient
 
     /** Past this many seconds no more look-ups: the web server waits 120 s. */
     private const TIME_BUDGET = 70;
+
+    /** Off once the API says the account can't use the fallback beta. */
+    private bool $fallbacks = true;
 
     public function __construct(
         private readonly ?string $apiKey,
@@ -44,22 +48,7 @@ class AnthropicAssistantClient implements AssistantClient
             // The last round (or out of time) answers with what it has.
             $mayUseTools = $tools !== null && $round < self::MAX_TOOL_ROUNDS && microtime(true) - $started < self::TIME_BUDGET;
 
-            $message = $client->beta->messages->create(
-                model: $this->model,
-                maxTokens: $this->maxTokens,
-                // The prompt (with the business's figures) is the same on every
-                // round of a question: cached, the rounds after the first cost
-                // a tenth for it.
-                system: [['type' => 'text', 'text' => $system, 'cacheControl' => ['type' => 'ephemeral']]],
-                messages: $messages,
-                tools: $tools?->definitions(),
-                toolChoice: $tools === null ? null : ['type' => $mayUseTools ? 'auto' : 'none'],
-                // Thinking is always on for this model; effort sets how deep it goes.
-                outputConfig: ['effort' => $this->effort],
-                // A declined request is retried on the model Anthropic recommends.
-                fallbacks: 'default',
-                betas: ['server-side-fallback-2026-07-01'],
-            );
+            $message = $this->create($client, $system, $messages, $tools, $mayUseTools);
 
             $usage = $message->usage;
             $input += $usage->inputTokens + ($usage->cacheCreationInputTokens ?? 0) + ($usage->cacheReadInputTokens ?? 0);
@@ -95,6 +84,42 @@ class AnthropicAssistantClient implements AssistantClient
         }
 
         return new AssistantReply(trim($text), $input, $output, toolsUsed: $used);
+    }
+
+    /**
+     * One call to the Messages API. Refused requests are retried on the
+     * model Anthropic recommends (server-side fallback); an account that
+     * can't use that beta gets the plain request instead.
+     */
+    private function create(Client $client, string $system, array $messages, ?BusinessTools $tools, bool $mayUseTools): mixed
+    {
+        $params = [
+            'model' => $this->model,
+            'maxTokens' => $this->maxTokens,
+            // The prompt (with the business's figures) is the same on every
+            // round of a question: cached, the rounds after the first cost
+            // a tenth for it.
+            'system' => [['type' => 'text', 'text' => $system, 'cacheControl' => ['type' => 'ephemeral']]],
+            'messages' => $messages,
+            'tools' => $tools?->definitions(),
+            'toolChoice' => $tools === null ? null : ['type' => $mayUseTools ? 'auto' : 'none'],
+            // Thinking is always on for this model; effort sets how deep it goes.
+            'outputConfig' => ['effort' => $this->effort],
+        ];
+
+        if ($this->fallbacks) {
+            try {
+                return $client->beta->messages->create(...$params, fallbacks: 'default', betas: ['server-side-fallback-2026-07-01']);
+            } catch (BadRequestException $e) {
+                if (! preg_match('/fallback|beta/i', $e->getMessage())) {
+                    throw $e;
+                }
+                Log::info('AI assistant: refusal fallback not available, asking without it', ['error' => $e->getMessage()]);
+                $this->fallbacks = false;
+            }
+        }
+
+        return $client->beta->messages->create(...$params);
     }
 
     /** @return array<string, mixed> a tool_result block */

@@ -37,6 +37,7 @@ export default async function AdminAssistantPage() {
         plans={status?.offer.plans ?? []}
         // Asking for a plan or more questions goes to the chat with the platform.
         canAsk={can(admin, "settings") && !isPlatformStaff(admin)}
+        showDetails={isPlatformStaff(admin) || process.env.NODE_ENV !== "production"}
       />
     </div>
   );

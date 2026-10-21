@@ -26,6 +26,9 @@ class FakeAssistantClient implements AssistantClient
 
     public ?array $toolDefinitions = null;
 
+    /** Thrown instead of answering, like a failed API call. */
+    public ?\Throwable $throw = null;
+
     public function isConfigured(): bool
     {
         return $this->configured;
@@ -36,6 +39,10 @@ class FakeAssistantClient implements AssistantClient
         $this->system = $system;
         $this->messages = $messages;
         $this->toolDefinitions = $tools?->definitions();
+
+        if ($this->throw) {
+            throw $this->throw;
+        }
 
         foreach ($this->toolCalls as [$name, $input]) {
             $this->toolResults[] = $tools->run($name, $input);
