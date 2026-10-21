@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\V1\Admin\ExpenseCategoryController as AdminExpenseC
 use App\Http\Controllers\Api\V1\Admin\FeatureFlagController as AdminFeatureFlagController;
 use App\Http\Controllers\Api\V1\Admin\FeedbackController as AdminFeedbackController;
 use App\Http\Controllers\Api\V1\Admin\FinanceController as AdminFinanceController;
+use App\Http\Controllers\Api\V1\Admin\GoogleCalendarController as AdminGoogleCalendarController;
 use App\Http\Controllers\Api\V1\Admin\LeadController as AdminLeadController;
 use App\Http\Controllers\Api\V1\Admin\ModulePriceController as AdminModulePriceController;
 use App\Http\Controllers\Api\V1\Admin\NotificationController as AdminNotificationController;
@@ -196,6 +197,14 @@ Route::prefix('v1')->group(function () {
                 // An order added on a day goes to the table of its month (made when missing).
                 Route::post('/calendar/rows', [AdminCalendarRowController::class, 'store']);
 
+                // Each person's Google Calendar, read only: connect, choose calendars, sync.
+                Route::get('/google', [AdminGoogleCalendarController::class, 'show']);
+                Route::post('/google/connect', [AdminGoogleCalendarController::class, 'connect'])->middleware('throttle:10,1');
+                Route::post('/google/callback', [AdminGoogleCalendarController::class, 'callback'])->middleware('throttle:10,1');
+                Route::put('/google/calendars', [AdminGoogleCalendarController::class, 'choose']);
+                Route::post('/google/sync', [AdminGoogleCalendarController::class, 'sync'])->middleware('throttle:google-sync');
+                Route::delete('/google', [AdminGoogleCalendarController::class, 'disconnect']);
+
                 // What visitors wrote through the site's feedback form.
                 Route::middleware('feature:site')->group(function () {
                     Route::get('/feedback', [AdminFeedbackController::class, 'index']);
@@ -281,6 +290,9 @@ Route::prefix('v1')->group(function () {
             Route::middleware('business.can:catalog')->group(function () {
                 // Designing a table (its name and columns): owner and admin.
                 Route::post('/data-tables', [AdminDataTableController::class, 'store']);
+                // The synced Google events as an order table (a new version when they changed).
+                Route::get('/google/table', [AdminGoogleCalendarController::class, 'preview']);
+                Route::post('/google/table', [AdminGoogleCalendarController::class, 'makeTable'])->middleware('throttle:google-sync');
                 Route::post('/data-tables/bulk-delete', [AdminDataTableController::class, 'bulkDestroy']);
                 Route::patch('/data-tables/{dataTable}', [AdminDataTableController::class, 'update']);
                 Route::delete('/data-tables/{dataTable}', [AdminDataTableController::class, 'destroy']);

@@ -2,14 +2,15 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requirePermission } from "@/lib/adminAuth";
-import { can } from "@/lib/roles";
-import { getCalendar } from "@/lib/adminApi";
+import { can, isPlatformStaff } from "@/lib/roles";
+import { getCalendar, getGoogleState } from "@/lib/adminApi";
 import { buttonClasses, cn, EmptyCard, PageHeader } from "../_components/ui";
 import { bucketTitle, weekdayShort } from "../_components/analytics/BarChart";
 import { formatMoney, SECTIONS, tablePath } from "../_components/tables/shared";
 import { DayView } from "./DayView";
 import { addDays, addMonths, isDay, today, visibleDays, type CalendarView } from "./dates";
-import { groupByDay, tableColor, type CalendarDay } from "./entries";
+import { GOOGLE_DOT, groupByDay, tableColor, type CalendarDay } from "./entries";
+import { GoogleSync } from "./GoogleSync";
 import styles from "./calendar.module.css";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +41,7 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
   const open = first(searchParams.open) === "1";
 
   const days = visibleDays(day, view);
-  const data = await getCalendar(days[0], days[days.length - 1]);
+  const [data, google] = await Promise.all([getCalendar(days[0], days[days.length - 1]), getGoogleState()]);
   const byDay = data ? groupByDay(data) : new Map<string, CalendarDay>();
   const step = (n: number) => (view === "week" ? addDays(day, 7 * n) : addMonths(day, n));
   const title =
@@ -52,8 +53,17 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
     <div className="space-y-6">
       <PageHeader
         title="Օրացույց"
-        description="Ձեր պատվերներն ըստ օրերի՝ պատվերների աղյուսակներից և կայքից։ Ընտրեք օրը՝ պատվեր ավելացնելու կամ ջնջելու համար. փոփոխությունները միանգամից երևում են աղյուսակում և վերլուծության մեջ։"
+        description="Ձեր պատվերներն ըստ օրերի՝ պատվերների աղյուսակներից, կայքից և Google օրացույցից։ Ընտրեք օրը՝ պատվեր ավելացնելու կամ ջնջելու համար. փոփոխությունները միանգամից երևում են աղյուսակում և վերլուծության մեջ։"
       />
+
+      {google ? (
+        <GoogleSync
+          state={google}
+          canMakeTable={can(me, "catalog")}
+          staff={isPlatformStaff(me)}
+          notice={first(searchParams.google) ?? null}
+        />
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <Link href={href(view, step(-1))} className={buttonClasses("secondary", "sm")} aria-label="Նախորդ">
@@ -99,7 +109,7 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
               <div key={`${view}-${days[0]}`} className="grid grid-cols-7">
                 {days.map((d, i) => {
                   const info = byDay.get(d);
-                  const count = (info?.entries.length ?? 0) + (info?.leads.length ?? 0);
+                  const count = (info?.entries.length ?? 0) + (info?.leads.length ?? 0) + (info?.google.length ?? 0);
                   const outside = view === "month" && d.slice(0, 7) !== day.slice(0, 7);
 
                   return (
@@ -141,6 +151,15 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
                               <span className="min-w-0 break-words text-info">{l.service ?? l.name}</span>
                             </li>
                           ))}
+                          {info?.google.map((g) => (
+                            <li key={`google-${g.id}`} className="flex items-start gap-1">
+                              <span className={cn("mt-1 h-1.5 w-1.5 shrink-0 rounded-full", GOOGLE_DOT)} />
+                              <span className="min-w-0 break-words text-ink">
+                                {g.time ? <span className="text-ink-muted">{g.time} </span> : null}
+                                {g.title}
+                              </span>
+                            </li>
+                          ))}
                         </ul>
                       ) : count > 0 ? (
                         <>
@@ -165,6 +184,13 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
                                 style={{ "--i": i, "--j": j + 8 } as CSSProperties}
                               />
                             ))}
+                            {info?.google.slice(0, 6).map((g, j) => (
+                              <span
+                                key={`google-${g.id}`}
+                                className={cn(styles.dot, "h-1.5 w-1.5 rounded-full", GOOGLE_DOT)}
+                                style={{ "--i": i, "--j": j + 12 } as CSSProperties}
+                              />
+                            ))}
                           </span>
                         </>
                       ) : null}
@@ -187,6 +213,12 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
                   Կայքից
                 </Link>
               ) : null}
+              {data.google.length > 0 ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className={cn("h-2 w-2 rounded-full", GOOGLE_DOT)} />
+                  Google օրացույց (դեռ աղյուսակում չէ)
+                </span>
+              ) : null}
               {data.truncated ? <span className="text-warning">Ցուցադրված են ոչ բոլոր պատվերները. ընտրեք շաբաթը։</span> : null}
             </div>
           </div>
@@ -200,6 +232,7 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
             tables={data.tables}
             entries={byDay.get(day)?.entries ?? []}
             leads={byDay.get(day)?.leads ?? []}
+            google={byDay.get(day)?.google ?? []}
             colors={Object.fromEntries(data.tables.map((t) => [t.id, tableColor(data, t.id)]))}
             canDesign={can(me, "catalog")}
           />

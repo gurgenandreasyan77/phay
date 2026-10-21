@@ -230,6 +230,11 @@ export type AdminDataTableDto = {
   amountColumn: string | null;
   /** How a row's money is counted, e.g. "Գին × Քանակ". */
   amountLabel: string | null;
+  /** What it was made from: null (by hand or a file), "google" (the Google calendars). */
+  source: "google" | null;
+  /** An older version replaced by a newer one: kept, but left out of the calendar and analytics. */
+  archivedAt: string | null;
+  replacedById: number | null;
   rowsCount?: number;
   /** In the list only: rows with no date, first and last date ("Y-m-d H:i"), money of all rows, last import. */
   rowsWithoutDate?: number;
@@ -1118,6 +1123,27 @@ export type CalendarRowDto = {
   time: string | null;
   amount: number | null;
   values: Record<string, DataCellValue>;
+  /** "google": made from a Google Calendar event; "manual", "import". */
+  source: string;
+};
+
+/** An event of a synced Google calendar, not turned into a table row yet. */
+export type CalendarGoogleEventDto = {
+  id: number;
+  eventId: string;
+  date: string;
+  /** null: an all-day event. */
+  time: string | null;
+  end: string | null;
+  title: string;
+  location: string | null;
+  description: string | null;
+  /** The Google calendar's name and colour, and whose account it is. */
+  calendar: string;
+  color: string | null;
+  account: string | null;
+  /** The event in Google Calendar. */
+  link: string | null;
 };
 
 /** An order from the site on the day the customer asked for. */
@@ -1142,7 +1168,51 @@ export type CalendarDto = {
   /** More rows than the API sends at once. */
   truncated: boolean;
   leads: CalendarLeadDto[];
+  google: CalendarGoogleEventDto[];
 };
+
+/** What «turn into a table» would do now. */
+export type GoogleTablePreviewDto = {
+  /** The current table made from the calendars, if any. */
+  table: { id: number; name: string; createdAt: string | null } | null;
+  events: number;
+  new: number;
+  changed: number;
+  removed: number;
+  /** Rows edited by hand whose event changed or was deleted: kept as they are. */
+  keptEdited: number;
+  upToDate: boolean;
+};
+
+export type GoogleCalendarDto = {
+  id: number;
+  name: string;
+  color: string | null;
+  primary: boolean;
+  selected: boolean;
+  syncedAt: string | null;
+  events: number;
+};
+
+/** The person's Google Calendar connection in this business. */
+export type GoogleStateDto = {
+  /** The platform has its Google keys (GOOGLE_CLIENT_ID…). */
+  configured: boolean;
+  connection: {
+    email: string | null;
+    connectedAt: string | null;
+    syncedAt: string | null;
+    /** Google refused the access: connect again. */
+    needsReconnect: boolean;
+    calendars: GoogleCalendarDto[];
+  } | null;
+  pending: GoogleTablePreviewDto;
+};
+
+export async function getGoogleState(): Promise<GoogleStateDto | null> {
+  const result = await adminApiFetch<GoogleStateDto>("/admin/google");
+  return result.data;
+}
 
 export async function getCalendar(from: string, to: string): Promise<CalendarDto | null> {
   const result = await adminApiFetch<CalendarDto>(`/admin/calendar?from=${from}&to=${to}`);

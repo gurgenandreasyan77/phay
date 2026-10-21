@@ -145,7 +145,13 @@ export function TablesList({
                 <Link href={tablePath(section, table.id)} className="font-medium text-ink hover:text-primary">
                   {table.name}
                 </Link>
-                <span className="block text-xs text-ink-faint">{table.columns.length} սյունակ</span>
+                <span className="block text-xs text-ink-faint">
+                  {table.columns.length} սյունակ
+                  {table.source === "google" ? " · Google օրացույցից" : ""}
+                </span>
+                {table.archivedAt ? (
+                  <span className="mt-1 block text-xs text-warning">Հին տարբերակ · չի հաշվվում վերլուծության մեջ</span>
+                ) : null}
               </Td>
               <Td className="whitespace-nowrap">
                 {table.periodInfo ? (

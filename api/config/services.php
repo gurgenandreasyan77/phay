@@ -50,6 +50,16 @@ return [
         'monthly_limit' => (int) env('ASSISTANT_MONTHLY_LIMIT', 100),
     ],
 
+    // Google Calendar in the business calendar (read only). Keys of an OAuth
+    // client of type "Web application" in Google Cloud; the redirect URI is
+    // the admin's /api/admin/google/callback, registered there exactly.
+    // Without them the calendar says the sync is not set up yet.
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect_uri' => env('GOOGLE_REDIRECT_URI'),
+    ],
+
     'admin_login' => [
         'rate_limit_per_minute' => env('ADMIN_LOGIN_RATE_LIMIT_PER_MINUTE', 5),
     ],

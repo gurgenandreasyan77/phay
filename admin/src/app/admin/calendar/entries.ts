@@ -1,6 +1,13 @@
 // What the calendar shows of a row: read by the columns' roles, whatever
 // the business called them. Shared by its server and client components.
-import type { AdminDataTableDto, CalendarDto, CalendarLeadDto, CalendarRowDto, ColumnRole } from "@/lib/adminApi";
+import type {
+  AdminDataTableDto,
+  CalendarDto,
+  CalendarGoogleEventDto,
+  CalendarLeadDto,
+  CalendarRowDto,
+  ColumnRole,
+} from "@/lib/adminApi";
 import { formatCell } from "../_components/tables/shared";
 
 export type CalendarEntry = CalendarRowDto & {
@@ -16,6 +23,8 @@ export type CalendarEntry = CalendarRowDto & {
 export type CalendarDay = {
   entries: CalendarEntry[];
   leads: CalendarLeadDto[];
+  /** Events of the synced Google calendars, not in a table yet. */
+  google: CalendarGoogleEventDto[];
   /** Money of the day's rows. */
   amount: number;
 };
@@ -50,7 +59,7 @@ export function groupByDay(data: CalendarDto): Map<string, CalendarDay> {
   const days = new Map<string, CalendarDay>();
   const dayOf = (date: string) => {
     let day = days.get(date);
-    if (!day) days.set(date, (day = { entries: [], leads: [], amount: 0 }));
+    if (!day) days.set(date, (day = { entries: [], leads: [], google: [], amount: 0 }));
     return day;
   };
 
@@ -62,6 +71,7 @@ export function groupByDay(data: CalendarDto): Map<string, CalendarDay> {
     day.amount += row.amount ?? 0;
   }
   for (const lead of data.leads) dayOf(lead.date).leads.push(lead);
+  for (const event of data.google ?? []) dayOf(event.date).google.push(event);
 
   return days;
 }
@@ -73,3 +83,6 @@ export function tableColor(data: Pick<CalendarDto, "tables">, tableId: number): 
   const index = data.tables.findIndex((t) => t.id === tableId);
   return TABLE_COLORS[(index < 0 ? 0 : index) % TABLE_COLORS.length];
 }
+
+/** A Google event's mark: a hollow dot in Google's blue, unlike the tables' filled ones. */
+export const GOOGLE_DOT = "border-[1.5px] border-[#1a73e8] bg-surface";

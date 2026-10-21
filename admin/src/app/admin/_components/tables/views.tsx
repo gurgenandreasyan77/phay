@@ -177,6 +177,16 @@ export async function TableView({
         }
       />
       {table.description ? <p className="text-sm text-ink-muted">{table.description}</p> : null}
+      {table.archivedAt ? (
+        <p className="rounded-md bg-warning-light px-3 py-2 text-sm text-warning">
+          Սա աղյուսակի հին տարբերակն է՝ պահված, որպեսզի ոչինչ չկորչի։ Այն չի երևում օրացույցում և չի հաշվվում վերլուծության մեջ։{" "}
+          {table.replacedById ? (
+            <Link href={tablePath(section, table.replacedById)} className="font-medium underline">
+              Բացել նոր տարբերակը
+            </Link>
+          ) : null}
+        </p>
+      ) : null}
       <p className="text-sm text-ink-muted">
         {table.periodInfo
           ? `${TABLE_PERIOD_LABELS[table.periodInfo.kind]} աղյուսակ՝ ${table.periodInfo.label}${table.periodInfo.inferred ? " (ըստ անվան կամ տողերի)" : ""}`
