@@ -19,6 +19,8 @@ class AssistantController extends Controller
         return response()->json(['data' => [
             'configured' => $assistant->isConfigured(),
             ...$assistant->usage(),
+            // What to offer when the requests run out (bigger plans).
+            'offer' => $assistant->offer(),
         ]]);
     }
 
@@ -35,7 +37,12 @@ class AssistantController extends Controller
         }
 
         if ($assistant->limitReached()) {
-            return response()->json(['message' => 'This month\'s AI assistant limit is used up.', 'code' => 'limit_reached'], 429);
+            return response()->json([
+                'message' => 'This subscription month\'s AI assistant requests are used up.',
+                'code' => 'limit_reached',
+                'usage' => $assistant->usage(),
+                'offer' => $assistant->offer(),
+            ], 429);
         }
 
         $messages = $this->trim($validated['messages']);

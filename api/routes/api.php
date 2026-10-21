@@ -178,6 +178,7 @@ Route::prefix('v1')->group(function () {
                 Route::delete('/tenants/{tenant}/subscription/free', [AdminPlatformSubscriptionController::class, 'removeFree']);
                 Route::post('/tenants/{tenant}/subscription/cancel', [AdminPlatformSubscriptionController::class, 'cancel']);
                 Route::post('/tenants/{tenant}/subscription/resume', [AdminPlatformSubscriptionController::class, 'resume']);
+                Route::post('/tenants/{tenant}/subscription/assistant-bonus', [AdminPlatformSubscriptionController::class, 'grantAssistantBonus']);
             });
 
             // The business admin, by role (App\Enums\BusinessRole).

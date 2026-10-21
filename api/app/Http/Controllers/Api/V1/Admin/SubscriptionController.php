@@ -38,7 +38,7 @@ class SubscriptionController extends Controller
 
         return response()->json(['data' => [
             'subscription' => (new SubscriptionResource($subscription))->resolve(),
-            // This month's AI requests against the limit, shown next to what a bigger plan adds.
+            // This subscription month's AI requests, shown next to what a bigger plan adds.
             'assistant' => $assistant->usage(),
             'payments' => SubscriptionPaymentResource::collection($payments)->resolve(),
             'plans' => Plan::query()->where('is_active', true)->ordered()->get()->map(fn (Plan $plan) => [
@@ -46,6 +46,7 @@ class SubscriptionController extends Controller
                 'name' => $plan->name,
                 'description' => $plan->description,
                 'price' => $plan->price,
+                'assistantRequests' => $plan->assistant_requests,
                 'includedModules' => $plan->included_modules ?? [],
             ]),
         ]]);
@@ -54,7 +55,7 @@ class SubscriptionController extends Controller
     /**
      * Writes to the platform in the business's chat: renew, switch to a
      * plan, turn a module on (the platform does it and records payments),
-     * or ask about the premium plan that is still being prepared.
+     * ask for more AI assistant requests, or ask about the premium plan.
      */
     public function request(Request $request, SupportChat $chat): JsonResponse
     {
@@ -62,7 +63,7 @@ class SubscriptionController extends Controller
         abort_if($user->isPlatformStaff(), 403, 'Platform staff answer from the platform level.');
 
         $validated = $request->validate([
-            'kind' => ['required', Rule::in(['renew', 'plan', 'module', 'premium'])],
+            'kind' => ['required', Rule::in(['renew', 'plan', 'module', 'premium', 'assistant'])],
             'plan_id' => ['required_if:kind,plan', 'integer', Rule::exists('plans', 'id')->where('is_active', true)],
             'module' => ['required_if:kind,module', Rule::in(array_column(FeatureFlag::cases(), 'value'))],
         ]);
@@ -72,6 +73,7 @@ class SubscriptionController extends Controller
             'plan' => sprintf('Ցանկանում եմ անցնել «%s» փաթեթին։', Plan::query()->findOrFail($validated['plan_id'])->name),
             'module' => sprintf('Ցանկանում եմ միացնել «%s» մոդուլը։', FeatureFlag::from($validated['module'])->label()),
             'premium' => 'Հետաքրքրում է Պրեմիում փաթեթը։ Խնդրում եմ տեղեկացնել, երբ այն հասանելի լինի։',
+            'assistant' => 'AI օգնականի այս ամսվա հարցերը սպառվել են։ Ցանկանում եմ ավելացնել հարցեր։',
         };
 
         $chat->send($this->context->current(), $user, false, $body);

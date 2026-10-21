@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Assistant\AssistantQuota;
 use App\Enums\SubscriptionStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\SubscriptionPaymentResource;
 use App\Http\Resources\Admin\SubscriptionResource;
+use App\Models\AssistantBonus;
 use App\Models\ModulePrice;
 use App\Models\Plan;
 use App\Models\SubscriptionPayment;
@@ -20,11 +22,14 @@ use InvalidArgumentException;
  * Every business's subscription, from the platform level (super admin
  * only): the list with who pays what and until when, and on one business:
  * its plan, payments recorded by hand, free access, turning it off (after a
- * notice) and back on.
+ * notice) and back on, and extra AI assistant requests given by hand.
  */
 class PlatformSubscriptionController extends Controller
 {
-    public function __construct(private readonly Subscriptions $subscriptions) {}
+    public function __construct(
+        private readonly Subscriptions $subscriptions,
+        private readonly AssistantQuota $quota,
+    ) {}
 
     /** ?status= keeps one status (trial, active, free, canceling, expired, unlimited). */
     public function index(Request $request): JsonResponse
@@ -159,6 +164,29 @@ class PlatformSubscriptionController extends Controller
         return $this->present($tenant);
     }
 
+    /**
+     * Extra AI assistant requests (a negative amount takes back unspent
+     * ones). They don't expire; the business is told in its chat.
+     */
+    public function grantAssistantBonus(Request $request, Tenant $tenant): JsonResponse
+    {
+        $validated = $request->validate([
+            'amount' => ['required', 'integer', 'between:-10000,10000', 'not_in:0'],
+            'note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $bonus = $this->quota->grantBonus($tenant, $validated['amount'], $validated['note'] ?? null, $request->user());
+
+        if ($bonus->amount > 0) {
+            $this->subscriptions->tell($tenant, sprintf(
+                'Ձեզ տրամադրվել է AI օգնականի +%d հավելյալ հարց։ Դրանք չեն այրվում և օգտագործվում են փաթեթի ամսական հարցերից հետո։',
+                $bonus->amount,
+            ));
+        }
+
+        return $this->present($tenant, 201);
+    }
+
     private function present(Tenant $tenant, int $status = 200): JsonResponse
     {
         $subscription = $this->subscriptions->sync($tenant, $this->subscriptions->for($tenant)->refresh());
@@ -170,11 +198,24 @@ class PlatformSubscriptionController extends Controller
             'tenant' => ['id' => $tenant->id, 'name' => $tenant->name, 'logo' => $tenant->logo, 'status' => $tenant->status],
             'subscription' => (new SubscriptionResource($subscription))->resolve(),
             'payments' => SubscriptionPaymentResource::collection($payments)->resolve(),
-            'plans' => Plan::query()->ordered()->get(['id', 'name', 'price', 'is_active'])->map(fn (Plan $plan) => [
+            // AI assistant requests this subscription month and the bonuses given.
+            'assistant' => [
+                ...$this->quota->status($tenant),
+                'bonuses' => AssistantBonus::query()->with('user:id,name')->where('tenant_id', $tenant->id)->latest('id')->limit(20)->get()
+                    ->map(fn (AssistantBonus $b) => [
+                        'id' => $b->id,
+                        'amount' => $b->amount,
+                        'note' => $b->note,
+                        'givenBy' => $b->user?->name,
+                        'createdAt' => $b->created_at?->toIso8601String(),
+                    ]),
+            ],
+            'plans' => Plan::query()->ordered()->get(['id', 'name', 'price', 'is_active', 'assistant_requests'])->map(fn (Plan $plan) => [
                 'id' => $plan->id,
                 'name' => $plan->name,
                 'price' => $plan->price,
                 'isActive' => $plan->is_active,
+                'assistantRequests' => $plan->assistant_requests,
             ]),
         ]], $status);
     }

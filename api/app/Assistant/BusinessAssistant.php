@@ -8,7 +8,6 @@ use App\Enums\DataTableSection;
 use App\Enums\TablePeriod;
 use App\Expenses\Finance;
 use App\Features\FeatureFlag;
-use App\Models\AssistantUsage;
 use App\Models\DataTable;
 use App\Models\Lead;
 use App\Models\Service;
@@ -30,6 +29,8 @@ class BusinessAssistant
         private readonly TenantContext $tenants,
         private readonly Dashboard $dashboard,
         private readonly Finance $finance,
+        private readonly BusinessTools $tools,
+        private readonly AssistantQuota $quota,
     ) {}
 
     public function isConfigured(): bool
@@ -38,21 +39,29 @@ class BusinessAssistant
     }
 
     /**
-     * @return array{used: int, limit: int}
+     * This subscription month's requests: used, allowed, left and when they renew.
+     *
+     * @return array<string, mixed>
      */
     public function usage(): array
     {
-        return [
-            'used' => (int) AssistantUsage::query()->where('month', now()->format('Y-m'))->value('requests'),
-            'limit' => (int) config('services.anthropic.monthly_limit'),
-        ];
+        return $this->quota->status($this->tenants->current());
     }
 
     public function limitReached(): bool
     {
-        $usage = $this->usage();
+        return $this->quota->exhausted($this->tenants->current());
+    }
 
-        return $usage['used'] >= $usage['limit'];
+    /**
+     * What to offer once the requests ran out: plans with more of them,
+     * and the day they renew anyway.
+     *
+     * @return array<string, mixed>
+     */
+    public function offer(): array
+    {
+        return ['plans' => $this->quota->biggerPlans($this->tenants->current())];
     }
 
     /**
@@ -60,13 +69,10 @@ class BusinessAssistant
      */
     public function ask(array $messages): AssistantReply
     {
-        $reply = $this->client->reply($this->systemPrompt(), $messages);
+        $reply = $this->client->reply($this->systemPrompt(), $messages, $this->tools);
 
-        $usage = AssistantUsage::forCurrentMonth();
-        $usage->increment('requests', 1, [
-            'input_tokens' => $usage->input_tokens + $reply->inputTokens,
-            'output_tokens' => $usage->output_tokens + $reply->outputTokens,
-        ]);
+        // Only an answer counts: a failed call throws before this.
+        $this->quota->record($this->tenants->current(), $reply->inputTokens, $reply->outputTokens);
 
         return $reply;
     }
@@ -110,6 +116,8 @@ class BusinessAssistant
         - ownTables: rows of tables the business designed itself (its own columns) and filled by hand or from files, e.g. sales from Instagram or a file imported every day. One entry per "section" (orders or sales), with all its tables taken together: rows and "amount" (the money a row is worth: its total column, else unit price × quantity, e.g. 0.5 kg at 3000 a kg is 1500) for the last 30 and 365 days by the date each row happened, with the previous period of the same length. "metrics" are the figures that make sense for what this business records, chosen by what its columns mean: revenue, profit and margin (only when a unit cost column exists: amount − cost × quantity), how many rows, rows a day and a month (counted from the business's first row), the average check, and per unit (kg, pieces...) the quantity sold, the average quantity of a sale and the average price of one unit. Only the figures the owner put on their analytics dashboard are given ("shownOnDashboard"); a figure that is missing was either not chosen or can't be computed from the business's columns: don't guess it, say it can be added on the analytics screen ("Ավելացնել գրաֆիկ") or which column would make it possible. "months" are the last twelve months with their best and weakest one, "weekdays" rows by day of the week (1 is Monday), "hours" rows by hour of the day. A monthly "series" and "peaks" (the best and the weakest finished month or day and the average one, by money, or by how many rows when there is no money), the most frequent values of columns of the same meaning across tables ("breakdowns", with the amount they bring) and sums of number columns (the business's own number columns). "tables" lists each table (rows and amount in the last 365 days, all rows, rows without a date, first and last date) and "latestRows" are the latest rows with their table and time. Rows without a date are in no period. Contact details of buyers are left out on purpose.
         - finance (only when the business records its expenses): money in and out per month for the last twelve months ("periods", this month the last, not over yet): "revenue" (orders and sales tables plus completed site orders), "cogs" (cost of goods: unit cost × quantity of the rows that have one), "grossProfit" = revenue − cogs, "expenses" (expenses of the categories counted in the profit), "netProfit" = grossProfit − expenses, "excluded" (expenses the owner keeps out of the profit: equipment, loan repayments, what the owner takes out...) and "cashLeft" = netProfit − excluded, "margin" = netProfit / revenue in %. "categories" are the expenses of the twelve months by category ("inProfit" false: kept out of the profit, "recurring": the part that repeats every week, month, quarter or year), "thisMonth" the same for this month, "notes" what makes the figures less exact. Talk about net profit, where the money goes, which costs grow, and what could be cut, with real numbers.
         Amounts are in {$tenant->currency}; write Armenian dram as "դր.".
+
+        Looking things up: the data below is a summary. When a question needs more (a given day, week or month, a product, service, performer, channel or category, the biggest or latest rows, profit of a past period, site orders of some dates), use the tools to get the exact figures from the business's own records instead of estimating: list_tables shows the tables and their column labels, find_rows finds rows by dates and words, group_rows sums rows by day, week, month, weekday, hour or a column, finance_report gives profit and expenses for any period, site_orders the website's orders. Dates are YYYY-MM-DD; today is in "business.today". Use as few look-ups as the answer needs, and don't mention the tools by name to the user: say what you found.
 
         Reply in the language of the user's latest message (Armenian, Russian or English). Write natural, fluent text, as a native speaker would, with short paragraphs and simple lists. Do not use tables or headings unless asked.
 

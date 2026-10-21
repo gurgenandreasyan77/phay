@@ -14,7 +14,8 @@ use Illuminate\Validation\Rule;
 
 /**
  * Subscription plans of the platform (super admin only): their names,
- * monthly prices, trial days and the modules they include.
+ * monthly prices, trial days, the modules they include and the AI
+ * assistant requests a month.
  */
 class PlanController extends Controller
 {
@@ -61,6 +62,8 @@ class PlanController extends Controller
             'description' => ['sometimes', 'nullable', 'string', 'max:500'],
             'price' => [$required, 'integer', 'min:0', 'max:100000000'],
             'trial_days' => ['sometimes', 'integer', 'min:0', 'max:365'],
+            // AI assistant requests a subscription month; null: no limit, 0: none.
+            'assistant_requests' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100000'],
             'included_modules' => ['sometimes', 'array'],
             'included_modules.*' => ['string', Rule::in(array_column(FeatureFlag::cases(), 'value'))],
             'is_default' => ['sometimes', 'boolean'],

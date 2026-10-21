@@ -8,8 +8,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A subscription plan of the platform (made by the super admin): its monthly
- * price in AMD, the trial a new business gets, and the modules whose price
- * it already includes. Platform-wide, so not tenant-scoped.
+ * price in AMD, the trial a new business gets, the modules whose price it
+ * already includes and the AI assistant requests a month (null: no limit).
+ * Platform-wide, so not tenant-scoped.
  */
 class Plan extends Model
 {
@@ -18,6 +19,7 @@ class Plan extends Model
         'description',
         'price',
         'trial_days',
+        'assistant_requests',
         'included_modules',
         'is_default',
         'is_active',
@@ -27,6 +29,7 @@ class Plan extends Model
     protected $casts = [
         'price' => 'integer',
         'trial_days' => 'integer',
+        'assistant_requests' => 'integer',
         'included_modules' => 'array',
         'is_default' => 'boolean',
         'is_active' => 'boolean',

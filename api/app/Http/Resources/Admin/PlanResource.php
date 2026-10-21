@@ -16,6 +16,8 @@ class PlanResource extends JsonResource
             // AMD per month.
             'price' => $this->price,
             'trialDays' => $this->trial_days,
+            // AI assistant requests a subscription month (null: no limit).
+            'assistantRequests' => $this->assistant_requests,
             // Modules whose price the plan already includes.
             'includedModules' => $this->included_modules ?? [],
             'isDefault' => $this->is_default,

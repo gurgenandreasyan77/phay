@@ -46,8 +46,9 @@ return [
         'model' => env('ASSISTANT_MODEL', 'claude-opus-5-5'),
         'effort' => env('ASSISTANT_EFFORT', 'low'),
         'max_tokens' => (int) env('ASSISTANT_MAX_TOKENS', 8000),
-        // Questions per business per month.
-        'monthly_limit' => (int) env('ASSISTANT_MONTHLY_LIMIT', 100),
+        // Requests a subscription month for a business without a plan; each
+        // plan sets its own (Platform → Plans, App\Assistant\AssistantQuota).
+        'monthly_limit' => (int) env('ASSISTANT_MONTHLY_LIMIT', 30),
     ],
 
     // Google Calendar in the business calendar (read only). Keys of an OAuth

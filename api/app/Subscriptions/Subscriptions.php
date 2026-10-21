@@ -312,6 +312,12 @@ class Subscriptions
         return $subscription;
     }
 
+    /** A message to the business in its chat with the platform. */
+    public function tell(Tenant $tenant, string $body): void
+    {
+        $this->chat->notify($tenant, $body);
+    }
+
     /** Where an extension starts: the current end, or now if that has passed. */
     private function extendFrom(Subscription $subscription): Carbon
     {
