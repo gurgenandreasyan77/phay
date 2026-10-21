@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { adminApiFetchRaw } from "@/lib/adminApi";
+import { requestOrigin } from "@/lib/requestOrigin";
 
 /**
  * «Connect Google Calendar»: off to Google's consent page, where the person
@@ -15,5 +16,5 @@ export async function GET(request: NextRequest) {
   }
 
   const reason = result.status === 503 ? "not_configured" : result.status === 401 ? "login" : "error";
-  return NextResponse.redirect(new URL(`/admin/calendar?google=${reason}`, request.nextUrl.origin));
+  return NextResponse.redirect(new URL(`/admin/calendar?google=${reason}`, requestOrigin(request)));
 }
