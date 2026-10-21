@@ -2,6 +2,7 @@
 
 import { BarChart3, Bot, Crown, Lock, Puzzle, Sparkles } from "lucide-react";
 import { useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import type { AssistantUsageDto } from "@/lib/adminApi";
 import { formatNumber } from "../_components/tables/shared";
 import { RequestButton } from "./RequestButton";
 import styles from "./subscription.module.css";
@@ -11,9 +12,10 @@ import styles from "./subscription.module.css";
  * a richer analytics screen that shows through where the light falls. The
  * light wanders by itself and follows the pointer. Asking goes to the chat.
  */
-export function PremiumTeaser({ assistant, canAsk }: { assistant: { used: number; limit: number }; canAsk: boolean }) {
-  const used = Math.min(assistant.used, assistant.limit);
-  const usedShare = assistant.limit > 0 ? used / assistant.limit : 0;
+export function PremiumTeaser({ assistant, canAsk }: { assistant: Pick<AssistantUsageDto, "used" | "limit">; canAsk: boolean }) {
+  const limit = assistant.limit ?? 0;
+  const used = Math.min(assistant.used, limit);
+  const usedShare = limit > 0 ? used / limit : 0;
 
   const benefits = [
     {
@@ -24,7 +26,7 @@ export function PremiumTeaser({ assistant, canAsk }: { assistant: { used: number
     {
       icon: Bot,
       title: "Ավելի շատ AI հարցումներ",
-      text: `Հիմա՝ ամսական ${formatNumber(assistant.limit)} հարցում։ Պրեմիումում՝ զգալիորեն ավելի շատ։`,
+      text: `Հիմա՝ ամսական ${formatNumber(limit)} հարցում։ Պրեմիումում՝ զգալիորեն ավելի շատ։`,
     },
     {
       icon: Puzzle,
@@ -78,7 +80,7 @@ export function PremiumTeaser({ assistant, canAsk }: { assistant: { used: number
             <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
               <span className="text-white/70">AI հարցումներ այս ամիս</span>
               <span className="font-medium tabular-nums">
-                {formatNumber(used)} / {formatNumber(assistant.limit)}
+                {formatNumber(used)} / {formatNumber(limit)}
               </span>
             </div>
             <div className={`${styles.usageTrack} flex h-2 overflow-hidden rounded-full`}>

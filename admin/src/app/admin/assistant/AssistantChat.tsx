@@ -2,15 +2,25 @@
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Send, Sparkles } from "lucide-react";
+import type { AssistantPlanOfferDto, AssistantUsageDto } from "@/lib/adminApi";
 import { Button, Card, cn, Textarea } from "../_components/ui";
+import { AssistantLimitReached, AssistantQuotaBar } from "./AssistantQuota";
 import { SUGGESTIONS } from "./suggestions";
 
 type Message = { role: "user" | "assistant"; content: string };
 
 const ERRORS: Record<string, string> = {
   not_configured: "AI օգնականը դեռ միացված չէ։",
-  limit_reached: "Այս ամսվա հարցերի սահմանաչափը սպառվել է։",
+  limit_reached: "Այս ամսվա հարցերը սպառվել են։",
   unavailable: "AI օգնականը հիմա հասանելի չէ։ Փորձեք մեկ րոպեից։",
+  // Set-up problems: the platform fixes them, the detail says what to fix.
+  invalid_key: "AI օգնականի բանալին սխալ է։ Դիմեք Servio-ի թիմին։",
+  no_credit: "AI ծառայության հաշվեկշիռը սպառվել է։ Դիմեք Servio-ի թիմին։",
+  bad_model: "Ընտրված AI մոդելը հասանելի չէ։ Դիմեք Servio-ի թիմին։",
+  forbidden: "AI ծառայությունը մերժեց հարցումը։ Դիմեք Servio-ի թիմին։",
+  rate_limited: "Շատ հարցումներ են։ Փորձեք մեկ րոպեից։",
+  network: "Սերվերը չի կարողանում կապվել AI ծառայության հետ։ Փորձեք մի փոքր ուշ։",
+  bad_request: "AI ծառայությունը մերժեց հարցումը։ Դիմեք Servio-ի թիմին։",
 };
 
 /** **bold** inside a line of the model's answer. */
@@ -58,19 +68,26 @@ function Formatted({ text }: { text: string }) {
 export function AssistantChat({
   suggestions = SUGGESTIONS.orders,
   configured,
-  initialUsed,
-  limit,
+  initialUsage,
+  plans,
+  canAsk,
+  showDetails = false,
 }: {
   suggestions?: string[];
   configured: boolean;
-  initialUsed: number;
-  limit: number;
+  initialUsage: AssistantUsageDto;
+  /** Plans with more questions, offered once they run out. */
+  plans: AssistantPlanOfferDto[];
+  canAsk: boolean;
+  /** Platform staff (or a dev build) see the API's own error under the message. */
+  showDetails?: boolean;
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [used, setUsed] = useState(initialUsed);
+  const [usage, setUsage] = useState(initialUsage);
+  const [offer, setOffer] = useState(plans);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -89,7 +106,7 @@ export function AssistantChat({
     );
   }
 
-  const limitReached = used >= limit;
+  const limitReached = usage.remaining !== null && usage.remaining <= 0;
 
   async function ask(question: string) {
     const text = question.trim();
@@ -113,16 +130,22 @@ export function AssistantChat({
         // Give the question back so it can be sent again.
         setMessages(messages);
         setDraft(text);
-        setError(ERRORS[json?.code] ?? "Չհաջողվեց ստանալ պատասխան։ Փորձեք կրկին։");
-        if (json?.code === "limit_reached") setUsed(limit);
+        if (json?.code === "limit_reached") {
+          if (json.usage) setUsage(json.usage);
+          if (json.offer?.plans) setOffer(json.offer.plans);
+          return;
+        }
+        const message = ERRORS[json?.code] ?? "Չհաջողվեց ստանալ պատասխան։ Փորձեք կրկին։";
+        setError(showDetails && json?.detail ? `${message} (${json.code}: ${json.detail})` : message);
         return;
       }
 
-      const reply: string = json.data.refused
+      const { reply: answer, refused, ...nextUsage } = json.data as { reply: string; refused: boolean } & AssistantUsageDto;
+      const reply = refused
         ? "Այս հարցին չեմ կարող պատասխանել։ Փորձեք ձևակերպել այլ կերպ։"
-        : json.data.reply || "Պատասխանը դատարկ է։ Փորձեք կրկին։";
+        : answer || "Պատասխանը դատարկ է։ Փորձեք կրկին։";
       setMessages([...next, { role: "assistant", content: reply }]);
-      setUsed(json.data.used ?? used + 1);
+      setUsage(nextUsage);
     } catch {
       setMessages(messages);
       setDraft(text);
@@ -134,6 +157,7 @@ export function AssistantChat({
 
   return (
     <div className="flex max-w-3xl flex-col gap-4">
+      <AssistantQuotaBar usage={usage} />
       <Card className="min-h-[24rem] space-y-4">
         {messages.length === 0 ? (
           <div className="space-y-4">
@@ -178,6 +202,7 @@ export function AssistantChat({
       </Card>
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}
+      {limitReached ? <AssistantLimitReached usage={usage} plans={offer} canAsk={canAsk} /> : null}
 
       <form
         className="flex items-end gap-2"
@@ -205,10 +230,7 @@ export function AssistantChat({
         </Button>
       </form>
 
-      <div className="flex items-center justify-between text-xs text-ink-faint">
-        <span>
-          Այս ամիս՝ {used} / {limit} հարց
-        </span>
+      <div className="flex items-center justify-end text-xs text-ink-faint">
         {messages.length > 0 ? (
           <button
             type="button"

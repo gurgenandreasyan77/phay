@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Assistant\AssistantClient;
 use App\Assistant\AssistantReply;
+use App\Assistant\BusinessTools;
 use App\Models\DataTableRow;
 use App\Models\Lead;
 use App\Models\Tenant;
@@ -11,6 +12,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
+use Tests\Fakes\FakeAssistantClient;
 use Tests\Feature\Tenancy\TenancyTestHelpers;
 use Tests\TestCase;
 
@@ -293,7 +295,7 @@ class TableAnalyticsTest extends TestCase
                 return true;
             }
 
-            public function reply(string $system, array $messages): AssistantReply
+            public function reply(string $system, array $messages, ?BusinessTools $tools = null): AssistantReply
             {
                 $this->system = $system;
 

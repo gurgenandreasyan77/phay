@@ -391,7 +391,29 @@ export type TableAnalyticsDto = {
   };
 };
 
-export type AssistantStatusDto = { configured: boolean; used: number; limit: number };
+/** AI assistant requests of this subscription month (renews on the day the business paid, not on the 1st). */
+export type AssistantUsageDto = {
+  used: number;
+  /** This month's plan requests plus bonus ones; null: no limit. */
+  limit: number | null;
+  planLimit: number | null;
+  /** Bonus requests left (they don't expire). */
+  bonus: number;
+  remaining: number | null;
+  unlimited: boolean;
+  periodStart: string;
+  resetsAt: string;
+};
+
+/** A plan with more requests, offered when they run out. */
+export type AssistantPlanOfferDto = { id: number; name: string; price: number; assistantRequests: number | null };
+
+export type AssistantStatusDto = AssistantUsageDto & {
+  configured: boolean;
+  offer: { plans: AssistantPlanOfferDto[] };
+};
+
+export type AssistantBonusDto = { id: number; amount: number; note: string | null; givenBy: string | null; createdAt: string | null };
 
 /** A person's role inside one business (see the API's BusinessRole). */
 export type BusinessRole = "owner" | "admin" | "moderator";
@@ -562,6 +584,8 @@ export type PlanDto = {
   description: string | null;
   price: number;
   trialDays: number;
+  /** AI assistant requests a subscription month; null: no limit. */
+  assistantRequests: number | null;
   includedModules: string[];
   isDefault: boolean;
   isActive: boolean;
@@ -574,10 +598,10 @@ export type ModulePriceDto = { key: string; label: string; description: string; 
 /** The business's own subscription page. */
 export type BusinessSubscriptionDto = {
   subscription: SubscriptionDto;
-  /** This month's AI assistant requests and the monthly limit. */
-  assistant: { used: number; limit: number };
+  /** This subscription month's AI assistant requests. */
+  assistant: AssistantUsageDto;
   payments: SubscriptionPaymentDto[];
-  plans: { id: number; name: string; description: string | null; price: number; includedModules: string[] }[];
+  plans: { id: number; name: string; description: string | null; price: number; assistantRequests: number | null; includedModules: string[] }[];
 };
 
 export type SubscriptionTenantDto = { id: number; name: string; logo: string | null; status: "active" | "suspended" };
@@ -592,7 +616,8 @@ export type TenantSubscriptionDetailDto = {
   tenant: SubscriptionTenantDto;
   subscription: SubscriptionDto;
   payments: SubscriptionPaymentDto[];
-  plans: { id: number; name: string; price: number; isActive: boolean }[];
+  assistant: AssistantUsageDto & { bonuses: AssistantBonusDto[] };
+  plans: { id: number; name: string; price: number; isActive: boolean; assistantRequests: number | null }[];
 };
 
 export type AdminSiteDto = {

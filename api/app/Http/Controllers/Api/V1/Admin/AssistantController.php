@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use Anthropic\Core\Exceptions\APIException;
+use Anthropic\Core\Exceptions\APIStatusException;
+use App\Assistant\AssistantFailure;
 use App\Assistant\BusinessAssistant;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +21,8 @@ class AssistantController extends Controller
         return response()->json(['data' => [
             'configured' => $assistant->isConfigured(),
             ...$assistant->usage(),
+            // What to offer when the requests run out (bigger plans).
+            'offer' => $assistant->offer(),
         ]]);
     }
 
@@ -35,7 +39,12 @@ class AssistantController extends Controller
         }
 
         if ($assistant->limitReached()) {
-            return response()->json(['message' => 'This month\'s AI assistant limit is used up.', 'code' => 'limit_reached'], 429);
+            return response()->json([
+                'message' => 'This subscription month\'s AI assistant requests are used up.',
+                'code' => 'limit_reached',
+                'usage' => $assistant->usage(),
+                'offer' => $assistant->offer(),
+            ], 429);
         }
 
         $messages = $this->trim($validated['messages']);
@@ -46,9 +55,20 @@ class AssistantController extends Controller
         try {
             $reply = $assistant->ask($messages);
         } catch (APIException $e) {
-            Log::warning('AI assistant request failed', ['error' => $e->getMessage()]);
+            $failure = AssistantFailure::from($e);
+            Log::warning('AI assistant request failed', [
+                'code' => $failure->code,
+                'status' => $e instanceof APIStatusException ? $e->status : null,
+                'detail' => $failure->detail,
+                'model' => config('services.anthropic.model'),
+            ]);
 
-            return response()->json(['message' => 'The AI assistant is unavailable right now. Try again in a minute.', 'code' => 'unavailable'], 502);
+            // The API's own words, for whoever sets the assistant up.
+            return response()->json([
+                'message' => $failure->message,
+                'code' => $failure->code,
+                'detail' => $failure->detail,
+            ], $failure->status);
         }
 
         return response()->json(['data' => [

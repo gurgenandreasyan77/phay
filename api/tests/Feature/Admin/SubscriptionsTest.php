@@ -264,7 +264,8 @@ class SubscriptionsTest extends TestCase
         $this->getJson('/api/v1/admin/subscription')
             ->assertOk()
             ->assertJsonPath('data.assistant.used', 0)
-            ->assertJsonPath('data.assistant.limit', (int) config('services.anthropic.monthly_limit'))
+            ->assertJsonPath('data.assistant.limit', 30)
+            ->assertJsonPath('data.assistant.remaining', 30)
             ->assertJsonPath('data.subscription.pricing.modules.1.description', FeatureFlag::Market->description());
 
         $moderator = User::factory()->forTenant($this->shop, 'moderator')->create();
