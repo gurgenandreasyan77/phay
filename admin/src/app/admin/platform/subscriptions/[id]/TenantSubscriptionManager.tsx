@@ -13,7 +13,7 @@ const UNIT_LABELS: Record<Unit, string> = { day: "օր", week: "շաբաթ", mon
 /** Everything the super admin does to one business's subscription. */
 export function TenantSubscriptionManager({ data }: { data: TenantSubscriptionDetailDto }) {
   const router = useRouter();
-  const { tenant, subscription, payments, plans } = data;
+  const { tenant, subscription, payments, plans, assistant } = data;
   const base = `/api/admin/tenants/${tenant.id}/subscription`;
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,6 +119,8 @@ export function TenantSubscriptionManager({ data }: { data: TenantSubscriptionDe
         </Action>
       </div>
 
+      <AssistantCard assistant={assistant} pending={pending} onGrant={(body) => call("/assistant-bonus", "POST", body)} />
+
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-ink">Վճարումներ</h2>
         <TableWrap>
@@ -165,6 +167,89 @@ export function TenantSubscriptionManager({ data }: { data: TenantSubscriptionDe
           </tbody>
         </TableWrap>
       </section>
+    </div>
+  );
+}
+
+/**
+ * The business's AI assistant questions this subscription month, and extra
+ * ones given by hand: they don't expire and are spent after the plan's.
+ */
+function AssistantCard({
+  assistant,
+  pending,
+  onGrant,
+}: {
+  assistant: TenantSubscriptionDetailDto["assistant"];
+  pending: boolean;
+  onGrant: (body: { amount: number; note: string | null }) => Promise<boolean>;
+}) {
+  const [amount, setAmount] = useState("10");
+  const [note, setNote] = useState("");
+  const count = Math.round(Number(amount) || 0);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (count === 0) return;
+    if (count < 0 && !confirm(`Հանե՞լ ${-count} նվեր հարց։`)) return;
+    if (await onGrant({ amount: count, note: note.trim() || null })) setNote("");
+  }
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Card className="space-y-3">
+        <h2 className="text-base font-semibold text-ink">AI օգնական</h2>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+          <dt className="text-ink-muted">Օգտագործված այս ամիս</dt>
+          <dd className="text-ink">
+            {assistant.used}
+            {assistant.limit === null ? "" : ` / ${assistant.limit}`}
+          </dd>
+          <dt className="text-ink-muted">Փաթեթով ամսական</dt>
+          <dd className="text-ink">{assistant.planLimit === null ? "Անսահմանափակ" : assistant.planLimit}</dd>
+          <dt className="text-ink-muted">Նվեր հարցեր (մնացած)</dt>
+          <dd className="text-ink">{assistant.bonus}</dd>
+          <dt className="text-ink-muted">Մնացել է</dt>
+          <dd className="font-medium text-ink">{assistant.remaining === null ? "Անսահմանափակ" : assistant.remaining}</dd>
+          <dt className="text-ink-muted">Ամիսը</dt>
+          <dd className="text-ink">
+            {formatDay(assistant.periodStart)} – {formatDay(assistant.resetsAt)}
+          </dd>
+        </dl>
+        {assistant.bonuses.length > 0 ? (
+          <ul className="space-y-1 border-t border-border pt-3 text-xs text-ink-muted">
+            {assistant.bonuses.map((bonus) => (
+              <li key={bonus.id}>
+                {formatDay(bonus.createdAt)} · <span className="font-medium text-ink">{bonus.amount > 0 ? `+${bonus.amount}` : bonus.amount}</span>
+                {bonus.note ? ` · ${bonus.note}` : ""}
+                {bonus.givenBy ? ` · ${bonus.givenBy}` : ""}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </Card>
+
+      <Action title="Տալ նվեր հարցեր">
+        <form onSubmit={submit} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <FieldLabel>Քանակ</FieldLabel>
+              <Input type="number" min={-10000} max={10000} value={amount} onChange={(e) => setAmount(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <FieldLabel>Նշում</FieldLabel>
+              <Input placeholder="Օր․ փորձարկման համար" value={note} onChange={(e) => setNote(e.target.value)} />
+            </div>
+          </div>
+          <p className="text-xs text-ink-muted">
+            Նվեր հարցերը չեն այրվում. ծախսվում են փաթեթի ամսական հարցերից հետո։ Բացասական թիվը հանում է չօգտագործվածները։ Բիզնեսը
+            հաղորդագրություն կստանա չատում։
+          </p>
+          <Button type="submit" disabled={pending || count === 0}>
+            {count < 0 ? "Հանել" : "Տալ"}
+          </Button>
+        </form>
+      </Action>
     </div>
   );
 }

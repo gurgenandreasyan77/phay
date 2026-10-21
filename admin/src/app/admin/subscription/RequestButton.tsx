@@ -8,6 +8,7 @@ import { Button, cn } from "../_components/ui";
 type RequestBody =
   | { kind: "renew" }
   | { kind: "premium" }
+  | { kind: "assistant" }
   | { kind: "module"; module: string }
   | { kind: "plan"; plan_id: number };
 

@@ -11,6 +11,8 @@ type Draft = {
   description: string;
   price: string;
   trial_days: string;
+  /** Empty: no limit. */
+  assistant_requests: string;
   included_modules: string[];
   is_default: boolean;
   is_active: boolean;
@@ -22,6 +24,7 @@ function draftOf(plan?: PlanDto): Draft {
     description: plan?.description ?? "",
     price: String(plan?.price ?? ""),
     trial_days: String(plan?.trialDays ?? 14),
+    assistant_requests: plan ? (plan.assistantRequests === null ? "" : String(plan.assistantRequests)) : "30",
     included_modules: plan?.includedModules ?? [],
     is_default: plan?.isDefault ?? false,
     is_active: plan?.isActive ?? true,
@@ -34,10 +37,11 @@ function payload(draft: Draft) {
     description: draft.description.trim() || null,
     price: Math.max(0, Number(draft.price) || 0),
     trial_days: Math.max(0, Number(draft.trial_days) || 0),
+    assistant_requests: draft.assistant_requests.trim() === "" ? null : Math.max(0, Math.round(Number(draft.assistant_requests) || 0)),
   };
 }
 
-/** The platform's plans: each one's price, trial and included modules. */
+/** The platform's plans: each one's price, trial, AI assistant requests and included modules. */
 export function PlansManager({ plans, modules }: { plans: PlanDto[]; modules: ModulePriceDto[] }) {
   const [adding, setAdding] = useState(false);
 
@@ -99,6 +103,8 @@ function PlanCard({ plan, modules }: { plan: PlanDto; modules: ModulePriceDto[] 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
         <dt className="text-ink-muted">Փորձաշրջան</dt>
         <dd className="text-ink">{plan.trialDays} օր</dd>
+        <dt className="text-ink-muted">AI հարցեր ամսական</dt>
+        <dd className="text-ink">{plan.assistantRequests === null ? "Անսահմանափակ" : plan.assistantRequests}</dd>
         <dt className="text-ink-muted">Ներառված մոդուլներ</dt>
         <dd className="text-ink">{included.length ? included.join(", ") : "—"}</dd>
         <dt className="text-ink-muted">Բիզնեսներ</dt>
@@ -173,6 +179,20 @@ function PlanForm({ plan, modules, onDone }: { plan?: PlanDto; modules: ModulePr
             <FieldLabel>Փորձաշրջան, օր</FieldLabel>
             <Input type="number" min={0} max={365} value={draft.trial_days} onChange={(e) => setDraft({ ...draft, trial_days: e.target.value })} />
           </div>
+        </div>
+        <div className="space-y-1">
+          <FieldLabel>AI օգնականի հարցեր ամսական</FieldLabel>
+          <Input
+            type="number"
+            min={0}
+            max={100000}
+            placeholder="Անսահմանափակ"
+            value={draft.assistant_requests}
+            onChange={(e) => setDraft({ ...draft, assistant_requests: e.target.value })}
+          />
+          <p className="text-xs text-ink-muted">
+            Ամիսը հաշվվում է բիզնեսի վճարման օրից։ Դատարկ՝ առանց սահմանափակման, 0՝ առանց AI օգնականի։
+          </p>
         </div>
         <div className="space-y-1">
           <FieldLabel>Գնի մեջ ներառված մոդուլներ</FieldLabel>
