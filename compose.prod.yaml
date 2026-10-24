@@ -1,4 +1,10 @@
-name: ${COMPOSE_PROJECT_NAME:-phay}
+# Phay PRODUCTION stack (make prod-*). Every setting comes from .env.prod:
+#   docker compose --env-file .env.prod -f compose.prod.yaml ...
+# The Makefile passes both; .env (local) is never read here.
+# Ports are published on 127.0.0.1 only: the host nginx (deploy/phay.nginx.conf)
+# is the only way in from outside. Docker's own published ports bypass ufw,
+# so 0.0.0.0 here would open them to the internet.
+name: ${COMPOSE_PROJECT_NAME:-phay-prod}
 
 networks:
   phay:
@@ -7,6 +13,34 @@ volumes:
   postgres_data:
   # Uploaded files (logos, photos, videos): written by backend, served by api.
   public_storage:
+  # storage/logs: laravel.log survives container rebuilds.
+  app_logs:
+
+# Shared by backend (php-fpm) and scheduler: same image, same settings.
+x-backend: &backend
+  image: ${COMPOSE_PROJECT_NAME:-phay-prod}-backend
+  restart: unless-stopped
+  env_file: .env.prod
+  environment:
+    APP_ENV: production
+    APP_DEBUG: "false"
+    APP_KEY: ${APP_KEY:?APP_KEY must be set in .env.prod (make prod-key)}
+    APP_URL: ${APP_URL:?APP_URL must be set in .env.prod (https://api.phay.am)}
+    ADMIN_URL: ${ADMIN_URL:?ADMIN_URL must be set in .env.prod (https://app.phay.am)}
+    DB_CONNECTION: pgsql
+    DB_HOST: postgres
+    DB_PORT: 5432
+    DB_DATABASE: ${POSTGRES_DB:-phay}
+    DB_USERNAME: ${POSTGRES_USER:-phay}
+    DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env.prod}
+  volumes:
+    - public_storage:/var/www/html/storage/app/public
+    - app_logs:/var/www/html/storage/logs
+  depends_on:
+    postgres:
+      condition: service_healthy
+  networks:
+    - phay
 
 services:
   postgres:
@@ -15,7 +49,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-phay}
       POSTGRES_USER: ${POSTGRES_USER:-phay}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env.prod}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -27,57 +61,23 @@ services:
       - phay
 
   backend:
+    <<: *backend
     build:
       context: ./api
       target: php
       additional_contexts:
         configs: ./docker
-    restart: unless-stopped
-    environment:
-      APP_NAME: ${APP_NAME:-Phay}
-      APP_ENV: production
-      APP_KEY: ${APP_KEY:?APP_KEY must be set — see README}
-      APP_DEBUG: "false"
-      APP_URL: ${APP_URL:?APP_URL must be set}
-      DB_CONNECTION: pgsql
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_DATABASE: ${POSTGRES_DB:-phay}
-      DB_USERNAME: ${POSTGRES_USER:-phay}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS must be set}
-      LEADS_RATE_LIMIT_PER_MINUTE: ${LEADS_RATE_LIMIT_PER_MINUTE:-5}
-      ADMIN_LOGIN_RATE_LIMIT_PER_MINUTE: ${ADMIN_LOGIN_RATE_LIMIT_PER_MINUTE:-5}
-      # Sign-in security: links in emails, mail, SMS codes (see README).
-      ADMIN_URL: ${ADMIN_URL:?ADMIN_URL must be set (e.g. https://app.phay.am)}
-      MAIL_MAILER: ${MAIL_MAILER:-smtp}
-      MAIL_SCHEME: ${MAIL_SCHEME:-}
-      MAIL_HOST: ${MAIL_HOST:-}
-      MAIL_PORT: ${MAIL_PORT:-587}
-      MAIL_USERNAME: ${MAIL_USERNAME:-}
-      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
-      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@phay.am}
-      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Phay}
-      SMS_DRIVER: ${SMS_DRIVER:-log}
-      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
-      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
-      TWILIO_FROM: ${TWILIO_FROM:-}
-      TWO_FACTOR_REQUIRED_FOR_OWNERS: ${TWO_FACTOR_REQUIRED_FOR_OWNERS:-true}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      ASSISTANT_MONTHLY_LIMIT: ${ASSISTANT_MONTHLY_LIMIT:-30}
-      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-claude-opus-5-5}
-      ASSISTANT_EFFORT: ${ASSISTANT_EFFORT:-low}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
-      LOG_CHANNEL: stack
-    volumes:
-      - public_storage:/var/www/html/storage/app/public
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - phay
+
+  # Laravel's scheduler (routes/console.php): daily subscription warnings
+  # and pruning of expired admin sessions. Same image, no php-fpm.
+  scheduler:
+    <<: *backend
+    # Built by the backend service (make prod-build).
+    pull_policy: never
+    user: www-data
+    command: ["php", "artisan", "schedule:work"]
+    healthcheck:
+      disable: true
 
   api:
     build:
@@ -89,7 +89,7 @@ services:
     volumes:
       - public_storage:/var/www/html/public/storage:ro
     ports:
-      - "${API_PORT:-8080}:80"
+      - "127.0.0.1:${API_PORT:-8080}:80"
     depends_on:
       backend:
         condition: service_healthy
@@ -104,7 +104,7 @@ services:
     environment:
       NEXT_INTERNAL_API_URL: http://api/api/v1
     ports:
-      - "${ADMIN_PORT:-3001}:3001"
+      - "127.0.0.1:${ADMIN_PORT:-3001}:3001"
     depends_on:
       - api
     networks:
