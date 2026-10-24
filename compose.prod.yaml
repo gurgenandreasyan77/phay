@@ -89,7 +89,7 @@ services:
     volumes:
       - public_storage:/var/www/html/public/storage:ro
     ports:
-      - "127.0.0.1:${API_PORT:-8080}:80"
+      - "127.0.0.1:${API_PORT:-8081}:80"
     depends_on:
       backend:
         condition: service_healthy
