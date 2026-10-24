@@ -18,6 +18,11 @@ class TenantUserResource extends JsonResource
             'role' => $this->whenPivotLoaded('tenant_user', fn () => $this->pivot->role),
             'isSuperAdmin' => $this->is_super_admin,
             'platformRole' => $this->platformRole()?->value,
+            // Account security, for staff to see who is set up.
+            'activated' => $this->isActivated(),
+            'twoFactorEnabled' => $this->hasTwoFactorEnabled(),
+            'emailVerified' => $this->email_verified_at !== null,
+            'phoneVerified' => $this->phone_verified_at !== null,
             'createdAt' => $this->created_at?->toIso8601String(),
         ];
     }

@@ -5,7 +5,6 @@ namespace Tests\Feature\Tenancy;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -28,14 +27,14 @@ class RolesAndLoginsTest extends TestCase
         Sanctum::actingAs(User::factory()->superAdmin()->create());
 
         $id = $this->postJson("/api/v1/admin/tenants/{$shop->id}/users", [
-            'name' => 'Ani', 'email' => 'ani@shop.am', 'password' => 'secret-pass', 'role' => 'moderator',
+            'name' => 'Ani', 'email' => 'ani@shop.am', 'role' => 'moderator',
         ])->assertCreated()
             ->assertJsonPath('data.role', 'moderator')
             ->assertJsonPath('data.email', 'ani@shop.am')
             ->json('data.id');
 
         $this->postJson("/api/v1/admin/tenants/{$shop->id}/users", [
-            'name' => 'X', 'email' => 'x@shop.am', 'password' => 'secret-pass', 'role' => 'cashier',
+            'name' => 'X', 'email' => 'x@shop.am', 'role' => 'cashier',
         ])->assertUnprocessable()->assertJsonValidationErrors('role');
 
         $this->patchJson("/api/v1/admin/tenants/{$shop->id}/users/{$id}", ['role' => 'admin'])
@@ -49,19 +48,20 @@ class RolesAndLoginsTest extends TestCase
             ->assertJsonPath('data.0.role', 'admin');
     }
 
-    public function test_a_new_password_replaces_the_old_one_and_signs_the_login_out(): void
+    public function test_staff_send_a_reset_link_instead_of_setting_a_password(): void
     {
         $shop = $this->createTenant('test-shop');
         $owner = $this->member($shop, 'owner');
-        $owner->createToken('admin-panel');
+        $hash = $owner->password;
         Sanctum::actingAs(User::factory()->superAdmin()->create());
 
-        $this->patchJson("/api/v1/admin/tenants/{$shop->id}/users/{$owner->id}", ['password' => 'brand-new-pass'])
+        $this->postJson("/api/v1/admin/tenants/{$shop->id}/users/{$owner->id}/password-reset")
             ->assertOk()
-            ->assertJsonMissingPath('data.password');
+            ->assertJsonPath('data.emailed', true);
 
-        $this->assertTrue(Hash::check('brand-new-pass', $owner->fresh()->password));
-        $this->assertSame(0, $owner->tokens()->count());
+        // The old password keeps working until the owner uses the link.
+        $this->assertSame($hash, $owner->fresh()->password);
+        $this->assertDatabaseHas('security_events', ['user_id' => $owner->id, 'event' => 'password_reset_link_created']);
     }
 
     public function test_an_owner_has_every_business_section(): void
@@ -135,7 +135,7 @@ class RolesAndLoginsTest extends TestCase
         $this->postJson('/api/v1/admin/tenants', ['name' => 'New Shop'])->assertCreated();
         $this->getJson('/api/v1/admin/sites')->assertOk();
         $this->postJson("/api/v1/admin/tenants/{$shop->id}/users", [
-            'name' => 'Owner', 'email' => 'owner@shop.am', 'password' => 'secret-pass',
+            'name' => 'Owner', 'email' => 'owner@shop.am',
         ])->assertCreated()->assertJsonPath('data.role', 'owner');
         $this->postJson('/api/v1/admin/switch-tenant', ['tenant_id' => $shop->id])->assertOk();
 
@@ -144,8 +144,10 @@ class RolesAndLoginsTest extends TestCase
 
         // The super admin's account is out of a moderator's reach.
         $superAdmin->tenants()->syncWithoutDetaching([$shop->id => ['role' => 'owner']]);
-        $this->patchJson("/api/v1/admin/tenants/{$shop->id}/users/{$superAdmin->id}", ['password' => 'hijacked-pass'])
+        $this->patchJson("/api/v1/admin/tenants/{$shop->id}/users/{$superAdmin->id}", ['name' => 'Hijacked'])
             ->assertForbidden();
+        $this->postJson("/api/v1/admin/tenants/{$shop->id}/users/{$superAdmin->id}/password-reset")->assertForbidden();
+        $this->deleteJson("/api/v1/admin/tenants/{$shop->id}/users/{$superAdmin->id}/two-factor")->assertForbidden();
         $this->deleteJson("/api/v1/admin/tenants/{$shop->id}/users/{$superAdmin->id}")->assertForbidden();
     }
 
@@ -155,9 +157,11 @@ class RolesAndLoginsTest extends TestCase
         Sanctum::actingAs($me);
 
         $id = $this->postJson('/api/v1/admin/platform-users', [
-            'name' => 'Narek', 'email' => 'narek@servio.am', 'password' => 'secret-pass', 'role' => 'moderator',
+            'name' => 'Narek', 'email' => 'narek@servio.am', 'role' => 'moderator',
         ])->assertCreated()
             ->assertJsonPath('data.role', 'moderator')
+            ->assertJsonPath('data.activated', false)
+            ->assertJson(fn ($json) => $json->where('invitation.url', fn ($url) => str_contains($url, '/admin/invite#'))->etc())
             ->json('data.id');
 
         $this->assertTrue(User::find($id)->is_platform_moderator);
@@ -170,8 +174,9 @@ class RolesAndLoginsTest extends TestCase
         $this->patchJson("/api/v1/admin/platform-users/{$id}", ['role' => 'super_admin'])
             ->assertOk()
             ->assertJsonPath('data.role', 'super_admin');
-        $this->patchJson("/api/v1/admin/platform-users/{$id}", ['password' => 'another-pass'])->assertOk();
-        $this->assertTrue(Hash::check('another-pass', User::find($id)->password));
+        // Not activated yet: a fresh invitation, not a reset link.
+        $this->postJson("/api/v1/admin/platform-users/{$id}/password-reset")->assertUnprocessable();
+        $this->postJson("/api/v1/admin/platform-users/{$id}/invitation")->assertOk();
 
         // Can't lock themselves out.
         $this->patchJson("/api/v1/admin/platform-users/{$me->id}", ['role' => 'moderator'])->assertUnprocessable();

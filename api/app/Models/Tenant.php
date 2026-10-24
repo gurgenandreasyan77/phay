@@ -35,6 +35,7 @@ class Tenant extends Model implements FeatureScopeSerializeable
 
     protected $casts = [
         'locales' => 'array',
+        'require_two_factor' => 'boolean',
     ];
 
     protected static function booted(): void

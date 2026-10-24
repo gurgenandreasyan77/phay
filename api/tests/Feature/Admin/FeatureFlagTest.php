@@ -15,7 +15,7 @@ class FeatureFlagTest extends TestCase
 
     public function test_super_admin_can_list_feature_flags(): void
     {
-        Sanctum::actingAs(User::factory()->create(['is_super_admin' => true]));
+        Sanctum::actingAs(User::factory()->superAdmin()->create());
 
         $response = $this->getJson('/api/v1/admin/feature-flags')->assertOk();
 
@@ -42,7 +42,7 @@ class FeatureFlagTest extends TestCase
 
     public function test_super_admin_can_disable_the_market(): void
     {
-        $admin = User::factory()->create(['is_super_admin' => true]);
+        $admin = User::factory()->superAdmin()->create();
         Sanctum::actingAs($admin);
 
         $response = $this->patchJson('/api/v1/admin/feature-flags/market', ['active' => false])
@@ -61,7 +61,7 @@ class FeatureFlagTest extends TestCase
 
     public function test_super_admin_can_re_enable_the_market(): void
     {
-        Sanctum::actingAs(User::factory()->create(['is_super_admin' => true]));
+        Sanctum::actingAs(User::factory()->superAdmin()->create());
 
         Feature::deactivate(FeatureFlag::Market->value);
 
@@ -74,7 +74,7 @@ class FeatureFlagTest extends TestCase
 
     public function test_toggling_the_same_value_does_not_create_a_duplicate_log_entry(): void
     {
-        Sanctum::actingAs(User::factory()->create(['is_super_admin' => true]));
+        Sanctum::actingAs(User::factory()->superAdmin()->create());
 
         $this->patchJson('/api/v1/admin/feature-flags/market', ['active' => true])->assertOk();
 
@@ -83,7 +83,7 @@ class FeatureFlagTest extends TestCase
 
     public function test_unknown_flag_key_is_rejected(): void
     {
-        Sanctum::actingAs(User::factory()->create(['is_super_admin' => true]));
+        Sanctum::actingAs(User::factory()->superAdmin()->create());
 
         $this->patchJson('/api/v1/admin/feature-flags/not-a-real-flag', ['active' => false])
             ->assertStatus(422);

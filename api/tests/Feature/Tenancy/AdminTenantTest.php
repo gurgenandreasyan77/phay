@@ -120,7 +120,7 @@ class AdminTenantTest extends TestCase
 
     public function test_a_super_admin_without_a_business_works_on_the_default_one(): void
     {
-        $user = User::factory()->withoutTenant()->create();
+        $user = User::factory()->withoutTenant()->withTwoFactor()->create();
         $user->forceFill(['is_super_admin' => true])->save();
         Sanctum::actingAs($user);
 

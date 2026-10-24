@@ -50,7 +50,8 @@ return [
     |
     */
 
-    'expiration' => null,
+    // Matches the admin's cookie: a week after signing in, sign in again.
+    'expiration' => (int) env('SANCTUM_EXPIRATION', 60 * 24 * 7),
 
     /*
     |--------------------------------------------------------------------------

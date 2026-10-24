@@ -3,26 +3,31 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Enums\BusinessRole;
+use App\Enums\SecurityEvent;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\TenantUserResource;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Security\AccountLinks;
+use App\Security\SecurityLog;
+use App\Security\TwoFactor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Logins of a business (platform staff only). Servio's people create them by
- * hand while onboarding a client: no invitation emails and no self sign-up
- * yet. Each login has a role in the business (owner, admin, moderator, see
- * BusinessRole) and sees only that business.
+ * Logins of a business (platform staff only). Servio's people create them
+ * while onboarding a client (no self sign-up). Each login has a role in the
+ * business (owner, admin, moderator, see BusinessRole) and sees only that
+ * business.
  *
- * Passwords are stored hashed and can't be shown again; a forgotten one is
- * replaced with a new one (update with `password`).
+ * Staff never set or see a password: a new login gets a one-time invitation
+ * link (emailed, and returned to pass on by messenger) to set its own; a
+ * forgotten one gets a reset link. Staff can also reset the 2FA of someone
+ * who lost their phone.
  */
 class TenantUserController extends Controller
 {
@@ -31,12 +36,16 @@ class TenantUserController extends Controller
         return TenantUserResource::collection($tenant->users()->orderBy('users.id')->get());
     }
 
+    public function __construct(
+        private readonly AccountLinks $links,
+        private readonly SecurityLog $log,
+    ) {}
+
     public function store(Request $request, Tenant $tenant): JsonResponse
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('users', 'email')],
-            'password' => ['required', 'string', Password::min(8)],
             'role' => ['sometimes', 'string', Rule::enum(BusinessRole::class)],
         ]);
 
@@ -44,7 +53,7 @@ class TenantUserController extends Controller
             $user = User::create([
                 'name' => $validated['name'],
                 'email' => $validated['email'],
-                'password' => $validated['password'],
+                'password' => null,
             ]);
             $user->forceFill([
                 'is_super_admin' => false,
@@ -56,15 +65,59 @@ class TenantUserController extends Controller
             return $user;
         });
 
+        $this->log->record(SecurityEvent::LoginCreated, $user, [
+            'tenant_id' => $tenant->id,
+            'role' => $validated['role'] ?? BusinessRole::Owner->value,
+        ], $request->user());
+
         return (new TenantUserResource($tenant->users()->findOrFail($user->id)))
+            ->additional(['invitation' => $this->links->invite($user, $request->user())])
             ->response()
             ->setStatusCode(201);
     }
 
-    /**
-     * Renames the login, changes its role in this business, or sets a new
-     * password (which signs it out everywhere).
-     */
+    /** A new invitation link for a login that hasn't set its password yet. */
+    public function invitation(Request $request, Tenant $tenant, User $user): JsonResponse
+    {
+        $this->ensureMember($tenant, $user);
+        $this->ensureMayManage($request, $user);
+
+        if ($user->isActivated()) {
+            throw ValidationException::withMessages(['user' => ['Այս մուտքն արդեն ակտիվ է։ Օգտագործեք գաղտնաբառի վերականգնումը։']]);
+        }
+
+        return response()->json(['data' => $this->links->invite($user, $request->user())]);
+    }
+
+    /** A password reset link for someone who forgot theirs. */
+    public function passwordReset(Request $request, Tenant $tenant, User $user): JsonResponse
+    {
+        $this->ensureMember($tenant, $user);
+        $this->ensureMayManage($request, $user);
+
+        if (! $user->isActivated()) {
+            throw ValidationException::withMessages(['user' => ['Մուտքը դեռ ակտիվ չէ։ Ուղարկեք նոր հրավեր։']]);
+        }
+
+        return response()->json(['data' => $this->links->passwordReset($user, $request->user())]);
+    }
+
+    /** Lost phone and recovery codes: 2FA off, every session out; set up again at the next sign-in. */
+    public function resetTwoFactor(Request $request, Tenant $tenant, User $user, TwoFactor $twoFactor): JsonResponse
+    {
+        $this->ensureMember($tenant, $user);
+        $this->ensureMayManage($request, $user);
+
+        if ($user->is($request->user())) {
+            throw ValidationException::withMessages(['user' => ['Ձեր սեփական 2FA-ն փոխեք «Իմ հաշիվը» էջում։']]);
+        }
+
+        $twoFactor->disable($user, $request->user(), 'staff');
+
+        return response()->json(['data' => ['status' => 'ok']]);
+    }
+
+    /** Renames the login or changes its role in this business. */
     public function update(Request $request, Tenant $tenant, User $user): TenantUserResource
     {
         $this->ensureMember($tenant, $user);
@@ -72,19 +125,18 @@ class TenantUserController extends Controller
 
         $validated = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'password' => ['sometimes', 'required', 'string', Password::min(8)],
             'role' => ['sometimes', 'required', 'string', Rule::enum(BusinessRole::class)],
         ]);
 
-        DB::transaction(function () use ($tenant, $user, $validated) {
-            $user->fill(array_intersect_key($validated, array_flip(['name', 'password'])))->save();
+        DB::transaction(function () use ($request, $tenant, $user, $validated) {
+            $user->fill(array_intersect_key($validated, array_flip(['name'])))->save();
 
             if (array_key_exists('role', $validated)) {
                 $tenant->users()->updateExistingPivot($user->id, ['role' => $validated['role']]);
-            }
-
-            if (array_key_exists('password', $validated)) {
-                $user->tokens()->delete();
+                $this->log->record(SecurityEvent::LoginRoleChanged, $user, [
+                    'tenant_id' => $tenant->id,
+                    'role' => $validated['role'],
+                ], $request->user());
             }
         });
 
@@ -104,6 +156,8 @@ class TenantUserController extends Controller
         }
 
         $this->ensureMayManage($request, $user);
+
+        $this->log->record(SecurityEvent::LoginRemoved, $user, ['tenant_id' => $tenant->id], $request->user());
 
         DB::transaction(function () use ($tenant, $user) {
             $user->tenants()->detach($tenant->id);

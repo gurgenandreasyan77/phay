@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureBusinessPermission;
 use App\Http\Middleware\EnsurePlatformStaff;
 use App\Http\Middleware\EnsureSuperAdmin;
+use App\Http\Middleware\EnsureTwoFactorEnrolled;
 use App\Http\Middleware\RequireFeature;
 use App\Http\Middleware\ResolveAdminTenant;
 use App\Http\Middleware\ResolveSiteTenant;
@@ -32,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'super.admin' => EnsureSuperAdmin::class,
             'platform.staff' => EnsurePlatformStaff::class,
             'business.can' => EnsureBusinessPermission::class,
+            'two-factor' => EnsureTwoFactorEnrolled::class,
         ]);
 
         // Route model binding ({lead}, {post:slug}...) must already see the

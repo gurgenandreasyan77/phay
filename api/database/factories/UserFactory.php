@@ -19,6 +19,8 @@ class UserFactory extends Factory
      */
     protected static ?string $password;
 
+    public const TWO_FACTOR_SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+
     /**
      * Define the model's default state.
      *
@@ -69,7 +71,7 @@ class UserFactory extends Factory
      */
     public function superAdmin(): static
     {
-        return $this->afterCreating(fn (User $user) => $user->forceFill(['is_super_admin' => true])->save());
+        return $this->withTwoFactor()->afterCreating(fn (User $user) => $user->forceFill(['is_super_admin' => true])->save());
     }
 
     /**
@@ -78,7 +80,26 @@ class UserFactory extends Factory
      */
     public function platformModerator(): static
     {
-        return $this->afterCreating(fn (User $user) => $user->forceFill(['is_platform_moderator' => true])->save());
+        return $this->withTwoFactor()->afterCreating(fn (User $user) => $user->forceFill(['is_platform_moderator' => true])->save());
+    }
+
+    /**
+     * 2FA already set up (platform staff must have it). The secret is
+     * self::TWO_FACTOR_SECRET, so a test can make codes with Totp::code().
+     */
+    public function withTwoFactor(): static
+    {
+        return $this->state(fn () => [
+            'two_factor_secret' => self::TWO_FACTOR_SECRET,
+            'two_factor_confirmed_at' => now(),
+            'two_factor_recovery_codes' => [hash('sha256', 'abcd1234')],
+        ]);
+    }
+
+    /** An invited login that hasn't set its password yet. */
+    public function invited(): static
+    {
+        return $this->state(fn () => ['password' => null, 'email_verified_at' => null]);
     }
 
     /**

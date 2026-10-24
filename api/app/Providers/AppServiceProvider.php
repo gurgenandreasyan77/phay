@@ -10,6 +10,9 @@ use App\Features\FeatureFlag;
 use App\Google\GoogleCalendarClient;
 use App\Google\HttpGoogleCalendarClient;
 use App\Models\User;
+use App\Security\Sms\LogSmsSender;
+use App\Security\Sms\SmsSender;
+use App\Security\Sms\TwilioSmsSender;
 use App\Tenancy\TenantContext;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -17,6 +20,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password;
 use Laravel\Pennant\Feature;
 
 class AppServiceProvider extends ServiceProvider
@@ -38,6 +43,15 @@ class AppServiceProvider extends ServiceProvider
             clientSecret: config('services.google.client_secret'),
             redirectUri: config('services.google.redirect_uri'),
         ));
+
+        $this->app->bind(SmsSender::class, fn () => match (config('security.sms.driver')) {
+            'twilio' => new TwilioSmsSender(
+                sid: config('security.sms.twilio.sid'),
+                token: config('security.sms.twilio.token'),
+                from: config('security.sms.twilio.from'),
+            ),
+            default => new LogSmsSender,
+        });
 
         $this->app->bind(AssistantClient::class, fn () => new AnthropicAssistantClient(
             apiKey: config('services.anthropic.api_key'),
@@ -64,9 +78,42 @@ class AppServiceProvider extends ServiceProvider
                 ->by($request->ip());
         });
 
+        // Per IP, and per typed email so one login can't be guessed at from many IPs.
         RateLimiter::for('admin-login', function (Request $request) {
-            return Limit::perMinute((int) config('services.admin_login.rate_limit_per_minute'))
-                ->by($request->ip());
+            $email = 'email:'.Str::lower((string) $request->input('email'));
+
+            return [
+                Limit::perMinute((int) config('services.admin_login.rate_limit_per_minute'))->by($request->ip()),
+                Limit::perMinute(5)->by($email),
+                Limit::perHour(20)->by($email),
+            ];
+        });
+
+        // A challenge also burns after a few wrong codes (LoginChallenges).
+        RateLimiter::for('two-factor', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
+
+        RateLimiter::for('password-forgot', fn (Request $request) => [
+            Limit::perMinute(3)->by($request->ip()),
+            Limit::perHour(5)->by('email:'.Str::lower((string) $request->input('email'))),
+        ]);
+
+        RateLimiter::for('account-links', fn (Request $request) => Limit::perMinute(10)->by($request->user()?->id ? 'user:'.$request->user()->id : $request->ip()));
+
+        // Password and 2FA code re-checks on the account page.
+        RateLimiter::for('security', fn (Request $request) => Limit::perMinute(10)->by('user:'.$request->user()?->id));
+
+        // Each SMS costs money; emails too after a point.
+        RateLimiter::for('verification-codes', fn (Request $request) => [
+            Limit::perMinute(5)->by('user:'.$request->user()?->id),
+            Limit::perHour(10)->by('user:'.$request->user()?->id),
+        ]);
+
+        // At least 10 characters with letters and digits; in production also
+        // not one of the passwords known from leaks (haveibeenpwned, k-anonymity).
+        Password::defaults(function () {
+            $rule = Password::min(10)->letters()->numbers()->max(128);
+
+            return $this->app->isProduction() ? $rule->uncompromised() : $rule;
         });
 
         // Each question to the AI assistant is a paid model call.

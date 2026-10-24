@@ -6,7 +6,6 @@ use App\Models\FeatureFlagLog;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
 use Laravel\Pennant\Feature;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -19,18 +18,21 @@ class BusinessOwnerAccessTest extends TestCase
 {
     use RefreshDatabase, TenancyTestHelpers;
 
+    private ?string $lastInvitation = null;
+
     private function createOwnerLogin(Tenant $tenant, string $email = 'owner@shop.am'): User
     {
         Sanctum::actingAs(User::factory()->superAdmin()->create());
 
-        $this->postJson("/api/v1/admin/tenants/{$tenant->id}/users", [
+        $this->lastInvitation = $this->postJson("/api/v1/admin/tenants/{$tenant->id}/users", [
             'name' => 'Shop Owner',
             'email' => $email,
-            'password' => 'secret-pass',
         ])->assertCreated()
             ->assertJsonPath('data.email', $email)
             ->assertJsonPath('data.role', 'owner')
-            ->assertJsonPath('data.isSuperAdmin', false);
+            ->assertJsonPath('data.isSuperAdmin', false)
+            ->assertJsonPath('data.activated', false)
+            ->json('invitation.url');
 
         return User::query()->where('email', $email)->sole();
     }
@@ -43,7 +45,16 @@ class BusinessOwnerAccessTest extends TestCase
         $this->app['auth']->forgetGuards();
         $this->app['auth']->shouldUse('web');
 
-        $token = $this->postJson('/api/v1/admin/login', ['email' => 'owner@shop.am', 'password' => 'secret-pass'])
+        // No password until the owner opens the invitation and sets one.
+        $this->postJson('/api/v1/admin/login', ['email' => 'owner@shop.am', 'password' => 'secret-pass-1'])->assertUnprocessable();
+        $this->postJson('/api/v1/admin/invitations/accept', [
+            'token' => substr((string) $this->lastInvitation, strpos((string) $this->lastInvitation, '#') + 1),
+            'password' => 'secret-pass-1',
+            'password_confirmation' => 'secret-pass-1',
+        ])->assertOk();
+        $this->app['auth']->forgetGuards();
+
+        $token = $this->postJson('/api/v1/admin/login', ['email' => 'owner@shop.am', 'password' => 'secret-pass-1'])
             ->assertOk()
             ->assertJsonPath('data.user.isSuperAdmin', false)
             ->json('data.token');
@@ -127,22 +138,20 @@ class BusinessOwnerAccessTest extends TestCase
         $this->createOwnerLogin($shop);
 
         $this->postJson("/api/v1/admin/tenants/{$shop->id}/users", [
-            'name' => 'Again', 'email' => 'owner@shop.am', 'password' => 'short',
-        ])->assertUnprocessable()->assertJsonValidationErrors(['email', 'password']);
+            'name' => '', 'email' => 'owner@shop.am',
+        ])->assertUnprocessable()->assertJsonValidationErrors(['email', 'name']);
     }
 
-    public function test_a_new_password_signs_the_owner_out_and_works(): void
+    public function test_staff_cannot_set_a_password_for_the_owner(): void
     {
         $shop = $this->createTenant('test-shop');
         $owner = $this->createOwnerLogin($shop);
-        $owner->createToken('admin-panel');
 
-        $this->patchJson("/api/v1/admin/tenants/{$shop->id}/users/{$owner->id}", ['password' => 'new-secret-pass'])
+        $this->patchJson("/api/v1/admin/tenants/{$shop->id}/users/{$owner->id}", ['password' => 'new-secret-pass-1'])
             ->assertOk()
             ->assertJsonPath('data.email', 'owner@shop.am');
 
-        $this->assertSame(0, $owner->tokens()->count());
-        $this->assertTrue(Hash::check('new-secret-pass', $owner->fresh()->password));
+        $this->assertNull($owner->fresh()->password);
     }
 
     public function test_removing_a_login_deletes_it_unless_it_is_a_platform_admin(): void

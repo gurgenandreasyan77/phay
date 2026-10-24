@@ -16,7 +16,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -40,7 +40,43 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_super_admin' => 'boolean',
             'is_platform_moderator' => 'boolean',
+            'phone_verified_at' => 'datetime',
+            // Encrypted with APP_KEY: a database dump alone doesn't give the codes away.
+            'two_factor_secret' => 'encrypted',
+            // sha256 hashes of the unused recovery codes.
+            'two_factor_recovery_codes' => 'encrypted:array',
+            'two_factor_confirmed_at' => 'datetime',
+            'two_factor_last_step' => 'integer',
+            'password_changed_at' => 'datetime',
         ];
+    }
+
+    /** Has set a password: an invited login without one can't sign in yet. */
+    public function isActivated(): bool
+    {
+        return $this->password !== null;
+    }
+
+    public function hasTwoFactorEnabled(): bool
+    {
+        return $this->two_factor_confirmed_at !== null && $this->two_factor_secret !== null;
+    }
+
+    /**
+     * Must use 2FA: platform staff always; a business owner (they see the
+     * money) unless security.two_factor.required_for_owners is off; anyone
+     * in a business whose owner asked for it.
+     */
+    public function requiresTwoFactor(): bool
+    {
+        if ($this->isPlatformStaff()) {
+            return true;
+        }
+
+        $memberships = $this->tenants()->get(['tenants.id', 'tenants.require_two_factor']);
+
+        return $memberships->contains(fn (Tenant $tenant) => (bool) $tenant->require_two_factor
+            || (config('security.two_factor.required_for_owners') && $tenant->pivot->role === BusinessRole::Owner->value));
     }
 
     public function tenants(): BelongsToMany
