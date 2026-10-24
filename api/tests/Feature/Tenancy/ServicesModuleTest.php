@@ -24,7 +24,7 @@ class ServicesModuleTest extends TestCase
         Sanctum::actingAs($user);
     }
 
-    public function test_servio_keeps_the_module_and_its_catalog(): void
+    public function test_the_default_business_keeps_the_module_and_its_catalog(): void
     {
         $this->assertTrue(Feature::for(Tenant::default())->active('services'));
 

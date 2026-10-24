@@ -14,7 +14,7 @@ use Tests\TestCase;
 
 /**
  * Car care is not a module of its own any more: it is a category of the
- * services catalog (Servio's), its videos and before/after photos belong to
+ * services catalog (the default business's), its videos and before/after photos belong to
  * the site module.
  */
 class AutoCareInServicesTest extends TestCase

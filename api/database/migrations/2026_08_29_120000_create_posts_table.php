@@ -15,7 +15,7 @@ return new class extends Migration
             $table->json('tags')->nullable();
             $table->string('status')->default('draft');
             $table->timestamp('published_at')->nullable();
-            $table->string('author_name')->default('Servio');
+            $table->string('author_name')->default('Phay');
             $table->string('featured_image_path')->nullable();
             $table->json('featured_image_alt')->nullable();
             $table->json('title');

@@ -106,7 +106,7 @@ export function AudienceSection({ audience }: { audience: AudienceDto | null }) 
               <div className="space-y-3">
                 <SampleFrame badge="Շուտով">
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <SocialTile network="instagram" handle="@servio.am" followers={4820} followersChange={312} reach={18400} engagement={5.8} />
+                    <SocialTile network="instagram" handle="@mybusiness.am" followers={4820} followersChange={312} reach={18400} engagement={5.8} />
                     <SocialTile network="facebook" handle="mybusiness" followers={2140} followersChange={64} reach={7300} engagement={3.1} />
                   </div>
                 </SampleFrame>

@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Schema;
 class RehostMedia extends Command
 {
     protected $signature = 'platform:media:rehost
-        {from : Old base URL, e.g. https://servio.am}
+        {from : Old base URL, e.g. https://old.example.am}
         {to : New base URL, e.g. https://api.phay.am}
         {--dry-run : Only count what would change}';
 

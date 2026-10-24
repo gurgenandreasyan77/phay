@@ -301,7 +301,7 @@ class GoogleCalendarTest extends TestCase
         $byItem = $rows->keyBy(fn ($r) => $r['values'][$keys['item']]);
         $this->assertEqualsCanonicalizing(['Բազմոցի մաքրում', 'Ներքնակ 5000 ֏', 'Աթոռներ', 'Գորգ 3000 դր'], $byItem->keys()->all());
         $this->assertSame('13:00', $byItem['Բազմոցի մաքրում']['time']);
-        // Edited by hand: kept as it was in Servio.
+        // Edited by hand: kept as it was in the business.
         $this->assertSame('Գոհար', $byItem['Ներքնակ 5000 ֏']['values'][$keys['customer']]);
         $this->assertSame('manual', $byItem['Աթոռներ']['source']);
         $this->assertSame(3000, (int) $byItem['Գորգ 3000 դր']['amount']);

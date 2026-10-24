@@ -16,7 +16,7 @@ import { GOOGLE_DOT, markShape, type CalendarEntry } from "./entries";
 import styles from "./calendar.module.css";
 
 /** The table a new order went to last time, remembered in this browser. */
-const LAST_TABLE_KEY = "servio.calendar.table";
+const LAST_TABLE_KEY = "phay.calendar.table";
 
 function lastTable(tables: AdminDataTableDto[]): number | undefined {
   try {

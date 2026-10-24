@@ -8,13 +8,15 @@ return [
     |--------------------------------------------------------------------------
     |
     | The business that console commands, seeders and queued jobs act on
-    | when nothing else picks one. It is created by the tenancy migration and
-    | owns every row that existed before multi-tenancy. The public API never
-    | falls back to it: a site must send its X-Site-Key.
+    | when nothing else picks one, by slug. It is created by the tenancy
+    | migration and owns every row that existed before multi-tenancy; when
+    | no business has this slug (an older install made under another one),
+    | the oldest business is used. The public API never falls back to it:
+    | a site must send its X-Site-Key.
     |
     */
 
-    'default_tenant' => env('PLATFORM_DEFAULT_TENANT', 'servio'),
+    'default_tenant' => env('PLATFORM_DEFAULT_TENANT', 'phay'),
 
     /*
     |--------------------------------------------------------------------------

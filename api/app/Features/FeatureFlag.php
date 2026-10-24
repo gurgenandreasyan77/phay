@@ -51,8 +51,8 @@ enum FeatureFlag: string
 
     /**
      * The value Pennant resolves to the first time a flag is checked,
-     * before any admin has ever toggled it. Servio has its modules on by
-     * migrations; a new business gets them off when it is created.
+     * before any admin has ever toggled it. The default business has its
+     * modules on by migrations; a new business gets them off when it is created.
      */
     public function default(): bool
     {

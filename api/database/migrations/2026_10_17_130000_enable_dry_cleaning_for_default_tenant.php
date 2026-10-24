@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * The upholstery calculator and its add-on services became an optional
- * module ("dry-cleaning", off by default). Servio, the default business,
+ * module ("dry-cleaning", off by default). The default business
  * keeps it: its site uses both.
  */
 return new class extends Migration

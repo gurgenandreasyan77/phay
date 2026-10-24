@@ -1,18 +1,18 @@
 # Phay: запуск локально и в продакшене
 
-Этот документ про репозиторий **phay** (API + админка). Сайт Servio живёт в
-своём репозитории `servio`, у него свой `docs/DEPLOY.md`. Подготовка сервера
-(Docker, firewall, nginx, сертификаты) общая для обоих проектов и описана
-здесь, в разделе 4.
+Этот документ про репозиторий **phay** (API + админка). Сайты бизнесов живут
+в своих репозиториях, у каждого своя инструкция. Подготовка сервера (Docker,
+firewall, nginx, сертификаты) описана здесь, в разделе 4; сайты, которые
+работают на том же сервере, пользуются ей же.
 
 Содержание:
 
 1. [Что где работает](#1-что-где-работает)
 2. [Файлы окружения](#2-файлы-окружения)
 3. [Команды make](#3-команды-make)
-4. [Подготовка сервера (один раз, общая для phay и servio)](#4-подготовка-сервера)
+4. [Подготовка сервера (один раз на сервер)](#4-подготовка-сервера)
 5. [Первый запуск Phay в продакшене](#5-первый-запуск-phay-в-продакшене)
-6. [Подключение сайта Servio](#6-подключение-сайта-servio)
+6. [Подключение сайта бизнеса](#6-подключение-сайта-бизнеса)
 7. [Переменные .env.prod: что значит и где взять](#7-переменные-envprod)
 8. [Бэкапы и восстановление](#8-бэкапы-и-восстановление)
 9. [Обновление](#9-обновление)
@@ -30,8 +30,7 @@
 | `https://app.phay.am` | Админка (все бизнесы и платформа) | phay, контейнер `admin`, 127.0.0.1:3001 |
 | `https://api.phay.am` | API: публичный для сайтов (`/api/v1/*`), админский (`/api/v1/admin/*`), файлы (`/storage/*`) | phay, контейнер `api` (nginx) → `backend` (php-fpm), 127.0.0.1:8081 |
 | `https://phay.am` | Пока редирект 302 на `app.phay.am` | nginx на хосте |
-| `https://servio.am` | Сайт клининга | servio, контейнер `frontend`, 127.0.0.1:3000 |
-| `admin.servio.am` | Старый адрес админки, редирект 301 на `app.phay.am` | nginx на хосте |
+| `https://example.am` | Сайт бизнеса (пример) | свой репозиторий и compose-проект, например 127.0.0.1:3000 |
 
 **Про «админка на phay.am».** Набрав `phay.am`, человек сразу попадает в
 админку: nginx отправляет его на `app.phay.am`. Сама админка работает на
@@ -46,15 +45,15 @@ Cloud и server-блоки в `deploy/phay.nginx.conf`. Я рекомендую 
 ```
 браузер ─► nginx на хосте (:80/:443, TLS) ─┬─► 127.0.0.1:3001  phay admin ──► api (внутри Docker)
                                           ├─► 127.0.0.1:8081  phay api ──► backend ──► postgres
-                                          └─► 127.0.0.1:3000  servio frontend ──► https://api.phay.am
+                                          └─► 127.0.0.1:3000  сайт бизнеса ──► https://api.phay.am
 ```
 
-Оба проекта лежат рядом и не зависят друг от друга на уровне Docker:
+Проекты лежат рядом и не зависят друг от друга на уровне Docker:
 
 ```
 /var/www/projects/
 ├── phay/     compose-проект phay-prod: postgres, backend, scheduler, api, admin
-└── servio/   compose-проект servio-prod: frontend
+└── <сайт>/   свой compose-проект сайта бизнеса (если он на этом сервере)
 ```
 
 Порты 80 и 443 держит только nginx, установленный на сам сервер. Контейнеры
@@ -121,20 +120,18 @@ Cloud и server-блоки в `deploy/phay.nginx.conf`. Я рекомендую 
 | Бэкап | `make local-backup` (только база) | `make prod-backup` (база + файлы) |
 | Восстановление | `make local-restore file=…` | `make prod-restore file=… confirm=yes`, `make prod-restore-storage file=…` |
 | Тесты | `make local-test` | нет |
-| Демо-данные Servio | `make local-seed-servio` | `make prod-artisan cmd="db:seed --class=ServioDemoSeeder --force"` |
 | Обновление | `git pull` + `make local-migrate` | `make prod-deploy` |
 
 Старые команды → новые: `setup` → `local-setup`, `up` → `local-up`,
 `down` → `local-down`, `restart` → `local-restart`, `logs` → `local-logs`,
-`migrate` → `local-migrate`, `seed-servio` → `local-seed-servio`,
-`site-keys` → `local-site-keys`, `test` → `local-test`, `artisan` →
+`migrate` → `local-migrate`, `site-keys` → `local-site-keys`, `test` → `local-test`, `artisan` →
 `local-artisan`, `backup-db` → `local-backup`, `restore-db` → `local-restore`.
 `build`, `seed`, `fresh`, `key-generate` убраны (вместо них `local-build`,
 `local-fresh`, `local-key`).
 
 ## 4. Подготовка сервера
 
-Делается один раз на сервер, для phay и servio вместе.
+Делается один раз на сервер, для phay и сайтов, которые будут рядом с ним.
 
 ### 4.1. Что нужно
 
@@ -142,7 +139,7 @@ Cloud и server-блоки в `deploy/phay.nginx.conf`. Я рекомендую 
 - Минимум **2 vCPU, 4 ГБ RAM, 40 ГБ диска**. Сборка двух Next.js-приложений
   (`next build`) съедает до 2 ГБ памяти; на 2 ГБ RAM нужен swap (ниже).
 - Доступ по SSH с ключом.
-- Домены `phay.am` и `servio.am` в панели регистратора.
+- Домен `phay.am` (и домены сайтов, если они на этом же сервере) в панели регистратора.
 
 ### 4.2. DNS
 
@@ -155,9 +152,9 @@ Cloud и server-блоки в `deploy/phay.nginx.conf`. Я рекомендую 
 | `www.phay.am` | A | IP сервера |
 | `app.phay.am` | A | IP сервера |
 | `api.phay.am` | A | IP сервера |
-| `servio.am` | A | IP сервера |
-| `www.servio.am` | A | IP сервера |
-| `admin.servio.am` | A | IP сервера |
+
+Домены сайтов бизнесов, которые работают на этом сервере, добавляются так же
+(обычно `example.am` и `www.example.am`).
 
 Если DNS в Cloudflare, на время выпуска сертификатов включите режим
 «DNS only» (серое облако), иначе Let's Encrypt не достучится до сервера.
@@ -242,16 +239,15 @@ sudo mkdir -p /var/www/projects
 sudo chown deploy:deploy /var/www/projects
 ```
 
-Репозитории приватные, серверу нужен доступ на чтение. Надёжнее всего
-**deploy key** на каждый репозиторий (только чтение, только этот репозиторий).
-GitHub не разрешает один и тот же ключ в двух репозиториях, поэтому ключей
-два:
+Репозиторий приватный, серверу нужен доступ на чтение. Надёжнее всего
+**deploy key** (только чтение, только этот репозиторий). GitHub не разрешает
+один и тот же ключ в двух репозиториях: для репозитория сайта, который тоже
+живёт на этом сервере, сделайте второй ключ и второй `Host` по тому же
+образцу.
 
 ```bash
-ssh-keygen -t ed25519 -N "" -f ~/.ssh/phay_deploy   -C "server phay"
-ssh-keygen -t ed25519 -N "" -f ~/.ssh/servio_deploy -C "server servio"
+ssh-keygen -t ed25519 -N "" -f ~/.ssh/phay_deploy -C "server phay"
 cat ~/.ssh/phay_deploy.pub     # → github.com/gurgenandreasyan77/phay → Settings → Deploy keys → Add (без write)
-cat ~/.ssh/servio_deploy.pub   # → github.com/gurgenandreasyan77/servio → Settings → Deploy keys → Add
 
 cat >> ~/.ssh/config <<'EOF'
 Host github-phay
@@ -259,17 +255,11 @@ Host github-phay
   User git
   IdentityFile ~/.ssh/phay_deploy
   IdentitiesOnly yes
-Host github-servio
-  HostName github.com
-  User git
-  IdentityFile ~/.ssh/servio_deploy
-  IdentitiesOnly yes
 EOF
 chmod 600 ~/.ssh/config
 
 cd /var/www/projects
 git clone git@github-phay:gurgenandreasyan77/phay.git phay
-git clone git@github-servio:gurgenandreasyan77/servio.git servio
 ```
 
 ### 4.7. Nginx и сертификаты
@@ -294,15 +284,11 @@ sudo nginx -t && sudo systemctl reload nginx
 # 3. Сертификаты (email для писем об истечении)
 sudo certbot certonly --webroot -w /var/www/certbot --agree-tos -m you@example.com \
   -d phay.am -d www.phay.am -d app.phay.am -d api.phay.am
-sudo certbot certonly --webroot -w /var/www/certbot --agree-tos -m you@example.com \
-  -d servio.am -d www.servio.am -d admin.servio.am
 
-# 4. Настоящие конфиги обоих проектов
+# 4. Настоящий конфиг Phay
 sudo rm /etc/nginx/sites-enabled/acme
 sudo cp deploy/phay.nginx.conf /etc/nginx/sites-available/phay.am
 sudo ln -sf /etc/nginx/sites-available/phay.am /etc/nginx/sites-enabled/phay.am
-sudo cp ../servio/deploy/servio.nginx.conf /etc/nginx/sites-available/servio.am
-sudo ln -sf /etc/nginx/sites-available/servio.am /etc/nginx/sites-enabled/servio.am
 sudo nginx -t && sudo systemctl reload nginx
 
 # 5. Перезагрузка nginx после каждого автопродления сертификата
@@ -316,8 +302,12 @@ sudo certbot renew --dry-run
 конфигах. На nginx 1.25+ будет предупреждение `listen ... http2 is
 deprecated`: оно безвредно, на Ubuntu 24.04 (nginx 1.24) его нет.
 
-Если порты `API_PORT`, `ADMIN_PORT` или `FRONTEND_PORT` в `.env.prod`
-меняются, поменяйте их и в `upstream` в конфигах nginx.
+Если порты `API_PORT` или `ADMIN_PORT` в `.env.prod` меняются, поменяйте их
+и в `upstream` в `deploy/phay.nginx.conf`.
+
+Сертификаты и конфиги nginx для сайтов бизнесов ставятся по инструкциям их
+репозиториев: пока временный конфиг `acme` включён, выпустите сертификаты и
+для их доменов той же командой `certbot certonly --webroot ...`.
 
 ## 5. Первый запуск Phay в продакшене
 
@@ -336,7 +326,7 @@ make prod-build
 make prod-up
 make prod-ps            # postgres, backend, api, admin: healthy; scheduler: running
 
-# 4. Таблицы. Миграции сами создают бизнес servio и сайт servio.am с ключом
+# 4. Таблицы. На пустой базе миграции создают бизнес по умолчанию и его сайт с ключом
 make prod-migrate
 
 # 5. Проверка изнутри сервера и снаружи
@@ -357,39 +347,26 @@ make prod-bootstrap email=you@phay.am name="Gurgen Andreasyan"
 `APP_KEY` из него не расшифровать 2FA, токены Google и секреты webhook даже
 из бэкапа базы.
 
-## 6. Подключение сайта Servio
+## 6. Подключение сайта бизнеса
 
-Сайт `servio.am` уже есть в базе после миграций (бизнес `servio`), его
-домены `servio.am` и `www.servio.am` автоматически разрешены для CORS.
+Сайт бизнеса живёт в своём репозитории и ходит в API с ключом сайта
+(`X-Site-Key`). Подключение:
 
-```bash
-# 1. Ключ сайта
-cd /var/www/projects/phay
-make prod-site-keys          # строка servio.am, колонка с site_pk_...
-
-# 2. Сайт: см. docs/DEPLOY.md в репозитории servio
-cd /var/www/projects/servio
-make prod-init               # .env.prod со случайным REVALIDATE_SECRET
-nano .env.prod               # NEXT_PUBLIC_SITE_KEY=site_pk_... из шага 1
-make prod-build prod-up
-grep REVALIDATE_SECRET .env.prod
-```
-
-3. В админке: **app.phay.am → Կայքեր (Platform → Sites) → servio.am**:
-   - «Քեշի թարմացման հասցե (webhook)»: `https://servio.am/api/revalidate`
-   - пароль webhook: значение `REVALIDATE_SECRET` из `servio/.env.prod`
+1. В админке: Платформа → Բիզնեսներ (создать бизнес, если его ещё нет) →
+   Կայքեր (добавить сайт с доменом). Домены сайта с `www` и без автоматически
+   разрешены для CORS.
+2. Ключ сайта (`site_pk_...`) видно там же или в консоли:
+   `make prod-site-keys`. Его вписывают в `.env.prod` сайта по инструкции
+   его репозитория (обычно `NEXT_PUBLIC_SITE_KEY`).
+3. В Կայքեր у этого сайта:
+   - «Քեշի թարմացման հասցե (webhook)»: `https://<домен сайта>/api/revalidate`
+   - пароль webhook: `REVALIDATE_SECRET` из `.env.prod` сайта
    - сохранить и нажать «Ստուգել webhook-ը»: должно ответить успехом.
 
 После этого любое изменение услуг, цен, блога, контактов в админке сразу
 обновляет сайт.
 
-На новом пустом продакшене у Servio нет услуг и цен. Либо перенесите данные
-(раздел 11), либо залейте демо-каталог:
-`make prod-artisan cmd="db:seed --class=ServioDemoSeeder --force"`.
-
-Новый сайт другого бизнеса подключается так же: Платформа → Բիզնեսներ
-(создать бизнес) → Կայքեր (добавить сайт с доменом, скопировать ключ), или из
-консоли:
+Бизнес и сайт (шаги 1-2) можно создать и из консоли:
 
 ```bash
 make prod-artisan cmd="platform:tenant:create 'Test Shop' --owner=owner@example.com"
@@ -406,7 +383,7 @@ make prod-artisan cmd="platform:site:create test-shop shop.am --domain=shop.am -
 | Ключ | Значение | Откуда взять |
 | --- | --- | --- |
 | `COMPOSE_PROJECT_NAME` | `phay-prod` | Не менять после первого запуска: смена имени = новые пустые тома |
-| `API_PORT` | `8081` | Порт API на 127.0.0.1, должен совпадать с `upstream phay_api` в nginx. В проде 8081, а не 8080, как локально: 8080 часто занят старым стеком servio |
+| `API_PORT` | `8081` | Порт API на 127.0.0.1, должен совпадать с `upstream phay_api` в nginx. В проде 8081, а не 8080, как локально: 8080 часто занят другим стеком на сервере |
 | `ADMIN_PORT` | `3001` | Порт админки на 127.0.0.1, `upstream phay_admin` |
 | `POSTGRES_DB`, `POSTGRES_USER` | `phay` | Можно оставить |
 | ★ `POSTGRES_PASSWORD` | случайная строка | `make prod-init` ставит сам (`openssl rand -hex 24`). Задаётся до первого запуска: Postgres запоминает пароль при создании тома, поздняя смена в файле его не меняет |
@@ -476,7 +453,7 @@ SMTP. Пример с **Resend** (бесплатно до 3000 писем в м�
 
 | Ключ | Значение | Смысл |
 | --- | --- | --- |
-| `PLATFORM_DEFAULT_TENANT` | `servio` | Бизнес по умолчанию для консольных команд и сидеров |
+| `PLATFORM_DEFAULT_TENANT` | `phay` | Slug бизнеса по умолчанию для консольных команд и сидеров. Если бизнеса с таким slug нет, берётся самый первый (тот, что создали миграции), поэтому на перенесённой базе строку можно не трогать |
 | `PLATFORM_SUBSCRIPTION_WARN_DAYS` | `10` | За сколько дней до конца подписки предупреждать бизнес |
 
 ### ИИ-ассистент
@@ -567,7 +544,7 @@ make prod-deploy
 репозитория), посмотрите `git status` и уберите локальные правки: на сервере
 меняется только `.env.prod`.
 
-Сначала обновляйте phay, потом servio: сайт может ждать новый API.
+Сначала обновляйте phay, потом сайты: сайт может ждать новый API.
 
 ## 10. Откат
 
@@ -599,7 +576,7 @@ make prod-restore file=backups/phay-db-<время перед обновлени
 
 ### С локальной машины на новый продакшен
 
-Если реальные данные Servio сейчас в локальной базе на Mac:
+Если реальные данные сейчас в локальной базе на Mac:
 
 ```bash
 # На Mac, в папке phay
@@ -626,35 +603,32 @@ make prod-artisan cmd="platform:media:rehost http://localhost:8080 https://api.p
 Без того же `APP_KEY` перенос тоже пройдёт, но 2FA, Google и webhook придётся
 настроить заново (`make prod-artisan cmd="platform:two-factor:reset you@phay.am"`).
 
-После переноса в Platform → Sites поменяйте webhook servio.am с локального
-`http://host.docker.internal:3000/...` на `https://servio.am/api/revalidate`
-и пароль на `REVALIDATE_SECRET` из `servio/.env.prod`.
+После переноса в Platform → Sites поменяйте webhook каждого сайта с
+локального `http://host.docker.internal:3000/...` на боевой
+`https://<домен сайта>/api/revalidate` и пароль на `REVALIDATE_SECRET` из
+`.env.prod` сайта.
 
-### Со старого сервера (старый монорепо servio)
+### Со старой установки на сервере
 
-Если servio.am уже работает на сервере со старым репозиторием (бэкенд и
-база в одном проекте `servio`):
+Если на сервере уже работает старая установка (бэкенд, база и сайт в одном
+compose-проекте, до разделения на репозитории). Имена её контейнеров
+смотрите в `docker ps`, ниже `<old>` = имя её compose-проекта.
 
-0. Старый стек держит порты 8080 и 3000 (и слушает их на 0.0.0.0, то есть
-   открыто в интернет). Пока он работает, запустите новые рядом на других
-   портах: Phay в проде и так на 8081 (`API_PORT=8081`, `upstream phay_api`
-   в `deploy/phay.nginx.conf`), а сайту на время поставьте в
-   `servio/.env.prod` `FRONTEND_PORT=3002` и тот же порт в `upstream
-   servio_site` конфига servio.am. Конфиг nginx
-   servio.am не трогайте до переключения: он ведёт на старый стек.
+0. Старый стек обычно держит порты 8080 и 3000 (и слушает их на 0.0.0.0, то
+   есть открыто в интернет). Пока он работает, запускайте новые рядом на
+   других портах: Phay в проде и так на 8081 (`API_PORT=8081`, `upstream
+   phay_api` в `deploy/phay.nginx.conf`), сайту на время дайте другой порт
+   по инструкции его репозитория. Старый конфиг nginx сайта не трогайте до
+   переключения: он ведёт на старый стек.
    Пользователь и база старого Postgres берутся из самого контейнера:
-   `docker exec servio-postgres-1 sh -c 'pg_dump --no-owner --no-acl -U "$POSTGRES_USER" "$POSTGRES_DB"' > backups/old-servio.sql`,
-   файлы: `docker exec servio-backend-1 tar -C /var/www/html/storage/app/public -czf - . > backups/old-servio-storage.tar.gz`,
-   ключ: `docker exec servio-backend-1 printenv APP_KEY`.
-1. Сделайте дамп старой базы и архив файлов:
-   `docker compose exec -T postgres pg_dump --no-owner --no-acl -U <user> <db> > old.sql`
-   и `docker compose cp backend:/var/www/html/storage/app/public ./old-storage`.
-2. Возьмите `APP_KEY` из старого `.env`.
-3. Остановите старый стек (`docker compose down` в старой папке), уберите
-   старые конфиги nginx для servio.am.
-4. Дальше как выше: `APP_KEY` в `.env.prod`, `prod-restore`, `prod-migrate`,
-   `prod-restore-storage`, `platform:media:rehost https://servio.am https://api.phay.am`.
-5. Старую папку и тома удаляйте только после того, как всё проверено.
+   `docker exec <old>-postgres-1 sh -c 'pg_dump --no-owner --no-acl -U "$POSTGRES_USER" "$POSTGRES_DB"' > backups/old.sql`,
+   файлы: `docker exec <old>-backend-1 tar -C /var/www/html/storage/app/public -czf - . > backups/old-storage.tar.gz`,
+   ключ: `docker exec <old>-backend-1 printenv APP_KEY`.
+1. Остановите старый стек (`docker compose down` в старой папке), уберите
+   его старые конфиги nginx.
+2. Дальше как выше: `APP_KEY` в `.env.prod`, `prod-restore`, `prod-migrate`,
+   `prod-restore-storage`, `platform:media:rehost https://<старый домен> https://api.phay.am`.
+3. Старую папку и тома удаляйте только после того, как всё проверено.
 
 ## 12. Локальная разработка
 
@@ -673,7 +647,6 @@ make local-bootstrap email=you@example.com name="Your Name"
 
 - Админка: http://localhost:3001
 - API: http://localhost:8080/api/health
-- Демо-каталог Servio: `make local-seed-servio`
 
 ### Если локально уже всё работает (после переезда)
 
@@ -702,12 +675,12 @@ rm -rf admin/.next && make local-restart s=admin   # после изменени
 make local-test                     # тесты API + lint и tsc админки
 ```
 
-### Сайт Servio локально
+### Сайт бизнеса локально
 
-Phay должен быть запущен. Потом в папке servio: `make local-setup`, в
-`.env` `NEXT_PUBLIC_SITE_KEY` из `make local-site-keys`, `make local-restart`.
-Webhook сайта в локальной админке: `http://host.docker.internal:3000/api/revalidate`,
-пароль `dev_revalidate_secret`. Подробно в `docs/DEPLOY.md` репозитория servio.
+Phay должен быть запущен. Сайт запускается в своём репозитории по его
+инструкции; ключ сайта для его `.env` даёт `make local-site-keys`. Webhook
+сайта в локальной админке: `http://host.docker.internal:3000/api/revalidate`
+(порт сайта) и пароль из `.env` сайта.
 
 ## 13. Если что-то не работает
 
@@ -718,8 +691,8 @@ Webhook сайта в локальной админке: `http://host.docker.int
 | Сертификат не выпускается | DNS указывает на сервер (`dig +short`), порт 80 открыт (`sudo ufw status`), в Cloudflare «DNS only» |
 | Вход в админку: ошибка 500 | `make prod-logs-app`. Часто: не прошли миграции (`make prod-migrate-status`) |
 | Письма не приходят | `make prod-logs-app` (ошибка SMTP), домен подтверждён у провайдера, SPF/DKIM |
-| Сайт servio.am пустой или 401 в логах | Неверный `NEXT_PUBLIC_SITE_KEY` в `servio/.env.prod` или сайт выключен в Կայքեր |
-| Изменения в админке не видны на сайте | Webhook servio.am и пароль в Կայքեր, кнопка «Ստուգել webhook-ը» |
+| Сайт бизнеса пустой или 401 в логах | Неверный ключ сайта в `.env.prod` сайта или сайт выключен в Կայքեր |
+| Изменения в админке не видны на сайте | Webhook сайта и пароль в Կայքեր, кнопка «Ստուգել webhook-ը» |
 | Предупреждения о подписке не уходят | `make prod-logs s=scheduler` |
 | Диск заполнился | `docker system df`, `docker image prune -a` (удаляет неиспользуемые образы), старые бэкапы `make prod-backup-prune` |
 | Порт виден снаружи | `sudo ss -tlnp`: всё, кроме 22, 80, 443, должно быть на 127.0.0.1 |

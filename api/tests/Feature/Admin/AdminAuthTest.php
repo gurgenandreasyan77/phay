@@ -14,12 +14,12 @@ class AdminAuthTest extends TestCase
     public function test_valid_credentials_return_a_token_usable_against_me(): void
     {
         User::factory()->create([
-            'email' => 'admin@servio.am',
+            'email' => 'admin@phay.am',
             'password' => Hash::make('correct-password'),
         ]);
 
         $response = $this->postJson('/api/v1/admin/login', [
-            'email' => 'admin@servio.am',
+            'email' => 'admin@phay.am',
             'password' => 'correct-password',
         ]);
 
@@ -30,18 +30,18 @@ class AdminAuthTest extends TestCase
         $this->withHeader('Authorization', "Bearer {$token}")
             ->getJson('/api/v1/admin/me')
             ->assertOk()
-            ->assertJsonPath('data.email', 'admin@servio.am');
+            ->assertJsonPath('data.email', 'admin@phay.am');
     }
 
     public function test_invalid_credentials_are_rejected(): void
     {
         User::factory()->create([
-            'email' => 'admin@servio.am',
+            'email' => 'admin@phay.am',
             'password' => Hash::make('correct-password'),
         ]);
 
         $this->postJson('/api/v1/admin/login', [
-            'email' => 'admin@servio.am',
+            'email' => 'admin@phay.am',
             'password' => 'wrong-password',
         ])->assertStatus(422);
     }
@@ -55,10 +55,10 @@ class AdminAuthTest extends TestCase
 
     public function test_repeated_bad_logins_are_throttled(): void
     {
-        User::factory()->create(['email' => 'admin@servio.am', 'password' => Hash::make('correct-password')]);
+        User::factory()->create(['email' => 'admin@phay.am', 'password' => Hash::make('correct-password')]);
 
         $limit = (int) config('services.admin_login.rate_limit_per_minute');
-        $payload = ['email' => 'admin@servio.am', 'password' => 'wrong-password'];
+        $payload = ['email' => 'admin@phay.am', 'password' => 'wrong-password'];
 
         for ($i = 0; $i < $limit; $i++) {
             $this->postJson('/api/v1/admin/login', $payload)->assertStatus(422);

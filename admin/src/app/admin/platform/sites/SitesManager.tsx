@@ -144,7 +144,7 @@ function SiteCard({ site, onChanged }: { site: AdminSiteDto; onChanged: () => vo
           <Input
             value={domain}
             onChange={(e) => setDomain(e.target.value)}
-            placeholder="servio.am"
+            placeholder="shop.am"
             disabled={status === "saving"}
           />
         </div>
@@ -154,7 +154,7 @@ function SiteCard({ site, onChanged }: { site: AdminSiteDto; onChanged: () => vo
             rows={2}
             value={origins}
             onChange={(e) => setOrigins(e.target.value)}
-            placeholder={"https://servio.am\nhttps://www.servio.am"}
+            placeholder={"https://shop.am\nhttps://www.shop.am"}
             disabled={status === "saving"}
           />
           <p className="text-xs text-ink-muted">
@@ -167,7 +167,7 @@ function SiteCard({ site, onChanged }: { site: AdminSiteDto; onChanged: () => vo
           <Input
             value={revalidateUrl}
             onChange={(e) => setRevalidateUrl(e.target.value)}
-            placeholder="https://servio.am/api/revalidate"
+            placeholder="https://shop.am/api/revalidate"
             disabled={status === "saving"}
           />
         </div>

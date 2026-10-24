@@ -88,7 +88,7 @@ return new class extends Migration
             'updated_at' => $now,
         ]);
 
-        // Servio itself never pays; the businesses already on the platform
+        // The default business never pays; the businesses already on the platform
         // start their trial today.
         $default = config('platform.default_tenant');
 

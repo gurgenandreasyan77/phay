@@ -11,8 +11,8 @@ class CreateSite extends Command
 {
     protected $signature = 'platform:site:create
         {tenant : Business slug or id}
-        {name : Site name, e.g. "servio.am"}
-        {--domain= : Main domain, e.g. servio.am}
+        {name : Site name, e.g. "shop.am"}
+        {--domain= : Main domain, e.g. shop.am}
         {--origin=* : Browser origin allowed to call the API with this key (repeatable). None: any origin}';
 
     protected $description = 'Connect a site to a business and print its X-Site-Key';

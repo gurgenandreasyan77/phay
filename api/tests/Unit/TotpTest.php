@@ -34,9 +34,9 @@ class TotpTest extends TestCase
 
     public function test_the_uri_is_what_authenticator_apps_read(): void
     {
-        $uri = Totp::uri('JBSWY3DPEHPK3PXP', 'ani@shop.am', 'Servio');
+        $uri = Totp::uri('JBSWY3DPEHPK3PXP', 'ani@shop.am', 'Phay');
 
-        $this->assertStringStartsWith('otpauth://totp/Servio:ani%40shop.am?secret=JBSWY3DPEHPK3PXP&issuer=Servio', $uri);
+        $this->assertStringStartsWith('otpauth://totp/Phay:ani%40shop.am?secret=JBSWY3DPEHPK3PXP&issuer=Phay', $uri);
     }
 
     public function test_armenian_phone_numbers_are_normalized(): void

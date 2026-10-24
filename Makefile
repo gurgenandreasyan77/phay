@@ -21,7 +21,7 @@ PROD_DB_NAME  = $(call env_get,POSTGRES_DB,$(PROD_ENV),phay)
 
 .PHONY: help \
 	local-setup local-composer local-key local-build local-up local-down local-restart \
-	local-logs local-ps local-migrate local-migrate-status local-seed-servio local-fresh \
+	local-logs local-ps local-migrate local-migrate-status local-fresh \
 	local-site-keys local-bootstrap local-artisan local-shell local-shell-admin \
 	local-test local-test-backend local-test-admin local-backup local-restore \
 	prod-check prod-init prod-key prod-config prod-build prod-up prod-down prod-restart \
@@ -77,9 +77,6 @@ local-migrate: ## Run new migrations
 
 local-migrate-status: ## Which migrations ran
 	$(LOCAL) exec backend php artisan migrate:status
-
-local-seed-servio: ## Servio demo catalog (services, calculator, market) into the default business
-	$(LOCAL) exec backend php artisan db:seed --class=ServioDemoSeeder --force
 
 local-fresh: ## DROP all local tables and migrate again (local only)
 	$(LOCAL) exec backend php artisan migrate:fresh --force

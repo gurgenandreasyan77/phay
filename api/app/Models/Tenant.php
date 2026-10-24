@@ -42,8 +42,8 @@ class Tenant extends Model implements FeatureScopeSerializeable
     {
         // A new business starts with the basic sections (orders and sales
         // included): the modules (Services, Market, Site) stay off until the
-        // platform administrator turns them on for it. Servio itself was
-        // inserted by a migration and keeps its own flags.
+        // platform administrator turns them on for it. The default business
+        // was inserted by a migration and keeps its own flags.
         static::created(function (Tenant $tenant) {
             foreach (FeatureFlag::cases() as $flag) {
                 $flag->onForNewBusiness()
@@ -53,12 +53,22 @@ class Tenant extends Model implements FeatureScopeSerializeable
         });
     }
 
+    /**
+     * The business named by config('platform.default_tenant'), else the
+     * oldest one: the tenancy migration creates it before any other.
+     */
     public static function default(): self
     {
         $slug = config('platform.default_tenant');
 
         return static::query()->where('slug', $slug)->first()
+            ?? static::query()->oldest('id')->first()
             ?? throw new RuntimeException("Default tenant [{$slug}] is missing. Run the migrations.");
+    }
+
+    public function isDefault(): bool
+    {
+        return $this->is(static::default());
     }
 
     public function sites(): HasMany

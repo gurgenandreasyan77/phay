@@ -18,7 +18,7 @@ export type AdminNotificationDto = {
 
 const POLL_MS = 30_000;
 // Sent by the support chat when it is opened: its message notifications are read now.
-const SUPPORT_EVENT = "servio:support-activity";
+const SUPPORT_EVENT = "phay:support-activity";
 
 /** The bell's notifications, polled like the chat's unread badges. */
 export function useNotifications(enabled: boolean) {

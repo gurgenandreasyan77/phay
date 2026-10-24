@@ -1,7 +1,7 @@
 ---
 version: 1
-slug: "servio-admin-src-app-admin"
-primary_target: "servio-admin/src/app/admin"
+slug: "admin-src-app-admin"
+primary_target: "admin/src/app/admin"
 related_targets: []
 ---
 

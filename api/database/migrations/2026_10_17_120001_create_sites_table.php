@@ -25,8 +25,8 @@ return new class extends Migration
 
         DB::table('sites')->insert([
             'tenant_id' => $tenantId,
-            'name' => 'servio.am',
-            'domain' => 'servio.am',
+            'name' => 'localhost',
+            'domain' => null,
             'public_key' => 'site_pk_'.Str::random(32),
             'is_active' => true,
             'created_at' => now(),

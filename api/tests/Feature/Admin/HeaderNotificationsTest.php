@@ -22,9 +22,9 @@ class HeaderNotificationsTest extends TestCase
 
     public function test_an_order_from_the_site_notifies_everyone_who_works_with_orders(): void
     {
-        $servio = Tenant::default();
-        $owner = User::factory()->forTenant($servio, 'owner')->create();
-        $moderator = User::factory()->forTenant($servio, 'moderator')->create();
+        $main = Tenant::default();
+        $owner = User::factory()->forTenant($main, 'owner')->create();
+        $moderator = User::factory()->forTenant($main, 'moderator')->create();
         $other = User::factory()->forTenant($this->createTenant('test-shop'))->create();
 
         $this->postJson('/api/v1/leads', [

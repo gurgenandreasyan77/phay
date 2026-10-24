@@ -110,11 +110,11 @@ class SecureAuthTest extends TestCase
 
     public function test_staff_must_set_up_2fa_before_anything_else(): void
     {
-        $admin = User::factory()->create(['email' => 'boss@servio.am', 'password' => Hash::make(self::PASSWORD)]);
+        $admin = User::factory()->create(['email' => 'boss@phay.am', 'password' => Hash::make(self::PASSWORD)]);
         $admin->forceFill(['is_super_admin' => true])->save();
         $old = $admin->createToken('admin-panel')->plainTextToken;
 
-        $token = $this->login('boss@servio.am')
+        $token = $this->login('boss@phay.am')
             ->assertOk()
             ->assertJsonPath('data.user.twoFactorSetupRequired', true)
             ->json('data.token');
@@ -379,17 +379,17 @@ class SecureAuthTest extends TestCase
 
     public function test_the_first_super_admin_comes_from_a_one_time_console_link(): void
     {
-        $this->artisan('platform:bootstrap', ['email' => 'Boss@Servio.am', '--name' => 'Gurgen'])
+        $this->artisan('platform:bootstrap', ['email' => 'Boss@Phay.am', '--name' => 'Gurgen'])
             ->expectsOutputToContain('/admin/invite#')
             ->assertSuccessful();
 
-        $boss = User::query()->where('email', 'boss@servio.am')->sole();
+        $boss = User::query()->where('email', 'boss@phay.am')->sole();
         $this->assertTrue($boss->is_super_admin);
         $this->assertNull($boss->password);
 
         // Not activated yet: the same email gets a fresh link; anyone else is refused.
-        $this->artisan('platform:bootstrap', ['email' => 'boss@servio.am'])->assertSuccessful();
-        $this->artisan('platform:bootstrap', ['email' => 'other@servio.am'])->assertFailed();
+        $this->artisan('platform:bootstrap', ['email' => 'boss@phay.am'])->assertSuccessful();
+        $this->artisan('platform:bootstrap', ['email' => 'other@phay.am'])->assertFailed();
 
         $url = null;
         Mail::assertSent(InvitationMail::class, function (InvitationMail $mail) use (&$url) {
@@ -409,16 +409,16 @@ class SecureAuthTest extends TestCase
         $this->asBearer($session, 'GET', '/api/v1/admin/tenants')->assertForbidden();
 
         // Once there is an active super admin, the console refuses.
-        $this->artisan('platform:bootstrap', ['email' => 'boss@servio.am'])->assertFailed();
+        $this->artisan('platform:bootstrap', ['email' => 'boss@phay.am'])->assertFailed();
         $this->assertDatabaseHas('security_events', ['user_id' => $boss->id, 'event' => 'super_admin_bootstrapped']);
     }
 
     public function test_the_console_resets_a_lost_2fa(): void
     {
-        $boss = User::factory()->superAdmin()->create(['email' => 'boss@servio.am']);
+        $boss = User::factory()->superAdmin()->create(['email' => 'boss@phay.am']);
 
-        $this->artisan('platform:two-factor:reset', ['email' => 'boss@servio.am'])
-            ->expectsConfirmation('Turn off 2FA for boss@servio.am and sign them out everywhere?', 'yes')
+        $this->artisan('platform:two-factor:reset', ['email' => 'boss@phay.am'])
+            ->expectsConfirmation('Turn off 2FA for boss@phay.am and sign them out everywhere?', 'yes')
             ->assertSuccessful();
 
         $this->assertFalse($boss->fresh()->hasTwoFactorEnabled());

@@ -15,10 +15,10 @@ class PlatformCommandsTest extends TestCase
 
     public function test_the_migration_creates_the_default_business_and_its_site(): void
     {
-        $servio = Tenant::default();
+        $main = Tenant::default();
 
-        $this->assertSame('servio', $servio->slug);
-        $this->assertStringStartsWith(Site::KEY_PREFIX, $servio->sites()->sole()->public_key);
+        $this->assertSame('phay', $main->slug);
+        $this->assertStringStartsWith(Site::KEY_PREFIX, $main->sites()->sole()->public_key);
     }
 
     public function test_a_business_and_a_site_can_be_created_from_the_console(): void
@@ -47,7 +47,7 @@ class PlatformCommandsTest extends TestCase
 
     public function test_duplicate_slugs_and_unknown_businesses_are_refused(): void
     {
-        $this->artisan('platform:tenant:create', ['name' => 'Servio'])->assertFailed();
+        $this->artisan('platform:tenant:create', ['name' => 'Phay'])->assertFailed();
         $this->artisan('platform:site:create', ['tenant' => 'nope', 'name' => 'x'])->assertFailed();
         $this->artisan('platform:tenant:create', ['name' => 'Shop', '--owner' => 'missing@shop.am'])->assertFailed();
     }

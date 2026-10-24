@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 export type SupportUnread = { business: number | null; platform: number | null };
 
 const POLL_MS = 30_000;
-const EVENT = "servio:support-activity";
+const EVENT = "phay:support-activity";
 
 /** A conversation was opened or a message sent: badges refresh now instead of on the next poll. */
 export function notifySupportActivity() {

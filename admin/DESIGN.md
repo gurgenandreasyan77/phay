@@ -1,5 +1,5 @@
 ---
-name: Servio Admin
+name: Phay Admin
 description: Calm, white-label B2B operations console for service businesses
 colors:
   background: "#F5F6F3"
@@ -74,13 +74,13 @@ components:
     padding: "20px"
 ---
 
-# Design System: Servio Admin
+# Design System: Phay Admin
 
 ## Overview
 
 **Creative North Star: "The Instrument Panel"**
 
-Servio Admin is being built as a white-label CRM product, not a single business's branded tool — the visual system has to work for any service company it gets relabeled for, so nothing in it is allowed to read as "AI-generated SaaS" or as one company's personality. It is an Operate-mode surface: an operator opens it for hours a day to scan leads, prices, and content, so clarity and low visual noise outrank expression. The system explicitly rejects the current-generation AI-app default — purple/blue gradients, neon glow, heavy glassmorphism, oversized rounded corners, loud status pills — in favor of a quieter instrument-panel language: a dark, informationally-neutral sidebar frames a warm, paper-light work surface, and a single muted green stands in for "this matters" wherever it appears.
+Phay Admin is being built as a white-label CRM product, not a single business's branded tool — the visual system has to work for any service company it gets relabeled for, so nothing in it is allowed to read as "AI-generated SaaS" or as one company's personality. It is an Operate-mode surface: an operator opens it for hours a day to scan leads, prices, and content, so clarity and low visual noise outrank expression. The system explicitly rejects the current-generation AI-app default — purple/blue gradients, neon glow, heavy glassmorphism, oversized rounded corners, loud status pills — in favor of a quieter instrument-panel language: a dark, informationally-neutral sidebar frames a warm, paper-light work surface, and a single muted green stands in for "this matters" wherever it appears.
 
 **Key Characteristics:**
 - Warm light ground, not cold gray or pure white, so long sessions don't feel clinical.

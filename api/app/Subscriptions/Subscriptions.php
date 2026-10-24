@@ -37,7 +37,7 @@ class Subscriptions
     /**
      * The business's subscription, made on first use for a business that
      * has none: the default plan's trial from the day the business was
-     * created; Servio itself never pays.
+     * created; the default business never pays.
      */
     public function for(Tenant $tenant): Subscription
     {
@@ -54,7 +54,7 @@ class Subscriptions
 
     /**
      * On the premium plan: a plan above the default one with nothing pricier
-     * to move to. Unlimited (Servio) counts as premium: it is never offered one.
+     * to move to. Unlimited (the default business) counts as premium: it is never offered one.
      */
     public function isPremium(Subscription $subscription): bool
     {
@@ -73,7 +73,7 @@ class Subscriptions
     /** @return array<string, mixed> */
     private function starting(Tenant $tenant): array
     {
-        if ($tenant->slug === config('platform.default_tenant')) {
+        if ($tenant->isDefault()) {
             return ['plan_id' => Plan::default()?->id, 'unlimited' => true];
         }
 

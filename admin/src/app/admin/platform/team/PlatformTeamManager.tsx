@@ -223,7 +223,7 @@ function NewTeamMemberForm({ onCreated }: { onCreated: (link: AccountLink) => vo
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="name@servio.am"
+          placeholder="name@phay.am"
           required
         />
       </div>
