@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\Admin\DataTableRowController as AdminDataTableRo
 use App\Http\Controllers\Api\V1\Admin\EmployeeController as AdminEmployeeController;
 use App\Http\Controllers\Api\V1\Admin\EmployeeGroupController as AdminEmployeeGroupController;
 use App\Http\Controllers\Api\V1\Admin\ExpenseCategoryController as AdminExpenseCategoryController;
+use App\Http\Controllers\Api\V1\Admin\ExpenseStatisticsController as AdminExpenseStatisticsController;
 use App\Http\Controllers\Api\V1\Admin\FeatureFlagController as AdminFeatureFlagController;
 use App\Http\Controllers\Api\V1\Admin\FeedbackController as AdminFeedbackController;
 use App\Http\Controllers\Api\V1\Admin\FinanceController as AdminFinanceController;
@@ -260,6 +261,8 @@ Route::prefix('v1')->group(function () {
                 Route::post('/recurring-expenses', [AdminRecurringExpenseController::class, 'store']);
                 Route::patch('/recurring-expenses/{recurringExpense}', [AdminRecurringExpenseController::class, 'update']);
                 Route::delete('/recurring-expenses/{recurringExpense}', [AdminRecurringExpenseController::class, 'destroy']);
+                // What was spent in a day, week, month, quarter or year, apart from sales.
+                Route::get('/expenses/statistics', AdminExpenseStatisticsController::class);
                 // Revenue − cost of goods − expenses, per day, week, month, quarter or year.
                 Route::get('/analytics/finance', AdminFinanceController::class)->middleware('business.can:insights');
             });

@@ -69,7 +69,7 @@ function roleDraft(role: ColumnRole, section: DataTableSection): ColumnDraft {
 const STARTER_ROLES: Record<DataTableSection, ColumnRole[]> = {
   orders: ["customer", "phone", "item", "date", "amount", "cost", "performer"],
   sales: ["item", "quantity", "unit_price", "date", "payment"],
-  expenses: ["date", "category", "item", "amount", "payment", "note"],
+  expenses: ["date", "category", "item", "amount", "supplier", "payment", "note"],
 };
 
 function starterColumns(section: DataTableSection): ColumnDraft[] {

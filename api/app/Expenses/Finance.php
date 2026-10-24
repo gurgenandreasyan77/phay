@@ -215,19 +215,20 @@ final class Finance
 
     /**
      * Money out: rows of the expenses tables and the due dates of the
-     * recurring expenses, each with its category.
+     * recurring expenses, each with its category, and where it comes from
+     * (the row's table, id and data, or the recurring expense's name).
      *
      * @param  Collection<int, ExpenseCategory>  $categories
-     * @return list<array{at: string, amount: int|float, category: ?ExpenseCategory, label: string, inProfit: bool, recurring: bool}>
+     * @return list<array{at: string, amount: int|float, category: ?ExpenseCategory, label: string, inProfit: bool, recurring: bool, table: ?int, row: ?int, data: array<string, mixed>, name: ?string}>
      */
-    private function expenses(Collection $categories, CarbonImmutable $from, CarbonImmutable $to): array
+    public function expenses(Collection $categories, CarbonImmutable $from, CarbonImmutable $to): array
     {
         $match = ExpenseCategories::matcher($categories);
         $byId = $categories->keyBy('id');
         $tables = DataTable::query()->where('section', DataTableSection::Expenses)->get();
         $keys = $tables->mapWithKeys(fn (DataTable $t) => [$t->id => $t->roleColumn(ColumnRole::Category)?->key]);
         $rows = [];
-        $entry = fn (string $at, int|float $amount, ?ExpenseCategory $category, ?string $raw, bool $recurring) => [
+        $entry = fn (string $at, int|float $amount, ?ExpenseCategory $category, ?string $raw, bool $recurring, array $from = []) => [
             'at' => $at,
             'amount' => $amount,
             'category' => $category,
@@ -235,6 +236,10 @@ final class Finance
             'label' => $category?->name ?? ($raw !== null && trim($raw) !== '' ? trim($raw) : self::NO_CATEGORY),
             'inProfit' => $category?->in_profit ?? true,
             'recurring' => $recurring,
+            'table' => $from['table'] ?? null,
+            'row' => $from['row'] ?? null,
+            'data' => $from['data'] ?? [],
+            'name' => $from['name'] ?? null,
         ];
 
         DataTableRow::query()
@@ -248,7 +253,11 @@ final class Finance
                     $key = $keys[$row->data_table_id];
                     $raw = $key ? ($row->data[$key] ?? null) : null;
                     $raw = is_scalar($raw) ? (string) $raw : null;
-                    $rows[] = $entry(substr((string) $row->getRawOriginal('occurred_at'), 0, 10), (float) $row->amount, $match($raw), $raw, false);
+                    $rows[] = $entry(substr((string) $row->getRawOriginal('occurred_at'), 0, 10), (float) $row->amount, $match($raw), $raw, false, [
+                        'table' => $row->data_table_id,
+                        'row' => $row->id,
+                        'data' => $row->data ?? [],
+                    ]);
                 }
             });
 
@@ -257,7 +266,7 @@ final class Finance
         foreach (RecurringExpense::query()->where('starts_on', '<=', $until->toDateString())->get() as $expense) {
             $category = $expense->expense_category_id ? $byId->get($expense->expense_category_id) : null;
             foreach ($expense->dueDates($from, $until) as $date) {
-                $rows[] = $entry($date->toDateString(), $expense->value(), $category, null, true);
+                $rows[] = $entry($date->toDateString(), $expense->value(), $category, null, true, ['name' => $expense->name]);
             }
         }
 
@@ -272,7 +281,7 @@ final class Finance
      * @param  Collection<int, ExpenseCategory>  $categories
      * @return list<array<string, mixed>>
      */
-    private function byCategory(Collection $rows, Collection $categories): array
+    public function byCategory(Collection $rows, Collection $categories): array
     {
         $groups = $rows->groupBy(fn (array $r) => $r['category'] ? 'id:'.$r['category']->id : 'name:'.$r['label']);
 

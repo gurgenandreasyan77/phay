@@ -8,6 +8,7 @@ use App\DataTables\TableAnalytics;
 use App\Enums\ColumnRole;
 use App\Enums\DataTableSection;
 use App\Enums\TablePeriod;
+use App\Expenses\ExpenseStatistics;
 use App\Expenses\Finance;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
@@ -41,6 +42,7 @@ class BusinessTools
     public function __construct(
         private readonly TenantContext $tenants,
         private readonly Finance $finance,
+        private readonly ExpenseStatistics $expenses,
     ) {}
 
     /**
@@ -111,6 +113,19 @@ class BusinessTools
                 ],
             ],
             [
+                'name' => 'expenses_report',
+                'description' => 'What the business spent in one day, week, month, quarter or year (the one a date falls in), apart from sales: total, the period before, in and out of profit, recurring vs one-off, per day, by category, by payee, payment method, who spent, object and what for, the biggest expenses, its days or months, and the expenses themselves (up to 50). Counts recurring expenses on their due dates too. Use it for any question about spending.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'by' => ['type' => 'string', 'enum' => ['day', 'week', 'month', 'quarter', 'year']],
+                        'date' => $date('A day inside the period (default today)'),
+                    ],
+                    'required' => ['by'],
+                    'additionalProperties' => false,
+                ],
+            ],
+            [
                 'name' => 'site_orders',
                 'description' => 'Orders that came from the business\'s website over a period: how many, by status, service and source, revenue of the completed ones and the orders themselves (without client names or contacts).',
                 'inputSchema' => [
@@ -141,6 +156,7 @@ class BusinessTools
             'find_rows' => $this->findRows($input),
             'group_rows' => $this->groupRows($input),
             'finance_report' => $this->financeReport($input),
+            'expenses_report' => $this->expensesReport($input),
             'site_orders' => $this->siteOrders($input),
             default => throw new InvalidArgumentException("Unknown tool [{$name}]."),
         };
@@ -281,6 +297,24 @@ class BusinessTools
             'lastPeriodCategories' => $spent($report['current']['categories']),
             'has' => $report['has'],
             'notes' => $report['notes'],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function expensesReport(array $input): array
+    {
+        $kind = TablePeriod::tryFrom((string) ($input['by'] ?? ''));
+        if (! $kind || $kind === TablePeriod::Custom) {
+            throw new InvalidArgumentException('by must be day, week, month, quarter or year.');
+        }
+
+        $report = $this->expenses->report($kind, $this->date($input['date'] ?? null));
+
+        return [
+            ...collect($report)->only(['period', 'previous', 'unfinished', 'totals', 'inside', 'breakdowns', 'largest', 'count'])->all(),
+            'categories' => array_map(fn (array $c) => collect($c)->only(['name', 'inProfit', 'amount', 'recurring', 'count'])->all(), $report['categories']),
+            'previousCategories' => $report['previousCategories'],
+            'expenses' => array_slice($report['rows'], 0, 50),
         ];
     }
 

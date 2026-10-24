@@ -1515,6 +1515,60 @@ export async function getFinance(params: { by?: PeriodKind; date?: string }): Pr
   return result.data;
 }
 
+/** What was spent in a day, week, month, quarter or year (see the API's ExpenseStatistics). */
+export type ExpenseTotalsDto = {
+  total: number;
+  inProfit: number;
+  excluded: number;
+  recurring: number;
+  oneOff: number;
+  count: number;
+};
+
+export type ExpenseLineDto = {
+  date: string;
+  amount: number;
+  category: string;
+  inProfit: boolean;
+  recurring: boolean;
+  item: string | null;
+  supplier: string | null;
+  payment: string | null;
+  performer: string | null;
+  project: string | null;
+  note: string | null;
+  tableId: number | null;
+  table: string | null;
+  rowId: number | null;
+};
+
+export type ExpenseStatisticsDto = {
+  by: PeriodKind;
+  today: string;
+  period: PeriodDto;
+  previous: PeriodDto;
+  unfinished: boolean;
+  totals: ExpenseTotalsDto & { previous: number; perDay: number | null; tax: number | null };
+  series: (PeriodDto & ExpenseTotalsDto)[];
+  inside: { key: string; start: string; label: string; total: number; count: number }[];
+  categories: FinanceCategoryDto[];
+  /** Last period's spending by category name. */
+  previousCategories: Record<string, number>;
+  breakdowns: { role: string; label: string; distinct: number; values: { value: string; amount: number; count: number }[] }[];
+  largest: ExpenseLineDto[];
+  rows: ExpenseLineDto[];
+  count: number;
+  has: { tables: boolean; recurring: boolean; roles: string[] };
+};
+
+export async function getExpenseStatistics(params: { by?: PeriodKind; date?: string }): Promise<ExpenseStatisticsDto | null> {
+  const query = new URLSearchParams();
+  if (params.by) query.set("by", params.by);
+  if (params.date) query.set("date", params.date);
+  const result = await adminApiFetch<ExpenseStatisticsDto>(`/admin/expenses/statistics?${query}`);
+  return result.data;
+}
+
 export async function getDataImports(tableId: number): Promise<AdminDataImportDto[]> {
   const result = await adminApiFetch<AdminDataImportDto[]>(`/admin/data-tables/${tableId}/imports`);
   return result.data ?? [];
