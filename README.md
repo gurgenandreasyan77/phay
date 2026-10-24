@@ -195,6 +195,8 @@ Edit `.env` and set real values for at least:
 docker compose -f compose.prod.yaml up -d --build
 docker compose -f compose.prod.yaml exec backend php artisan migrate --force
 docker compose -f compose.prod.yaml exec backend php artisan db:seed --force
+# The first super admin: prints a one-time link (1 hour) to set a password, then 2FA.
+docker compose -f compose.prod.yaml exec backend php artisan platform:bootstrap you@servio.am --name="Your Name"
 ```
 
 Postgres is **not** exposed to the host in production — only `api` (on
@@ -332,6 +334,33 @@ If your own login isn't a super admin (no "← Պլատֆորմ" link in the men
 ```bash
 make artisan cmd="platform:super-admin you@example.com"
 ```
+
+### Sign-in security
+
+- **No admin password in any .env or seeder.** The very first super admin comes
+  from `php artisan platform:bootstrap you@servio.am` (refuses once a super
+  admin exists): it prints a one-time link (`BOOTSTRAP_TTL_MINUTES`, 60) to
+  `ADMIN_URL/admin/invite#token`, where the person sets their own password.
+- **Everyone else is invited.** Staff create a login with name, email and role
+  only; the person gets an invitation link (emailed, and shown to staff to pass
+  on by messenger; 72 h, one time) and sets their own password. A forgotten
+  password: "Forgot password?" on the sign-in page, or a reset link from staff
+  (1 h). A reset signs out every device and doesn't skip 2FA.
+- **2FA (TOTP)** with any authenticator app plus 8 one-time recovery codes.
+  Required for platform staff and business owners (`TWO_FACTOR_REQUIRED_FOR_OWNERS`);
+  an owner can require it for their whole team. Until it's set up the API
+  answers 403 `two_factor_setup_required` and the admin opens `/admin/setup-2fa`.
+  Lost phone: staff reset it on the logins list; the last resort is
+  `php artisan platform:two-factor:reset email`.
+- 2FA secrets are encrypted with `APP_KEY`: back the key up apart from the
+  database and never change it on a live database (rotate with `APP_PREVIOUS_KEYS`).
+- Email and phone are confirmed with 6-digit codes on "Իմ հաշիվը" (mail via
+  `MAIL_*`, SMS via `SMS_DRIVER=log|twilio`; in development both go to
+  `storage/logs/laravel.log`).
+- Sessions last 7 days (`SANCTUM_EXPIRATION`), are listed on "Իմ հաշիվը" with
+  their device and IP, and can be signed out one by one.
+- Every sign-in, failed attempt, 2FA/password change and invitation is in
+  `security_events` (platform → "Անվտանգության մատյան").
 
 To connect servio-front (or a copy of it for another business), put the key
 in its env: `NEXT_PUBLIC_SITE_KEY=site_pk_...` (root `.env` for Docker; a

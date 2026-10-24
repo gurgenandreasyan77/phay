@@ -30,6 +30,9 @@
         <env name="APP_ENV" value="testing" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file" force="true"/>
         <env name="BCRYPT_ROUNDS" value="4" force="true"/>
+        <!-- Owners' 2FA is tested on its own (SecureAuthTest); the other tests sign owners in without it. -->
+        <env name="TWO_FACTOR_REQUIRED_FOR_OWNERS" value="false" force="true"/>
+        <env name="SMS_DRIVER" value="log" force="true"/>
         <env name="BROADCAST_CONNECTION" value="null" force="true"/>
         <env name="CACHE_STORE" value="array" force="true"/>
         <env name="DB_CONNECTION" value="sqlite" force="true"/>

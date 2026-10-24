@@ -2,50 +2,93 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Enums\SecurityEvent;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\LoginRequest;
 use App\Http\Resources\Admin\TenantResource;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Security\AccessTokens;
+use App\Security\LoginChallenges;
+use App\Security\SecurityLog;
+use App\Security\TwoFactor;
 use App\Subscriptions\Subscriptions;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\NewAccessToken;
 
 class AuthController extends Controller
 {
-    public function login(LoginRequest $request): JsonResponse
+    /** A hash of nothing in particular, checked against when the email is unknown. */
+    private static ?string $dummyHash = null;
+
+    /**
+     * Step one: email and password. Without 2FA this signs in; with 2FA it
+     * gives a challenge for login/two-factor instead of a session. A wrong
+     * password, an unknown email and an invited login that has no password
+     * yet all get the same answer.
+     */
+    public function login(LoginRequest $request, LoginChallenges $challenges, AccessTokens $tokens, SecurityLog $log): JsonResponse
     {
         $credentials = $request->validated();
+        $email = Str::lower(trim($credentials['email']));
+        $user = User::query()->where('email', $email)->first();
 
-        if (! Auth::once($credentials)) {
+        // Hashes even for an unknown email, so timing doesn't tell which emails exist.
+        $valid = Hash::check($credentials['password'], $user?->password ?? (self::$dummyHash ??= Hash::make(Str::random(32)))) && $user?->isActivated();
+
+        if (! $valid) {
+            $log->record(SecurityEvent::LoginFailed, $user, [], email: $email);
+
             throw ValidationException::withMessages([
                 'email' => ['These credentials do not match our records.'],
             ]);
         }
 
-        $user = Auth::user();
-        $token = $user->createToken('admin-panel')->plainTextToken;
+        if ($user->hasTwoFactorEnabled()) {
+            return response()->json(['data' => ['twoFactor' => true, ...$challenges->create($user)]]);
+        }
 
-        return response()->json([
-            'data' => [
-                'token' => $token,
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'isSuperAdmin' => $user->is_super_admin,
-                    'platformRole' => $user->platformRole()?->value,
-                ],
-            ],
-        ]);
+        return $this->signedIn($user, $tokens->issue($user, $request));
     }
 
-    public function logout(Request $request): JsonResponse
+    /** Step two: the code from the authenticator app, or a recovery code. */
+    public function twoFactor(Request $request, LoginChallenges $challenges, TwoFactor $twoFactor, AccessTokens $tokens, SecurityLog $log): JsonResponse
+    {
+        $validated = $request->validate([
+            'challenge' => ['required', 'string', 'max:128'],
+            'code' => ['nullable', 'string', 'max:16', 'required_without:recovery_code'],
+            'recovery_code' => ['nullable', 'string', 'max:32'],
+        ]);
+
+        $user = $challenges->user($validated['challenge']);
+
+        if (! $user) {
+            throw ValidationException::withMessages(['challenge' => ['Ժամկետն անցել է։ Մուտք գործեք նորից։']]);
+        }
+
+        if (! $twoFactor->verify($user, $validated['code'] ?? null, $validated['recovery_code'] ?? null)) {
+            $log->record(SecurityEvent::TwoFactorFailed, $user);
+            $left = $challenges->fail($validated['challenge']);
+
+            throw ValidationException::withMessages($left
+                ? ['code' => ['Կոդը սխալ է։']]
+                : ['challenge' => ['Չափազանց շատ սխալ կոդեր։ Մուտք գործեք նորից։']]);
+        }
+
+        $challenges->forget($validated['challenge']);
+
+        return $this->signedIn($user, $tokens->issue($user, $request, ['two_factor' => isset($validated['code']) ? 'app' : 'recovery_code']));
+    }
+
+    public function logout(Request $request, SecurityLog $log): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
+        $log->record(SecurityEvent::Logout, $request->user());
 
         return response()->json(['data' => ['status' => 'ok']]);
     }
@@ -76,6 +119,24 @@ class AuthController extends Controller
         return response()->json(['data' => $this->presentMe($user, $tenant)]);
     }
 
+    private function signedIn(User $user, NewAccessToken $token): JsonResponse
+    {
+        return response()->json([
+            'data' => [
+                'token' => $token->plainTextToken,
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'isSuperAdmin' => $user->is_super_admin,
+                    'platformRole' => $user->platformRole()?->value,
+                    // Signed in, but has to set up 2FA before anything else.
+                    'twoFactorSetupRequired' => $user->requiresTwoFactor() && ! $user->hasTwoFactorEnabled(),
+                ],
+            ],
+        ]);
+    }
+
     private function presentMe(User $user, Tenant $current): array
     {
         $role = $user->businessRole($current);
@@ -100,6 +161,13 @@ class AuthController extends Controller
             // lock screen after (never for platform staff).
             'subscription' => $this->subscriptionSummary($user, $current),
             'tenants' => TenantResource::collection($tenants),
+            'security' => [
+                'twoFactorEnabled' => $user->hasTwoFactorEnabled(),
+                'twoFactorRequired' => $required = $user->requiresTwoFactor(),
+                'twoFactorSetupRequired' => $required && ! $user->hasTwoFactorEnabled(),
+                'emailVerified' => $user->email_verified_at !== null,
+                'phoneVerified' => $user->phone_verified_at !== null,
+            ],
         ];
     }
 

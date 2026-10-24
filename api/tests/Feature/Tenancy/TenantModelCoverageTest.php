@@ -2,16 +2,19 @@
 
 namespace Tests\Feature\Tenancy;
 
+use App\Models\AccountToken;
 use App\Models\AdminNotification;
 use App\Models\AssistantBonus;
 use App\Models\Concerns\BelongsToTenant;
 use App\Models\ModulePrice;
 use App\Models\Plan;
+use App\Models\SecurityLogEntry;
 use App\Models\Site;
 use App\Models\Subscription;
 use App\Models\SubscriptionPayment;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Models\VerificationCode;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
@@ -36,6 +39,8 @@ class TenantModelCoverageTest extends TestCase
         User::class, Tenant::class, Site::class,
         Plan::class, ModulePrice::class, Subscription::class, SubscriptionPayment::class,
         AssistantBonus::class, AdminNotification::class,
+        // Sign-in security belongs to a person, not a business.
+        AccountToken::class, VerificationCode::class, SecurityLogEntry::class,
     ];
 
     public function test_every_content_model_is_scoped_to_a_tenant(): void

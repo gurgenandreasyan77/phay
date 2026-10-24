@@ -15,7 +15,6 @@ class DatabaseSeeder extends Seeder
             ServicePackageSeeder::class,
             PostSeeder::class,
             AutoCarePostSeeder::class,
-            AdminUserSeeder::class,
             SiteSettingSeeder::class,
             AdditionalServiceSeeder::class,
             ProductCategorySeeder::class,

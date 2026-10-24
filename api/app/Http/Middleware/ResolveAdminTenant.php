@@ -23,6 +23,8 @@ class ResolveAdminTenant
         'api/v1/admin/logout',
         'api/v1/admin/switch-tenant',
         'api/v1/admin/password',
+        'api/v1/admin/security',
+        'api/v1/admin/security/*',
         'api/v1/admin/subscription',
         'api/v1/admin/subscription/*',
         'api/v1/admin/support/*',

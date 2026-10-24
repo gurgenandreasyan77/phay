@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\V1\AdditionalServiceController;
+use App\Http\Controllers\Api\V1\Admin\AccountLinkController as AdminAccountLinkController;
 use App\Http\Controllers\Api\V1\Admin\AdditionalServiceController as AdminAdditionalServiceController;
 use App\Http\Controllers\Api\V1\Admin\AnalyticsController as AdminAnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\AssistantController as AdminAssistantController;
@@ -36,6 +37,8 @@ use App\Http\Controllers\Api\V1\Admin\ProductCategoryController as AdminProductC
 use App\Http\Controllers\Api\V1\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Api\V1\Admin\RecurringExpenseController as AdminRecurringExpenseController;
 use App\Http\Controllers\Api\V1\Admin\SearchController as AdminSearchController;
+use App\Http\Controllers\Api\V1\Admin\SecurityController as AdminSecurityController;
+use App\Http\Controllers\Api\V1\Admin\SecurityEventController as AdminSecurityEventController;
 use App\Http\Controllers\Api\V1\Admin\ServiceCategoryController as AdminServiceCategoryController;
 use App\Http\Controllers\Api\V1\Admin\ServiceController as AdminServiceController;
 use App\Http\Controllers\Api\V1\Admin\ServiceGalleryItemController as AdminServiceGalleryItemController;
@@ -113,14 +116,43 @@ Route::prefix('v1')->group(function () {
 
     Route::prefix('admin')->group(function () {
         Route::post('/login', [AdminAuthController::class, 'login'])->middleware('throttle:admin-login');
+        Route::post('/login/two-factor', [AdminAuthController::class, 'twoFactor'])->middleware('throttle:two-factor');
 
-        // Admin API: the signed-in user's current business.
-        Route::middleware(['auth:sanctum', 'tenant.admin'])->group(function () {
+        // Opened from a one-time link (the token travels in the body, never the URL).
+        Route::middleware('throttle:account-links')->group(function () {
+            Route::post('/invitations/lookup', [AdminAccountLinkController::class, 'showInvitation']);
+            Route::post('/invitations/accept', [AdminAccountLinkController::class, 'acceptInvitation']);
+            Route::post('/password/reset/lookup', [AdminAccountLinkController::class, 'showReset']);
+            Route::post('/password/reset', [AdminAccountLinkController::class, 'reset']);
+        });
+        Route::post('/password/forgot', [AdminAccountLinkController::class, 'forgot'])->middleware('throttle:password-forgot');
+
+        // Admin API: the signed-in user's current business. Who must use 2FA
+        // and hasn't set it up yet only reaches the setup (two-factor).
+        Route::middleware(['auth:sanctum', 'tenant.admin', 'two-factor'])->group(function () {
             Route::post('/logout', [AdminAuthController::class, 'logout']);
             Route::get('/me', [AdminAuthController::class, 'me']);
             Route::post('/switch-tenant', [AdminAuthController::class, 'switchTenant']);
             // Everyone changes their own password by typing the current one.
             Route::put('/password', [AdminPasswordController::class, 'update'])->middleware('throttle:6,1');
+
+            // The person's own account security.
+            Route::get('/security', [AdminSecurityController::class, 'show']);
+            Route::middleware('throttle:security')->group(function () {
+                Route::post('/security/two-factor', [AdminSecurityController::class, 'beginTwoFactor']);
+                Route::post('/security/two-factor/confirm', [AdminSecurityController::class, 'confirmTwoFactor']);
+                Route::delete('/security/two-factor', [AdminSecurityController::class, 'disableTwoFactor']);
+                Route::post('/security/two-factor/recovery-codes', [AdminSecurityController::class, 'regenerateRecoveryCodes']);
+                Route::post('/security/email/verify', [AdminSecurityController::class, 'verifyEmail']);
+                Route::post('/security/phone/verify', [AdminSecurityController::class, 'verifyPhone']);
+                Route::delete('/security/sessions/{session}', [AdminSecurityController::class, 'revokeSession'])->whereNumber('session');
+                Route::delete('/security/sessions', [AdminSecurityController::class, 'revokeOtherSessions']);
+                Route::put('/security/business', [AdminSecurityController::class, 'updateBusiness']);
+            });
+            Route::middleware('throttle:verification-codes')->group(function () {
+                Route::post('/security/email/code', [AdminSecurityController::class, 'sendEmailCode']);
+                Route::post('/security/phone/code', [AdminSecurityController::class, 'sendPhoneCode']);
+            });
             // Unread chat messages for the menu badge (either side).
             Route::get('/support/unread', [AdminSupportController::class, 'unread']);
             // The header: the bell (open even after the subscription ended) and the search.
@@ -143,6 +175,11 @@ Route::prefix('v1')->group(function () {
                 Route::post('/tenants/{tenant}/users', [AdminTenantUserController::class, 'store']);
                 Route::patch('/tenants/{tenant}/users/{user}', [AdminTenantUserController::class, 'update']);
                 Route::delete('/tenants/{tenant}/users/{user}', [AdminTenantUserController::class, 'destroy']);
+                Route::middleware('throttle:account-links')->group(function () {
+                    Route::post('/tenants/{tenant}/users/{user}/invitation', [AdminTenantUserController::class, 'invitation']);
+                    Route::post('/tenants/{tenant}/users/{user}/password-reset', [AdminTenantUserController::class, 'passwordReset']);
+                });
+                Route::delete('/tenants/{tenant}/users/{user}/two-factor', [AdminTenantUserController::class, 'resetTwoFactor']);
                 Route::get('/tenants/{tenant}/features', [AdminTenantFeatureController::class, 'index']);
                 Route::get('/sites', [AdminSiteController::class, 'index']);
                 Route::post('/sites', [AdminSiteController::class, 'store']);
@@ -162,6 +199,12 @@ Route::prefix('v1')->group(function () {
                 Route::post('/platform-users', [AdminPlatformUserController::class, 'store']);
                 Route::patch('/platform-users/{user}', [AdminPlatformUserController::class, 'update']);
                 Route::delete('/platform-users/{user}', [AdminPlatformUserController::class, 'destroy']);
+                Route::middleware('throttle:account-links')->group(function () {
+                    Route::post('/platform-users/{user}/invitation', [AdminPlatformUserController::class, 'invitation']);
+                    Route::post('/platform-users/{user}/password-reset', [AdminPlatformUserController::class, 'passwordReset']);
+                });
+                Route::delete('/platform-users/{user}/two-factor', [AdminPlatformUserController::class, 'resetTwoFactor']);
+                Route::get('/security-events', [AdminSecurityEventController::class, 'index']);
 
                 // Subscriptions: plans, module prices and every business's subscription.
                 Route::get('/plans', [AdminPlanController::class, 'index']);

@@ -536,7 +536,19 @@ export type AdminTenantUserDto = {
   isSuperAdmin: boolean;
   platformRole?: PlatformRole | null;
   createdAt: string | null;
+} & AccountSecurityFlags;
+
+/** Where a login stands (absent from an older API). */
+export type AccountSecurityFlags = {
+  /** Has set a password (an invited login hasn't yet). */
+  activated?: boolean;
+  twoFactorEnabled?: boolean;
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
 };
+
+/** A one-time link staff pass on (also emailed when mail works). */
+export type AccountLinkDto = { url: string; expiresAt: string; emailed: boolean };
 
 /** A member of Servio's platform team. */
 export type AdminPlatformUserDto = {
@@ -545,7 +557,7 @@ export type AdminPlatformUserDto = {
   email: string;
   role: PlatformRole;
   createdAt: string | null;
-};
+} & AccountSecurityFlags;
 
 export type AdminUserDto = {
   id: number;
@@ -564,7 +576,66 @@ export type AdminUserDto = {
   tenants: AdminTenantDto[];
   /** The current business's subscription (absent from an older API). */
   subscription?: SubscriptionSummaryDto | null;
+  /** Sign-in security (absent from an older API). */
+  security?: {
+    twoFactorEnabled: boolean;
+    twoFactorRequired: boolean;
+    /** Must set up 2FA before anything else (see requireAdmin). */
+    twoFactorSetupRequired: boolean;
+    emailVerified: boolean;
+    phoneVerified: boolean;
+  };
 };
+
+export type SecurityEventDto = {
+  id: number;
+  event: string;
+  label: string;
+  warning: boolean;
+  ipAddress: string | null;
+  userAgent: string | null;
+  meta: Record<string, unknown>;
+  createdAt: string | null;
+  email?: string | null;
+  user?: { id: number; name: string } | null;
+  actor?: { id?: number; name?: string; email?: string } | null;
+};
+
+export type AccountSessionDto = {
+  id: number;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string | null;
+  lastUsedAt: string | null;
+  current: boolean;
+};
+
+/** GET /admin/security: the signed-in person's own account security. */
+export type AccountSecurityDto = {
+  twoFactor: { enabled: boolean; required: boolean; confirmedAt: string | null; recoveryCodesLeft: number };
+  email: { address: string; verifiedAt: string | null };
+  phone: { number: string | null; verifiedAt: string | null; pending: string | null };
+  passwordChangedAt: string | null;
+  sessions: AccountSessionDto[];
+  events: SecurityEventDto[];
+  business: { name: string; requireTwoFactor: boolean } | null;
+};
+
+export async function getAccountSecurity(): Promise<AccountSecurityDto | null> {
+  const result = await adminApiFetch<AccountSecurityDto>("/admin/security");
+  return result.data;
+}
+
+export type SecurityEventsPageDto = {
+  data: SecurityEventDto[];
+  meta: { currentPage: number; lastPage: number; total: number };
+  events: { value: string; label: string }[];
+};
+
+export async function getSecurityEvents(query: string): Promise<SecurityEventsPageDto | null> {
+  const result = await adminApiFetchRaw(`/admin/security-events${query}`);
+  return result.status === 200 ? (result.json as SecurityEventsPageDto) : null;
+}
 
 /* --------------------------------------------------------------- Audience */
 

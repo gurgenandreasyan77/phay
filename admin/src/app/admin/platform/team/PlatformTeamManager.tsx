@@ -2,24 +2,28 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { AdminPlatformUserDto, PlatformRole } from "@/lib/adminApi";
+import type { AccountLinkDto, AdminPlatformUserDto, PlatformRole } from "@/lib/adminApi";
 import { PLATFORM_ROLE_HINTS, PLATFORM_ROLE_LABELS, PLATFORM_ROLES } from "@/lib/roles";
 import { Badge, Button, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "../../_components/ui";
-import { CopyLoginButton, CredentialsNotice, generatePassword, type Credentials } from "../credentials";
+import { AccountActions, AccountBadges, CopyLoginButton, LinkNotice, type AccountLink } from "../credentials";
 
-/** Servio's own people: super admins and platform moderators (super admin only). */
+/**
+ * Servio's own people: super admins and platform moderators (super admin
+ * only). Each gets an invitation link, sets their own password and must set
+ * up 2FA before the platform opens.
+ */
 export function PlatformTeamManager({ users, meId }: { users: AdminPlatformUserDto[]; meId: number }) {
   const router = useRouter();
-  const [credentials, setCredentials] = useState<Credentials | null>(null);
+  const [link, setLink] = useState<AccountLink | null>(null);
 
-  function changed(next?: Credentials) {
-    if (next) setCredentials(next);
+  function changed(next?: AccountLink) {
+    if (next) setLink(next);
     router.refresh();
   }
 
   return (
     <div className="space-y-6">
-      {credentials ? <CredentialsNotice credentials={credentials} onDismiss={() => setCredentials(null)} /> : null}
+      {link ? <LinkNotice link={link} onDismiss={() => setLink(null)} /> : null}
 
       <TableWrap>
         <Thead>
@@ -56,7 +60,7 @@ function TeamRow({
 }: {
   user: AdminPlatformUserDto;
   isMe: boolean;
-  onChanged: (credentials?: Credentials) => void;
+  onChanged: (link?: AccountLink) => void;
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,22 +72,6 @@ function TeamRow({
       body: JSON.stringify(body),
     });
     return response.ok;
-  }
-
-  async function resetPassword() {
-    if (!confirm(`Նոր գաղտնաբառ ստեղծե՞լ ${user.email}-ի համար։ Հինը այլևս չի աշխատի։`)) return;
-    const password = generatePassword();
-    setPending(true);
-    setError(null);
-    try {
-      if (!(await patch({ password }))) {
-        setError("Չհաջողվեց փոխել գաղտնաբառը։");
-        return;
-      }
-      onChanged({ name: user.name, email: user.email, password, role: PLATFORM_ROLE_LABELS[user.role] });
-    } finally {
-      setPending(false);
-    }
   }
 
   async function changeRole(role: PlatformRole) {
@@ -123,6 +111,9 @@ function TeamRow({
           {user.name}
           {isMe ? <Badge tone="primary">Դուք</Badge> : null}
         </span>
+        <span className="mt-1 block">
+          <AccountBadges user={user} />
+        </span>
       </Td>
       <Td className="text-ink-muted">
         <span className="flex flex-wrap items-center gap-2">
@@ -151,9 +142,16 @@ function TeamRow({
       <Td className="text-right">
         <span className="inline-flex flex-wrap items-center justify-end gap-2">
           {error ? <span className="text-xs text-danger">{error}</span> : null}
-          <Button size="sm" variant="secondary" disabled={pending} onClick={resetPassword}>
-            Նոր գաղտնաբառ
-          </Button>
+          {!isMe ? (
+            <AccountActions
+              user={user}
+              base={`/api/admin/platform-users/${user.id}`}
+              disabled={pending}
+              onLink={(link) => onChanged({ ...link, role: PLATFORM_ROLE_LABELS[user.role] })}
+              onChanged={() => onChanged()}
+              onError={setError}
+            />
+          ) : null}
           {!isMe ? (
             <Button size="sm" variant="secondary" disabled={pending} onClick={remove}>
               Հեռացնել
@@ -165,11 +163,10 @@ function TeamRow({
   );
 }
 
-function NewTeamMemberForm({ onCreated }: { onCreated: (credentials: Credentials) => void }) {
+function NewTeamMemberForm({ onCreated }: { onCreated: (link: AccountLink) => void }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<PlatformRole>("moderator");
-  const [password, setPassword] = useState(generatePassword);
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [errors, setErrors] = useState<Record<string, string[]>>({});
 
@@ -181,7 +178,7 @@ function NewTeamMemberForm({ onCreated }: { onCreated: (credentials: Credentials
       const response = await fetch("/api/admin/platform-users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase(), password, role }),
+        body: JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase(), role }),
       });
       if (!response.ok) {
         if (response.status === 422) {
@@ -191,11 +188,19 @@ function NewTeamMemberForm({ onCreated }: { onCreated: (credentials: Credentials
         setStatus("error");
         return;
       }
-      const created = { name: name.trim(), email: email.trim().toLowerCase(), password, role: PLATFORM_ROLE_LABELS[role] };
+      const json = (await response.json().catch(() => null)) as { invitation?: AccountLinkDto } | null;
+      const created: AccountLink = {
+        url: json?.invitation?.url ?? "",
+        expiresAt: json?.invitation?.expiresAt ?? "",
+        emailed: json?.invitation?.emailed ?? false,
+        kind: "invitation",
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        role: PLATFORM_ROLE_LABELS[role],
+      };
       setName("");
       setEmail("");
       setRole("moderator");
-      setPassword(generatePassword());
       setStatus("idle");
       onCreated(created);
     } catch {
@@ -232,31 +237,14 @@ function NewTeamMemberForm({ onCreated }: { onCreated: (credentials: Credentials
           ))}
         </Select>
       </div>
-      <div className="space-y-1.5">
-        <FieldLabel>Գաղտնաբառ (առնվազն 8 նիշ)</FieldLabel>
-        <div className="flex gap-2">
-          <Input
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            minLength={8}
-            required
-            className="font-mono"
-          />
-          <Button type="button" size="md" variant="secondary" onClick={() => setPassword(generatePassword())}>
-            Նոր
-          </Button>
-        </div>
-      </div>
       <Button type="submit" disabled={status === "saving"}>
-        Ավելացնել
+        Ավելացնել և ուղարկել հրավեր
       </Button>
       {status === "error" ? (
         <p className="basis-full text-sm text-danger">
           {errors.email
             ? "Այս էլ. փոստով մուտք արդեն կա կամ հասցեն սխալ է։"
-            : errors.password
-              ? "Գաղտնաբառը պետք է լինի առնվազն 8 նիշ։"
-              : "Չհաջողվեց ավելացնել։"}
+            : "Չհաջողվեց ավելացնել։"}
         </p>
       ) : null}
     </form>

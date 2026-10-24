@@ -15,7 +15,7 @@ class AdminBusinessAndSiteScreensTest extends TestCase
 
     private function superAdmin(): User
     {
-        $user = User::factory()->create();
+        $user = User::factory()->withTwoFactor()->create();
         $user->forceFill(['is_super_admin' => true])->save();
 
         return Sanctum::actingAs($user);

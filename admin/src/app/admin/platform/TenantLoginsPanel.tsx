@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { AdminTenantDto, AdminTenantUserDto, BusinessRole } from "@/lib/adminApi";
+import type { AccountLinkDto, AdminTenantDto, AdminTenantUserDto, BusinessRole } from "@/lib/adminApi";
 import { BUSINESS_ROLE_HINTS, BUSINESS_ROLE_LABELS, BUSINESS_ROLES, PLATFORM_ROLE_LABELS } from "@/lib/roles";
 import {
   Badge,
@@ -18,7 +18,7 @@ import {
   Thead,
   Tr,
 } from "../_components/ui";
-import { CopyLoginButton, CredentialsNotice, generatePassword, type Credentials } from "./credentials";
+import { AccountActions, AccountBadges, CopyLoginButton, LinkNotice, type AccountLink } from "./credentials";
 
 async function fetchLogins(tenantId: number): Promise<AdminTenantUserDto[] | null> {
   const response = await fetch(`/api/admin/tenants/${tenantId}/users`, { cache: "no-store" });
@@ -28,10 +28,11 @@ async function fetchLogins(tenantId: number): Promise<AdminTenantUserDto[] | nul
 }
 
 /**
- * Logins of one business. Platform staff create them by hand while
- * onboarding a client, each with a role (owner, admin, moderator), and hand
- * the email + password over; the person then signs in to this same admin
- * panel and sees only their business, as far as their role allows.
+ * Logins of one business. Platform staff create them while onboarding a
+ * client, each with a role (owner, admin, moderator); the person gets an
+ * invitation link (by email, and to pass on by messenger), sets their own
+ * password, then signs in to this same admin panel and sees only their
+ * business, as far as their role allows.
  */
 export function TenantLoginsPanel({
   tenant,
@@ -46,7 +47,7 @@ export function TenantLoginsPanel({
   const router = useRouter();
   const [users, setUsers] = useState<AdminTenantUserDto[] | null>(null);
   const [loadError, setLoadError] = useState(false);
-  const [credentials, setCredentials] = useState<Credentials | null>(null);
+  const [link, setLink] = useState<AccountLink | null>(null);
 
   const load = useCallback(async () => {
     const data = await fetchLogins(tenant.id);
@@ -67,9 +68,9 @@ export function TenantLoginsPanel({
     };
   }, [tenant.id]);
 
-  async function changed(next?: Credentials) {
-    // A plain change (role, removal) keeps the last credentials on screen.
-    if (next) setCredentials(next);
+  async function changed(next?: AccountLink) {
+    // A plain change (role, removal) keeps the last link on screen.
+    if (next) setLink(next);
     await load();
     router.refresh(); // the logins count in the businesses table
   }
@@ -77,7 +78,7 @@ export function TenantLoginsPanel({
   return (
     <SectionCard
       title={`«${tenant.name}» բիզնեսի մուտքերը`}
-      description="Յուրաքանչյուր աշխատակից մուտք է գործում իր էլ. փոստով (մուտքանուն) և գաղտնաբառով նույն ադմին վահանակ և տեսնում է միայն այս բիզնեսը՝ իր դերի թույլատրած բաժինները։ Գաղտնաբառերը պահվում են գաղտնագրված, ուստի դրանք հնարավոր չէ տեսնել. մոռացված գաղտնաբառի փոխարեն ստեղծեք նորը։"
+      description="Յուրաքանչյուր աշխատակից մուտք է գործում իր էլ. փոստով (մուտքանուն) և գաղտնաբառով նույն ադմին վահանակ և տեսնում է միայն այս բիզնեսը՝ իր դերի թույլատրած բաժինները։ Գաղտնաբառը ստեղծում է ինքը՝ հրավերի հղումով. մենք այն չենք տեսնում։ Մոռացված գաղտնաբառի համար ուղարկեք վերականգնման հղում։"
       actions={
         <Button size="sm" variant="ghost" onClick={onClose}>
           Փակել
@@ -85,7 +86,7 @@ export function TenantLoginsPanel({
       }
     >
       <div className="space-y-4">
-        {credentials ? <CredentialsNotice credentials={credentials} onDismiss={() => setCredentials(null)} /> : null}
+        {link ? <LinkNotice link={link} onDismiss={() => setLink(null)} /> : null}
 
         <TableWrap>
           <Thead>
@@ -133,7 +134,7 @@ function LoginRow({
   tenant: AdminTenantDto;
   user: AdminTenantUserDto;
   isSuperAdmin: boolean;
-  onChanged: (credentials?: Credentials) => Promise<void>;
+  onChanged: (link?: AccountLink) => Promise<void>;
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -149,27 +150,6 @@ function LoginRow({
       body: JSON.stringify(body),
     });
     return response.ok;
-  }
-
-  async function resetPassword() {
-    if (!confirm(`Նոր գաղտնաբառ ստեղծե՞լ ${user.email}-ի համար։ Հինը այլևս չի աշխատի։`)) return;
-    const password = generatePassword();
-    setPending(true);
-    setError(null);
-    try {
-      if (!(await patch({ password }))) {
-        setError("Չհաջողվեց փոխել գաղտնաբառը։");
-        return;
-      }
-      await onChanged({
-        name: user.name,
-        email: user.email,
-        password,
-        role: user.role ? BUSINESS_ROLE_LABELS[user.role] : undefined,
-      });
-    } finally {
-      setPending(false);
-    }
   }
 
   async function changeRole(role: BusinessRole) {
@@ -207,7 +187,12 @@ function LoginRow({
 
   return (
     <Tr>
-      <Td className="font-medium text-ink">{user.name}</Td>
+      <Td className="font-medium text-ink">
+        <span className="flex flex-col gap-1">
+          {user.name}
+          <AccountBadges user={user} />
+        </span>
+      </Td>
       <Td className="text-ink-muted">
         <span className="flex flex-wrap items-center gap-2">
           <span className="font-mono text-xs">{user.email}</span>
@@ -236,9 +221,14 @@ function LoginRow({
         <span className="inline-flex flex-wrap items-center justify-end gap-2">
           {error ? <span className="text-xs text-danger">{error}</span> : null}
           {editable ? (
-            <Button size="sm" variant="secondary" disabled={pending} onClick={resetPassword}>
-              Նոր գաղտնաբառ
-            </Button>
+            <AccountActions
+              user={user}
+              base={`/api/admin/tenants/${tenant.id}/users/${user.id}`}
+              disabled={pending}
+              onLink={(link) => onChanged({ ...link, role: user.role ? BUSINESS_ROLE_LABELS[user.role] : undefined })}
+              onChanged={() => onChanged()}
+              onError={setError}
+            />
           ) : null}
           {removable ? (
             <Button size="sm" variant="secondary" disabled={pending} onClick={remove}>
@@ -256,12 +246,11 @@ function NewLoginForm({
   onCreated,
 }: {
   tenant: AdminTenantDto;
-  onCreated: (credentials: Credentials) => Promise<void>;
+  onCreated: (link: AccountLink) => Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<BusinessRole>("owner");
-  const [password, setPassword] = useState(generatePassword);
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [errors, setErrors] = useState<Record<string, string[]>>({});
 
@@ -276,7 +265,6 @@ function NewLoginForm({
         body: JSON.stringify({
           name: name.trim(),
           email: email.trim().toLowerCase(),
-          password,
           role,
         }),
       });
@@ -290,16 +278,19 @@ function NewLoginForm({
         setStatus("error");
         return;
       }
-      const created = {
+      const json = (await response.json().catch(() => null)) as { invitation?: AccountLinkDto } | null;
+      const created: AccountLink = {
+        url: json?.invitation?.url ?? "",
+        expiresAt: json?.invitation?.expiresAt ?? "",
+        emailed: json?.invitation?.emailed ?? false,
+        kind: "invitation",
         name: name.trim(),
         email: email.trim().toLowerCase(),
-        password,
         role: BUSINESS_ROLE_LABELS[role],
       };
       setName("");
       setEmail("");
       setRole("owner");
-      setPassword(generatePassword());
       setStatus("idle");
       await onCreated(created);
     } catch {
@@ -336,31 +327,14 @@ function NewLoginForm({
           ))}
         </Select>
       </div>
-      <div className="space-y-1.5">
-        <FieldLabel>Գաղտնաբառ (առնվազն 8 նիշ)</FieldLabel>
-        <div className="flex gap-2">
-          <Input
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            minLength={8}
-            required
-            className="font-mono"
-          />
-          <Button type="button" size="md" variant="secondary" onClick={() => setPassword(generatePassword())}>
-            Նոր
-          </Button>
-        </div>
-      </div>
       <Button type="submit" disabled={status === "saving"}>
-        Ավելացնել մուտք
+        Ավելացնել և ուղարկել հրավեր
       </Button>
       {status === "error" ? (
         <p className="basis-full text-sm text-danger">
           {errors.email
             ? "Այս էլ. փոստով մուտք արդեն կա կամ հասցեն սխալ է։"
-            : errors.password
-              ? "Գաղտնաբառը պետք է լինի առնվազն 8 նիշ։"
-              : "Չհաջողվեց ավելացնել մուտքը։"}
+            : "Չհաջողվեց ավելացնել մուտքը։"}
         </p>
       ) : null}
     </form>

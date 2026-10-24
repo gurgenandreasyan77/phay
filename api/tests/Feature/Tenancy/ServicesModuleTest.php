@@ -65,7 +65,7 @@ class ServicesModuleTest extends TestCase
 
     private function superAdmin(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->withTwoFactor()->create();
         $user->forceFill(['is_super_admin' => true])->save();
         Sanctum::actingAs($user);
     }

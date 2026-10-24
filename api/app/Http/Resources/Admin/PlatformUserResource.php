@@ -15,6 +15,11 @@ class PlatformUserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'role' => $this->platformRole()?->value,
+            // Account security, for staff to see who is set up.
+            'activated' => $this->isActivated(),
+            'twoFactorEnabled' => $this->hasTwoFactorEnabled(),
+            'emailVerified' => $this->email_verified_at !== null,
+            'phoneVerified' => $this->phone_verified_at !== null,
             'createdAt' => $this->created_at?->toIso8601String(),
         ];
     }
