@@ -4,6 +4,7 @@ namespace App\Expenses;
 
 use App\DataTables\Decimal;
 use App\DataTables\Period;
+use App\DataTables\TableAnalytics;
 use App\Enums\ColumnRole;
 use App\Enums\DataTableSection;
 use App\Enums\LeadStatus;
@@ -23,6 +24,7 @@ use Illuminate\Support\Collection;
  *
  *   revenue        orders and sales tables (amount) + completed site orders (final price)
  *   − cost of goods    unit cost × quantity of the rows that have one (ColumnRole::Cost)
+ *                      and commissions paid to intermediaries (ColumnRole::Commission)
  *   = gross profit
  *   − expenses     rows of the expenses tables and recurring expenses, of the
  *                  categories counted in the profit (ExpenseCategory::in_profit)
@@ -148,6 +150,7 @@ final class Finance
         $costs = $tables->mapWithKeys(fn (DataTable $t) => [$t->id => [
             'cost' => $t->roleColumn(ColumnRole::Cost)?->key,
             'quantity' => $t->quantityColumn()?->key,
+            'commission' => $t->roleColumn(ColumnRole::Commission)?->key,
         ]]);
         $number = fn ($v) => is_int($v) || is_float($v) ? $v : null;
         $rows = [];
@@ -172,7 +175,12 @@ final class Finance
                     $rows[] = [
                         'at' => substr((string) $row->getRawOriginal('occurred_at'), 0, 10),
                         'amount' => (float) $row->amount,
-                        'cogs' => $cost === null ? 0 : Decimal::multiply($cost, ($key['quantity'] ? $number($data[$key['quantity']] ?? null) : null) ?? 1),
+                        // Unit cost × quantity and the intermediary's commission.
+                        'cogs' => TableAnalytics::costOfSale([
+                            'cost' => $cost,
+                            'quantity' => $key['quantity'] ? $number($data[$key['quantity']] ?? null) : null,
+                            'commission' => $key['commission'] ? $number($data[$key['commission']] ?? null) : null,
+                        ]),
                     ];
                 }
             });
@@ -199,7 +207,7 @@ final class Finance
             'rows' => $rows,
             'tables' => $tables->count(),
             'site' => $site,
-            'withCost' => $tables->contains(fn (DataTable $t) => $t->roleColumn(ColumnRole::Cost) !== null),
+            'withCost' => $tables->contains(fn (DataTable $t) => $t->roleColumn(ColumnRole::Cost) !== null || $t->roleColumn(ColumnRole::Commission) !== null),
             'priced' => $priced,
             'costed' => $costed,
         ];
@@ -207,19 +215,20 @@ final class Finance
 
     /**
      * Money out: rows of the expenses tables and the due dates of the
-     * recurring expenses, each with its category.
+     * recurring expenses, each with its category, and where it comes from
+     * (the row's table, id and data, or the recurring expense's name).
      *
      * @param  Collection<int, ExpenseCategory>  $categories
-     * @return list<array{at: string, amount: int|float, category: ?ExpenseCategory, label: string, inProfit: bool, recurring: bool}>
+     * @return list<array{at: string, amount: int|float, category: ?ExpenseCategory, label: string, inProfit: bool, recurring: bool, table: ?int, row: ?int, data: array<string, mixed>, name: ?string}>
      */
-    private function expenses(Collection $categories, CarbonImmutable $from, CarbonImmutable $to): array
+    public function expenses(Collection $categories, CarbonImmutable $from, CarbonImmutable $to): array
     {
         $match = ExpenseCategories::matcher($categories);
         $byId = $categories->keyBy('id');
         $tables = DataTable::query()->where('section', DataTableSection::Expenses)->get();
         $keys = $tables->mapWithKeys(fn (DataTable $t) => [$t->id => $t->roleColumn(ColumnRole::Category)?->key]);
         $rows = [];
-        $entry = fn (string $at, int|float $amount, ?ExpenseCategory $category, ?string $raw, bool $recurring) => [
+        $entry = fn (string $at, int|float $amount, ?ExpenseCategory $category, ?string $raw, bool $recurring, array $from = []) => [
             'at' => $at,
             'amount' => $amount,
             'category' => $category,
@@ -227,6 +236,10 @@ final class Finance
             'label' => $category?->name ?? ($raw !== null && trim($raw) !== '' ? trim($raw) : self::NO_CATEGORY),
             'inProfit' => $category?->in_profit ?? true,
             'recurring' => $recurring,
+            'table' => $from['table'] ?? null,
+            'row' => $from['row'] ?? null,
+            'data' => $from['data'] ?? [],
+            'name' => $from['name'] ?? null,
         ];
 
         DataTableRow::query()
@@ -240,7 +253,11 @@ final class Finance
                     $key = $keys[$row->data_table_id];
                     $raw = $key ? ($row->data[$key] ?? null) : null;
                     $raw = is_scalar($raw) ? (string) $raw : null;
-                    $rows[] = $entry(substr((string) $row->getRawOriginal('occurred_at'), 0, 10), (float) $row->amount, $match($raw), $raw, false);
+                    $rows[] = $entry(substr((string) $row->getRawOriginal('occurred_at'), 0, 10), (float) $row->amount, $match($raw), $raw, false, [
+                        'table' => $row->data_table_id,
+                        'row' => $row->id,
+                        'data' => $row->data ?? [],
+                    ]);
                 }
             });
 
@@ -249,7 +266,7 @@ final class Finance
         foreach (RecurringExpense::query()->where('starts_on', '<=', $until->toDateString())->get() as $expense) {
             $category = $expense->expense_category_id ? $byId->get($expense->expense_category_id) : null;
             foreach ($expense->dueDates($from, $until) as $date) {
-                $rows[] = $entry($date->toDateString(), $expense->value(), $category, null, true);
+                $rows[] = $entry($date->toDateString(), $expense->value(), $category, null, true, ['name' => $expense->name]);
             }
         }
 
@@ -264,7 +281,7 @@ final class Finance
      * @param  Collection<int, ExpenseCategory>  $categories
      * @return list<array<string, mixed>>
      */
-    private function byCategory(Collection $rows, Collection $categories): array
+    public function byCategory(Collection $rows, Collection $categories): array
     {
         $groups = $rows->groupBy(fn (array $r) => $r['category'] ? 'id:'.$r['category']->id : 'name:'.$r['label']);
 

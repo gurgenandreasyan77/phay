@@ -8,6 +8,7 @@ use App\DataTables\TableAnalytics;
 use App\Enums\ColumnRole;
 use App\Enums\DataTableSection;
 use App\Enums\TablePeriod;
+use App\Expenses\ExpenseStatistics;
 use App\Expenses\Finance;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
@@ -41,6 +42,7 @@ class BusinessTools
     public function __construct(
         private readonly TenantContext $tenants,
         private readonly Finance $finance,
+        private readonly ExpenseStatistics $expenses,
     ) {}
 
     /**
@@ -60,7 +62,7 @@ class BusinessTools
         return [
             [
                 'name' => 'list_tables',
-                'description' => "Lists the business's own tables: section, period, columns (label, type and what the column means: date, item, quantity, unit_price, amount, cost, performer, channel...), rows and first/last date. Call it first when you need exact column labels for group_rows or find_rows.",
+                'description' => "Lists the business's own tables: section, period, columns (label, type and what the column means, e.g. date, item, model, brand, country, supplier, intermediary, quantity, unit_price, discount, amount, cost, commission, performer, channel, category...), rows and first/last date, and what each meaning stands for (\"meanings\"). Call it first when you need exact column labels for group_rows or find_rows.",
                 'inputSchema' => ['type' => 'object'],
             ],
             [
@@ -82,14 +84,14 @@ class BusinessTools
             ],
             [
                 'name' => 'group_rows',
-                'description' => 'Sums rows of the business\'s own tables over a period, grouped by day, week, month, weekday, hour or by a column (product, service, performer, channel, payment, status, category... by its label or meaning). Gives rows, amount, quantity and, where unit cost is known, profit per group.',
+                'description' => 'Sums rows of the business\'s own tables over a period, grouped by day, week, month, weekday, hour or by a column (product, service, model, brand, supplier, country, intermediary, performer, channel, payment, status, category, city... by its label or meaning). Gives rows, amount, quantity, discounts and commissions and, where unit cost or commission is known, profit per group. For expenses use section "expenses" (rows of the expenses tables only; expenses_report also counts recurring expenses).',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
                         'section' => $section,
                         'from' => $date('First day, inclusive'),
                         'to' => $date('Last day, inclusive'),
-                        'by' => ['type' => 'string', 'description' => 'day, week, month, weekday, hour, or a column: its label (e.g. "Ապրանք") or its meaning (item, performer, channel, payment, status, category, unit).'],
+                        'by' => ['type' => 'string', 'description' => 'day, week, month, weekday, hour, or a column: its label (e.g. "Ապրանք") or its meaning ('.implode(', ', array_map(fn (ColumnRole $r) => $r->value, self::groupable())).').'],
                         'search' => ['type' => 'string', 'description' => 'Only rows that contain these words.'],
                     ],
                     'required' => ['from', 'to', 'by'],
@@ -105,6 +107,19 @@ class BusinessTools
                         'by' => ['type' => 'string', 'enum' => ['week', 'month', 'quarter', 'year']],
                         'date' => $date('A day inside the last period wanted (default today)'),
                         'count' => ['type' => 'integer', 'description' => 'How many periods back, 1-24 (default: 12 months, 8 quarters, 3 years or 12 weeks).'],
+                    ],
+                    'required' => ['by'],
+                    'additionalProperties' => false,
+                ],
+            ],
+            [
+                'name' => 'expenses_report',
+                'description' => 'What the business spent in one day, week, month, quarter or year (the one a date falls in), apart from sales: total, the period before, in and out of profit, recurring vs one-off, per day, by category, by payee, payment method, who spent, object and what for, the biggest expenses, its days or months, and the expenses themselves (up to 50). Counts recurring expenses on their due dates too. Use it for any question about spending.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'by' => ['type' => 'string', 'enum' => ['day', 'week', 'month', 'quarter', 'year']],
+                        'date' => $date('A day inside the period (default today)'),
                     ],
                     'required' => ['by'],
                     'additionalProperties' => false,
@@ -141,6 +156,7 @@ class BusinessTools
             'find_rows' => $this->findRows($input),
             'group_rows' => $this->groupRows($input),
             'finance_report' => $this->financeReport($input),
+            'expenses_report' => $this->expensesReport($input),
             'site_orders' => $this->siteOrders($input),
             default => throw new InvalidArgumentException("Unknown tool [{$name}]."),
         };
@@ -156,7 +172,10 @@ class BusinessTools
             ->get()
             ->keyBy('data_table_id');
 
+        $used = $tables->flatMap(fn (DataTable $t) => collect($t->columnDefinitions())->pluck('role')->filter())->unique(fn (ColumnRole $r) => $r->value);
+
         return [
+            'meanings' => $used->reject(fn (ColumnRole $r) => $r->isPersonal())->mapWithKeys(fn (ColumnRole $r) => [$r->value => $r->meaning()])->all(),
             'tables' => $tables->take(80)->map(fn (DataTable $t) => array_filter([
                 'name' => $t->name,
                 'section' => $t->section->value,
@@ -171,6 +190,12 @@ class BusinessTools
                 'lastDate' => isset($totals[$t->id]) ? substr((string) $totals[$t->id]->last_at, 0, 10) ?: null : null,
             ], fn ($v) => $v !== null && $v !== ''))->values()->all(),
         ];
+    }
+
+    /** @return list<ColumnRole> meanings a row can be grouped by */
+    private static function groupable(): array
+    {
+        return array_values(array_filter(ColumnRole::cases(), fn (ColumnRole $r) => ! $r->isPersonal() && ! in_array($r, [ColumnRole::Date, ColumnRole::Time, ColumnRole::Note, ColumnRole::OrderNumber, ColumnRole::Quantity, ColumnRole::UnitPrice, ColumnRole::Amount, ColumnRole::Cost, ColumnRole::Duration, ColumnRole::DiscountPercent, ...ColumnRole::extraMoney()], true)));
     }
 
     /** @return array<string, mixed> */
@@ -232,7 +257,7 @@ class BusinessTools
                 ->sortByDesc(fn (Collection $g) => [$this->sum($g) ?? 0, $g->count()]);
         }
 
-        $withCost = $rows->contains(fn ($r) => $r['cost'] !== null);
+        $withCost = $rows->contains(fn ($r) => $r['cost'] !== null || $r['commission'] !== null);
 
         return [
             'by' => $label,
@@ -244,6 +269,8 @@ class BusinessTools
                 'rows' => $g->count(),
                 'amount' => $this->sum($g),
                 'quantity' => $this->quantities($g),
+                'discount' => $this->total($g, 'discount'),
+                'commission' => $this->total($g, 'commission'),
                 'profit' => $withCost ? $this->profit($g) : null,
             ], fn ($v) => $v !== null && $v !== []))->values()->all(),
             'otherGroups' => max(0, $groups->count() - self::MAX_GROUPS),
@@ -270,6 +297,24 @@ class BusinessTools
             'lastPeriodCategories' => $spent($report['current']['categories']),
             'has' => $report['has'],
             'notes' => $report['notes'],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function expensesReport(array $input): array
+    {
+        $kind = TablePeriod::tryFrom((string) ($input['by'] ?? ''));
+        if (! $kind || $kind === TablePeriod::Custom) {
+            throw new InvalidArgumentException('by must be day, week, month, quarter or year.');
+        }
+
+        $report = $this->expenses->report($kind, $this->date($input['date'] ?? null));
+
+        return [
+            ...collect($report)->only(['period', 'previous', 'unfinished', 'totals', 'inside', 'breakdowns', 'largest', 'count'])->all(),
+            'categories' => array_map(fn (array $c) => collect($c)->only(['name', 'inProfit', 'amount', 'recurring', 'count'])->all(), $report['categories']),
+            'previousCategories' => $report['previousCategories'],
+            'expenses' => array_slice($report['rows'], 0, 50),
         ];
     }
 
@@ -370,6 +415,8 @@ class BusinessTools
                 $quantity = $table->quantityColumn();
                 $unit = $table->roleColumn(ColumnRole::Unit);
                 $cost = $table->roleColumn(ColumnRole::Cost);
+                $commission = $table->roleColumn(ColumnRole::Commission);
+                $discount = $table->roleColumn(ColumnRole::Discount);
                 $at = $row->getRawOriginal('occurred_at');
 
                 return [
@@ -383,6 +430,8 @@ class BusinessTools
                     'quantity' => $quantity ? $this->number($data[$quantity->key] ?? null) : null,
                     'unit' => $unit ? $this->text($data[$unit->key] ?? null) : null,
                     'cost' => $cost ? $this->number($data[$cost->key] ?? null) : null,
+                    'commission' => $commission ? $this->number($data[$commission->key] ?? null) : null,
+                    'discount' => $discount ? $this->number($data[$discount->key] ?? null) : null,
                 ];
             })
             ->filter(function (array $r) use ($words) {
@@ -438,6 +487,13 @@ class BusinessTools
         return [$label, $keys];
     }
 
+    private function total(Collection $rows, string $field): int|float|null
+    {
+        $filled = $rows->whereNotNull($field);
+
+        return $filled->isEmpty() ? null : Decimal::round($filled->sum($field));
+    }
+
     private function sum(Collection $rows): int|float|null
     {
         $priced = $rows->whereNotNull('amount');
@@ -456,9 +512,9 @@ class BusinessTools
 
     private function profit(Collection $rows): int|float|null
     {
-        $costed = $rows->filter(fn ($r) => $r['cost'] !== null && $r['amount'] !== null);
+        $costed = $rows->filter(fn ($r) => ($r['cost'] !== null || $r['commission'] !== null) && $r['amount'] !== null);
 
-        return $costed->isEmpty() ? null : Decimal::round($costed->sum(fn ($r) => $r['amount'] - $r['cost'] * ($r['quantity'] ?? 1)));
+        return $costed->isEmpty() ? null : Decimal::round($costed->sum(fn ($r) => $r['amount'] - TableAnalytics::costOfSale($r)));
     }
 
     private function date(mixed $value): ?string

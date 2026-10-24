@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Sparkles, Trash2 } from "lucide-react";
 import type {
   AdminDataColumnDto,
   AdminDataTableDto,
@@ -17,6 +17,7 @@ import {
   COLUMN_TYPE_LABELS,
   COLUMN_TYPES,
   formatMoment,
+  ROLE_GROUPS,
   ROLE_ORDER,
   roleLabels,
   tablePath,
@@ -68,7 +69,7 @@ function roleDraft(role: ColumnRole, section: DataTableSection): ColumnDraft {
 const STARTER_ROLES: Record<DataTableSection, ColumnRole[]> = {
   orders: ["customer", "phone", "item", "date", "amount", "cost", "performer"],
   sales: ["item", "quantity", "unit_price", "date", "payment"],
-  expenses: ["date", "category", "item", "amount", "payment", "note"],
+  expenses: ["date", "category", "item", "amount", "supplier", "payment", "note"],
 };
 
 function starterColumns(section: DataTableSection): ColumnDraft[] {
@@ -90,16 +91,44 @@ function isStockLabel(label: string, section: DataTableSection): boolean {
   );
 }
 
-/** How a row's money is counted, as the API does: the total, else price × quantity. */
+/** How a row's money is counted, as the API does: the total, else price × quantity − discount + delivery. */
 function amountRule(columns: ColumnDraft[]): string | null {
   const byRole = (role: ColumnRole) => columns.find((c) => c.role === role && c.label.trim() !== "");
   const total = byRole("amount");
   const price = byRole("unit_price");
   const quantity = byRole("quantity");
-  if (total && price) return `«${total.label}», իսկ եթե դատարկ է՝ «${price.label}» × «${quantity?.label ?? "1"}»`;
+  const off = [byRole("discount"), byRole("discount_percent")].filter(Boolean).map((c) => ` − «${c!.label}»`).join("");
+  const delivery = byRole("delivery_fee");
+  const fromPrice = price
+    ? `«${price.label}» × «${quantity?.label ?? "1"}»${off}${delivery ? ` + «${delivery.label}»` : ""}`
+    : null;
+  if (total && fromPrice) return `«${total.label}», իսկ եթե դատարկ է՝ ${fromPrice}`;
   if (total) return `«${total.label}»`;
-  if (price) return quantity ? `«${price.label}» × «${quantity.label}»` : `«${price.label}» (քանակը՝ 1)`;
-  return null;
+  return fromPrice;
+}
+
+/** The ready-made meanings as a list in groups, each with its three names. */
+function RoleOptions({ roles, section, disabled }: { roles: ColumnRole[]; section: DataTableSection; disabled?: (role: ColumnRole) => boolean }) {
+  return (
+    <>
+      {ROLE_GROUPS.map((group) => {
+        const inGroup = roles.filter((role) => COLUMN_ROLES[role].group === group.id);
+        if (inGroup.length === 0) return null;
+        return (
+          <optgroup key={group.id} label={group.label}>
+            {inGroup.map((role) => {
+              const labels = roleLabels(role, section);
+              return (
+                <option key={role} value={role} disabled={disabled?.(role)}>
+                  {labels.hy} · {labels.ru} · {labels.en}
+                </option>
+              );
+            })}
+          </optgroup>
+        );
+      })}
+    </>
+  );
 }
 
 /** Create a table (no `table`) or change its name and columns. */
@@ -132,6 +161,8 @@ export function TableDesigner({
   const [pending, setPending] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [failed, setFailed] = useState(false);
+  // What "Recognise" found: how many columns got a meaning, or why not.
+  const [guessed, setGuessed] = useState<string | null>(null);
 
   function update(uid: number, patch: Partial<ColumnDraft>) {
     setColumns((cols) => cols.map((c) => (c.uid === uid ? { ...c, ...patch } : c)));
@@ -150,6 +181,34 @@ export function TableDesigner({
       label: isStockLabel(column.label, section) ? roleLabels(role, section).hy : column.label,
       options: column.options.trim() === "" ? (info.options ?? []).join("\n") : column.options,
     });
+  }
+
+  /**
+   * Meanings for the columns that have none, read by the API from their
+   * names and the values already in the table ("iPhone 15" → model).
+   * Shown in the form; nothing is saved until "Save".
+   */
+  async function recognise() {
+    if (!table) return;
+    setGuessed(null);
+    const response = await fetch(`/api/admin/data-tables/${table.id}/role-suggestions`).catch(() => null);
+    const json = response?.ok ? await response.json().catch(() => null) : null;
+    if (!json) {
+      setGuessed("Չհաջողվեց ստուգել։ Փորձեք կրկին։");
+      return;
+    }
+    const found = (json.data as { key: string; role: ColumnRole }[]).filter(
+      (s) => !columns.some((c) => c.role === s.role),
+    );
+    for (const suggestion of found) {
+      const column = columns.find((c) => c.key === suggestion.key && c.role === null);
+      if (column) setRole(column, suggestion.role);
+    }
+    setGuessed(
+      found.length > 0
+        ? `${found.length} սյունակի իմաստը ճանաչվեց։ Ստուգեք և սեղմեք «Պահպանել»։`
+        : "Նոր իմաստներ չգտնվեցին․ ընտրեք ձեռքով «Ինչ է այս սյունակը» ցանկից։",
+    );
   }
 
   const usedRoles = new Set(columns.map((c) => c.role).filter((r): r is ColumnRole => r !== null));
@@ -301,6 +360,19 @@ export function TableDesigner({
             հետո՝ տվյալները չեն կորչի։
           </p>
         </div>
+        {table && columns.some((c) => c.role === null && c.key) ? (
+          <div className="flex flex-wrap items-center gap-3 rounded-md border border-primary/30 bg-primary-light/40 px-4 py-3">
+            <p className="flex-1 text-sm text-ink">
+              {columns.filter((c) => c.role === null).length} սյունակի իմաստը նշված չէ, ուստի վիճակագրությունը և AI-ը
+              դրանք չեն հասկանում։ Servio-ն կարող է ճանաչել դրանք ըստ անվան և արժեքների (օր.՝ «iPhone 15» → Մոդել)։
+            </p>
+            <Button variant="secondary" size="sm" onClick={recognise}>
+              <Sparkles className="h-4 w-4" />
+              Ճանաչել ինքնաշխատ
+            </Button>
+            {guessed ? <p className="w-full text-sm text-ink-muted">{guessed}</p> : null}
+          </div>
+        ) : null}
         {errors.columns ? <p className="text-sm text-danger">{errors.columns}</p> : null}
 
         {columns.map((column, index) => (
@@ -313,14 +385,11 @@ export function TableDesigner({
                   onChange={(e) => setRole(column, e.target.value === "" ? null : (e.target.value as ColumnRole))}
                 >
                   <option value="">Իմ սյունակը</option>
-                  {ROLE_ORDER.map((role) => {
-                    const labels = roleLabels(role, section);
-                    return (
-                      <option key={role} value={role} disabled={role !== column.role && usedRoles.has(role)}>
-                        {labels.hy} · {labels.ru} · {labels.en}
-                      </option>
-                    );
-                  })}
+                  <RoleOptions
+                    roles={ROLE_ORDER}
+                    section={section}
+                    disabled={(role) => role !== column.role && usedRoles.has(role)}
+                  />
                 </Select>
               </label>
               <label className="space-y-1.5">
@@ -413,14 +482,7 @@ export function TableDesigner({
               }}
             >
               <option value="">+ Ավելացնել պատրաստի սյունակ…</option>
-              {freeRoles.map((role) => {
-                const labels = roleLabels(role, section);
-                return (
-                  <option key={role} value={role}>
-                    {labels.hy} · {labels.ru} · {labels.en}
-                  </option>
-                );
-              })}
+              <RoleOptions roles={freeRoles} section={section} />
             </Select>
           ) : null}
           <Button variant="secondary" onClick={() => setColumns((cols) => [...cols, toDraft()])}>

@@ -19,7 +19,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * An order added from the calendar. It goes to the table of its date's
+ * An order (or a sale) added from the calendar. It goes to the table of its date's
  * period (see PeriodTables): a September order chosen for the October table
  * lands in the September one, made like the October table when there is
  * none yet; the same for tables of a day, week, quarter or year. A table of
@@ -34,7 +34,8 @@ class CalendarRowController extends Controller
             'values' => ['present', 'array'],
         ]);
 
-        $chosen = DataTable::query()->where('section', DataTableSection::Orders)->findOrFail($validated['table']);
+        $chosen = DataTable::query()->whereIn('section', [DataTableSection::Orders->value, DataTableSection::Sales->value])->findOrFail($validated['table']);
+        DataTableController::ensureReachable($chosen);
         abort_if($chosen->dateColumn() === null, 422, 'The table has no date column.');
 
         $values = $validated['values'];

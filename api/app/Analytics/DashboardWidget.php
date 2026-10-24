@@ -21,6 +21,9 @@ enum DashboardWidget: string
     case PerMonth = 'perMonth';
     case AverageCheck = 'averageCheck';
     case Units = 'units';
+    /** Discounts, commissions, delivery fees and tax summed. */
+    case Deductions = 'deductions';
+    case Duration = 'duration';
 
     // Charts
     case RevenueChart = 'revenueChart';
@@ -36,6 +39,8 @@ enum DashboardWidget: string
     case ByPayment = 'byPayment';
     case ByChannel = 'byChannel';
     case ByStatus = 'byStatus';
+    /** By model, brand, supplier, country, intermediary, city... (ColumnRole::details). */
+    case ByDetails = 'byDetails';
     case ByOwnColumns = 'byOwnColumns';
     case OwnNumbers = 'ownNumbers';
     case Tables = 'tables';
@@ -52,11 +57,14 @@ enum DashboardWidget: string
             self::Profit, self::Margin, self::ProfitChart => ['date', 'money', 'cost'],
             self::Count, self::PerDay, self::PerMonth, self::CountChart, self::Weekdays, self::Peaks, self::Months => ['date'],
             self::Units => ['date', 'quantity'],
+            self::Deductions => ['date', 'deductions'],
+            self::Duration => ['date', 'duration'],
             self::Hours => ['datetime'],
             self::ByItem => ['date', 'item'],
             self::ByPayment => ['date', 'payment'],
             self::ByChannel => ['date', 'channel'],
             self::ByStatus => ['date', 'status'],
+            self::ByDetails => ['date', 'details'],
             self::ByOwnColumns => ['date', 'ownColumns'],
             self::OwnNumbers => ['date', 'ownNumbers'],
             self::Tables => ['manyTables'],
@@ -66,7 +74,7 @@ enum DashboardWidget: string
     public function group(): string
     {
         return match ($this) {
-            self::Revenue, self::Profit, self::Margin, self::Count, self::PerDay, self::PerMonth, self::AverageCheck, self::Units => 'figures',
+            self::Revenue, self::Profit, self::Margin, self::Count, self::PerDay, self::PerMonth, self::AverageCheck, self::Units, self::Deductions, self::Duration => 'figures',
             self::RevenueChart, self::CountChart, self::ProfitChart, self::Weekdays, self::Hours => 'charts',
             default => 'tables',
         };
@@ -97,7 +105,7 @@ enum DashboardWidget: string
         $chart = $available(self::RevenueChart) ? self::RevenueChart : self::CountChart;
 
         return array_values(array_filter(
-            [self::Revenue, self::Profit, self::Count, self::PerDay, self::AverageCheck, self::Units, $chart, self::Peaks, self::ByItem],
+            [self::Revenue, self::Profit, self::Count, self::PerDay, self::AverageCheck, self::Units, self::Deductions, $chart, self::Peaks, self::ByItem, self::ByDetails],
             $available,
         ));
     }

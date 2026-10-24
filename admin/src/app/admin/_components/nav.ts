@@ -34,6 +34,7 @@ import {
   Tags,
   Newspaper,
   Inbox,
+  PieChart,
 } from "lucide-react";
 
 export type NavItem = {
@@ -104,6 +105,7 @@ export const BUSINESS_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/admin/payments", label: "Վճարումներ", icon: CreditCard, soon: true },
       { href: "/admin/expenses", label: "Ծախսեր", icon: Wallet, requires: "expenses" },
+      { href: "/admin/expenses/statistics", label: "Ծախսերի վիճակագրություն", icon: PieChart, requires: "expenses" },
       // Open to everyone in the business, even after the subscription ended.
       { href: "/admin/subscription", label: "Բաժանորդագրություն", icon: BadgeCheck },
     ],
@@ -195,6 +197,10 @@ export function findActiveNavItem(pathname: string): NavItem | undefined {
 /** Section homes whose sub-pages have menu items of their own: only active on themselves. */
 const EXACT_HREFS = ["/admin", PLATFORM_HOME, "/admin/site"];
 
+/** Screens inside a section that have their own menu item. */
+const OWN_ITEMS = ["/admin/expenses/statistics"];
+
 export function isActiveHref(href: string, pathname: string): boolean {
+  if (OWN_ITEMS.some((own) => own !== href && own.startsWith(href) && pathname.startsWith(own))) return false;
   return EXACT_HREFS.includes(href) ? pathname === href : pathname.startsWith(href);
 }

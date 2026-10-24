@@ -222,6 +222,11 @@ function SectionStats({ stats }: { stats: Stats }) {
           value={`${active} / ${shown.length}`}
         />
         {stats.metrics
+          .filter((m) => ["discounts", "commission", "deliveryFees", "tax", "averageDuration", "totalDuration"].includes(m.key))
+          .map((m) => (
+            <Figure key={m.key} label={m.label} value={formatMetric(m, m.value)} />
+          ))}
+        {stats.metrics
           .filter((m) => m.unit !== undefined && m.key === "quantity")
           .map((m) => (
             <Figure key={`${m.key}-${m.unit}`} label={`Քանակ${m.unit ? ` (${m.unit})` : ""}`} value={formatMetric(m, m.value)} />

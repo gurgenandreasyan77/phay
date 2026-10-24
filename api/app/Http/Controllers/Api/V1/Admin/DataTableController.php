@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\DataTables\DataColumn;
 use App\DataTables\DataTableSchema;
+use App\DataTables\Import\ColumnMatcher;
 use App\DataTables\Period;
 use App\DataTables\PeriodTables;
 use App\DataTables\RowMetrics;
@@ -122,6 +124,42 @@ class DataTableController extends Controller
         PeriodTables::infer(collect([$fresh]));
 
         return new DataTableResource($fresh->loadCount('rows'));
+    }
+
+    /**
+     * Roles for the columns that have none, read from their names and from
+     * the values already in the table ("iPhone 15" → model, "Китай" →
+     * country), for the designer to offer: the person checks and saves.
+     * Only roles the column's type allows and no other column has.
+     */
+    public function roleSuggestions(DataTable $dataTable): JsonResponse
+    {
+        self::ensureReachable($dataTable);
+
+        $columns = $dataTable->columnDefinitions();
+        $taken = collect($columns)->filter(fn (DataColumn $c) => $c->role !== null)->mapWithKeys(fn (DataColumn $c) => [$c->role->value => true])->all();
+        $rows = $dataTable->rows()->latest('id')->limit(200)->pluck('data');
+        $suggestions = [];
+
+        foreach ($columns as $column) {
+            if ($column->role !== null) {
+                continue;
+            }
+
+            $values = $rows->map(fn ($data) => $data[$column->key] ?? null)
+                ->filter(fn ($v) => is_scalar($v) && ! is_bool($v))
+                ->map(fn ($v) => (string) $v)
+                ->values()
+                ->all();
+            $role = ColumnMatcher::roleOf($column->label, $values, $column->type, $dataTable->section, $taken);
+
+            if ($role && in_array($column->type, $role->types(), true)) {
+                $suggestions[] = ['key' => $column->key, 'role' => $role->value];
+                $taken[$role->value] = true;
+            }
+        }
+
+        return response()->json(['data' => $suggestions]);
     }
 
     public function destroy(DataTable $dataTable): Response

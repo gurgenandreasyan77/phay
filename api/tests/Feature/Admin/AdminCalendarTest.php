@@ -108,10 +108,13 @@ class AdminCalendarTest extends TestCase
         $this->assertDatabaseMissing('data_table_rows', ['id' => $second]);
     }
 
-    public function test_sales_tables_and_other_businesses_stay_out(): void
+    public function test_sales_are_shown_beside_services_and_other_businesses_stay_out(): void
     {
+        $visits = $this->table('Այցեր');
+        $this->addRow($visits, 'Սանրվածք', '2026-10-05 11:00', 5000);
         $sales = $this->table('Վաճառքներ', 'date', 'sales');
-        $this->addRow($sales, 'Մոմ', '2026-10-05', 3000);
+        $this->addRow($sales, 'Շամպուն', '2026-10-05', 3000);
+        $this->addRow($sales, 'Լաք', '2026-10-05', 2500);
 
         $other = $this->createTenant('other-salon');
         $this->asTenant($other, fn () => Lead::create([
@@ -121,9 +124,36 @@ class AdminCalendarTest extends TestCase
 
         $response = $this->getJson('/api/v1/admin/calendar?from=2026-10-01&to=2026-10-31')->assertOk();
 
-        $this->assertSame([], $response->json('data.tables'));
-        $this->assertSame([], $response->json('data.rows'));
+        // Order tables first, then sales tables.
+        $this->assertSame([$visits['id'], $sales['id']], array_column($response->json('data.tables'), 'id'));
+        $this->assertSame(['sales', 'sales', 'orders'], array_column($response->json('data.rows'), 'section'));
         $this->assertSame([], $response->json('data.leads'));
+
+        // A sale is added from the calendar like an order.
+        [$itemKey, $dateKey, $amountKey] = array_column($sales['columns'], 'key');
+        $this->postJson('/api/v1/admin/calendar/rows', ['table' => $sales['id'], 'values' => [$itemKey => 'Սանր', $dateKey => '2026-10-06', $amountKey => 1500]])
+            ->assertCreated()
+            ->assertJsonPath('data.table.section', 'sales');
+    }
+
+    public function test_a_time_in_its_own_column_puts_the_row_at_that_hour(): void
+    {
+        $table = $this->postJson('/api/v1/admin/data-tables', [
+            'section' => 'orders',
+            'name' => 'Գրանցումներ',
+            'columns' => [
+                ['label' => 'Ծառայություն', 'type' => 'text', 'role' => 'item'],
+                ['label' => 'Ամսաթիվ', 'type' => 'date', 'role' => 'date'],
+                ['label' => 'Ժամ', 'type' => 'text', 'role' => 'time'],
+            ],
+        ])->assertCreated()->json('data');
+        [$item, $date, $time] = array_column($table['columns'], 'key');
+        $this->postJson("/api/v1/admin/data-tables/{$table['id']}/rows", ['values' => [$item => 'Սանրվածք', $date => '2026-10-05', $time => '15:30']])->assertCreated();
+        $this->postJson("/api/v1/admin/data-tables/{$table['id']}/rows", ['values' => [$item => 'Ներկում', $date => '2026-10-05', $time => null]])->assertCreated();
+
+        $rows = $this->getJson('/api/v1/admin/calendar?from=2026-10-05&to=2026-10-05')->json('data.rows');
+
+        $this->assertSame([null, '15:30'], array_column($rows, 'time'));
     }
 
     public function test_it_needs_a_short_range(): void

@@ -2,11 +2,13 @@
 
 namespace App\DataTables\Import;
 
+use App\DataTables\ColumnValues;
 use App\DataTables\DataColumn;
 use App\DataTables\Moment;
 use App\DataTables\TableAnalytics;
 use App\Enums\ColumnRole;
 use App\Enums\DataColumnType;
+use App\Enums\DataTableSection;
 
 /**
  * Which file column goes into which table column, and, for a table made
@@ -20,9 +22,10 @@ final class ColumnMatcher
      *
      * @param  list<DataColumn>  $columns
      * @param  list<string>  $headers
+     * @param  list<list<string>>  $rows  the file's rows: a header that says nothing is read by its values
      * @return array<string, ?int>
      */
-    public static function suggest(array $columns, array $headers): array
+    public static function suggest(array $columns, array $headers, array $rows = []): array
     {
         $normalized = array_map(self::normalize(...), $headers);
         $used = [];
@@ -68,19 +71,35 @@ final class ColumnMatcher
             }
         }
 
+        // A "Column 3" of "iPhone 15" values goes into the model column.
+        $sample = array_slice($rows, 0, 200);
+        foreach ($columns as $column) {
+            if (isset($mapping[$column->key]) || ! $column->role || $sample === []) {
+                continue;
+            }
+            foreach ($headers as $index => $header) {
+                if (! isset($used[$index]) && ColumnRole::guess($header) === null && ColumnValues::guess(array_column($sample, $index)) === $column->role) {
+                    $mapping[$column->key] = $index;
+                    $used[$index] = true;
+                    break;
+                }
+            }
+        }
+
         return collect($columns)->mapWithKeys(fn (DataColumn $column) => [$column->key => $mapping[$column->key] ?? null])->all();
     }
 
     /**
      * Column definitions for a new table made from the file: the headers as
      * labels, the type the values look like, and the role (price, quantity,
-     * date...) the header's words suggest, each role once.
+     * date...) the header's words suggest, or else its values (ColumnValues),
+     * each role once.
      *
      * @param  list<string>  $headers
      * @param  list<list<string>>  $rows
      * @return list<array{label: string, type: string, required: bool, options: list<string>, role: ?string}>
      */
-    public static function guessColumns(array $headers, array $rows): array
+    public static function guessColumns(array $headers, array $rows, ?DataTableSection $section = null): array
     {
         $sample = array_slice($rows, 0, 500);
         $columns = [];
@@ -98,7 +117,7 @@ final class ColumnMatcher
 
             $values = array_values(array_filter(array_column($sample, $index), fn ($v) => $v !== ''));
             [$type, $options] = self::guessType($header, $values);
-            [$type, $options, $role] = self::fitRole(ColumnRole::guess($header), $type, $options, $values, $roles);
+            [$type, $options, $role] = self::fitRole(self::roleOf($header, $values, $type, $section, $roles), $type, $options, $values, $roles);
             if ($role) {
                 $roles[$role->value] = true;
             }
@@ -107,6 +126,27 @@ final class ColumnMatcher
         }
 
         return $columns;
+    }
+
+    /**
+     * The role of a file column: by its header's words, else by its values,
+     * else a date column is the date (when no other column is).
+     *
+     * @param  array<string, true>  $taken
+     */
+    public static function roleOf(string $header, array $values, DataColumnType $type, ?DataTableSection $section, array $taken): ?ColumnRole
+    {
+        $role = ColumnRole::guess($header);
+        if ($role && ! isset($taken[$role->value])) {
+            return $role;
+        }
+
+        $role = ColumnValues::guess($values, $section, $taken);
+        if ($role) {
+            return $role;
+        }
+
+        return in_array($type, [DataColumnType::Date, DataColumnType::DateTime], true) && ! isset($taken[ColumnRole::Date->value]) ? ColumnRole::Date : null;
     }
 
     /**

@@ -172,21 +172,43 @@ export type DataColumnType = "text" | "number" | "money" | "date" | "datetime" |
 /** What a column means, whatever it's called (see the API's ColumnRole). */
 export type ColumnRole =
   | "date"
+  | "time"
+  | "duration"
   | "item"
+  | "category"
+  | "model"
+  | "brand"
+  | "sku"
+  | "country"
+  | "material"
+  | "color"
+  | "size"
   | "quantity"
   | "unit"
   | "unit_price"
   | "amount"
+  | "discount"
+  | "discount_percent"
   | "cost"
+  | "commission"
+  | "delivery_fee"
+  | "tax"
   | "payment"
   | "channel"
   | "status"
-  | "category"
+  | "delivery_method"
   | "performer"
+  | "intermediary"
+  | "supplier"
+  | "city"
+  | "branch"
+  | "project"
+  | "order_number"
   | "gender"
   | "age"
   | "customer"
   | "phone"
+  | "email"
   | "address"
   | "note";
 
@@ -305,6 +327,8 @@ export type DashboardWidgetId =
   | "perMonth"
   | "averageCheck"
   | "units"
+  | "deductions"
+  | "duration"
   | "revenueChart"
   | "countChart"
   | "profitChart"
@@ -316,12 +340,29 @@ export type DashboardWidgetId =
   | "byPayment"
   | "byChannel"
   | "byStatus"
+  | "byDetails"
   | "byOwnColumns"
   | "ownNumbers"
   | "tables";
 
 export type TableMetricDto = {
-  key: "revenue" | "profit" | "margin" | "count" | "perDay" | "perMonth" | "averageCheck" | "quantity" | "averageQuantity" | "unitPrice";
+  key:
+    | "revenue"
+    | "profit"
+    | "margin"
+    | "count"
+    | "perDay"
+    | "perMonth"
+    | "averageCheck"
+    | "quantity"
+    | "averageQuantity"
+    | "unitPrice"
+    | "discounts"
+    | "commission"
+    | "deliveryFees"
+    | "tax"
+    | "averageDuration"
+    | "totalDuration";
   label: string;
   format: "money" | "count" | "number" | "percent";
   value: number | null;
@@ -411,6 +452,28 @@ export type AssistantPlanOfferDto = { id: number; name: string; price: number; a
 export type AssistantStatusDto = AssistantUsageDto & {
   configured: boolean;
   offer: { plans: AssistantPlanOfferDto[] };
+};
+
+/** One kept chat with the assistant, named by its first question. */
+export type AssistantConversationDto = {
+  id: number;
+  title: string;
+  /** Questions and answers together. */
+  messages: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type AssistantMessageDto = {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  refused: boolean;
+  createdAt: string | null;
+};
+
+export type AssistantConversationDetailDto = Omit<AssistantConversationDto, "messages"> & {
+  messages: AssistantMessageDto[];
 };
 
 export type AssistantBonusDto = { id: number; amount: number; note: string | null; givenBy: string | null; createdAt: string | null };
@@ -981,6 +1044,17 @@ export async function getAssistantStatus(): Promise<AssistantStatusDto | null> {
   return result.data;
 }
 
+/** The signed-in person's chats with the assistant in this business, the latest first. */
+export async function getAssistantConversations(): Promise<AssistantConversationDto[]> {
+  const result = await adminApiFetch<AssistantConversationDto[]>("/admin/assistant/conversations");
+  return result.data ?? [];
+}
+
+export async function getAssistantConversation(id: number): Promise<AssistantConversationDetailDto | null> {
+  const result = await adminApiFetch<AssistantConversationDetailDto>(`/admin/assistant/conversations/${id}`);
+  return result.data;
+}
+
 export async function getDashboard(): Promise<DashboardDto | null> {
   const result = await adminApiFetch<DashboardDto>("/admin/dashboard");
   return result.data;
@@ -1142,9 +1216,11 @@ export async function getDataTables(section?: DataTableSection): Promise<AdminDa
 export type CalendarRowDto = {
   id: number;
   tableId: number;
+  /** "orders": a service done; "sales": goods sold. Shown apart. */
+  section: "orders" | "sales";
   /** "Y-m-d", the business's local day. */
   date: string;
-  /** "H:i" for a date-and-time column; null for a date column (the whole day). */
+  /** "H:i" for a date-and-time column or a filled time column; null for the whole day. */
   time: string | null;
   amount: number | null;
   values: Record<string, DataCellValue>;
@@ -1469,6 +1545,60 @@ export async function getFinance(params: { by?: PeriodKind; date?: string }): Pr
   if (params.by) query.set("by", params.by);
   if (params.date) query.set("date", params.date);
   const result = await adminApiFetch<FinanceDto>(`/admin/analytics/finance?${query}`);
+  return result.data;
+}
+
+/** What was spent in a day, week, month, quarter or year (see the API's ExpenseStatistics). */
+export type ExpenseTotalsDto = {
+  total: number;
+  inProfit: number;
+  excluded: number;
+  recurring: number;
+  oneOff: number;
+  count: number;
+};
+
+export type ExpenseLineDto = {
+  date: string;
+  amount: number;
+  category: string;
+  inProfit: boolean;
+  recurring: boolean;
+  item: string | null;
+  supplier: string | null;
+  payment: string | null;
+  performer: string | null;
+  project: string | null;
+  note: string | null;
+  tableId: number | null;
+  table: string | null;
+  rowId: number | null;
+};
+
+export type ExpenseStatisticsDto = {
+  by: PeriodKind;
+  today: string;
+  period: PeriodDto;
+  previous: PeriodDto;
+  unfinished: boolean;
+  totals: ExpenseTotalsDto & { previous: number; perDay: number | null; tax: number | null };
+  series: (PeriodDto & ExpenseTotalsDto)[];
+  inside: { key: string; start: string; label: string; total: number; count: number }[];
+  categories: FinanceCategoryDto[];
+  /** Last period's spending by category name. */
+  previousCategories: Record<string, number>;
+  breakdowns: { role: string; label: string; distinct: number; values: { value: string; amount: number; count: number }[] }[];
+  largest: ExpenseLineDto[];
+  rows: ExpenseLineDto[];
+  count: number;
+  has: { tables: boolean; recurring: boolean; roles: string[] };
+};
+
+export async function getExpenseStatistics(params: { by?: PeriodKind; date?: string }): Promise<ExpenseStatisticsDto | null> {
+  const query = new URLSearchParams();
+  if (params.by) query.set("by", params.by);
+  if (params.date) query.set("date", params.date);
+  const result = await adminApiFetch<ExpenseStatisticsDto>(`/admin/expenses/statistics?${query}`);
   return result.data;
 }
 

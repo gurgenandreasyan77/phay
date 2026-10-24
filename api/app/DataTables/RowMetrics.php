@@ -26,18 +26,37 @@ final class RowMetrics
         $total = $table->roleColumn(ColumnRole::Amount);
         $price = $table->roleColumn(ColumnRole::UnitPrice);
         $quantity = $table->quantityColumn();
+        $discount = $table->roleColumn(ColumnRole::Discount);
+        $percent = $table->roleColumn(ColumnRole::DiscountPercent);
+        $delivery = $table->roleColumn(ColumnRole::DeliveryFee);
+        $time = $table->roleColumn(ColumnRole::Time);
         $performer = $table->performerColumn();
         $number = fn ($v) => is_int($v) || is_float($v) ? $v : null;
         $employees = $performer ? self::employees($table->tenant_id) : [];
 
-        return function (array $data) use ($date, $total, $price, $quantity, $performer, $employees, $number): array {
+        return function (array $data) use ($date, $total, $price, $quantity, $discount, $percent, $delivery, $time, $performer, $employees, $number): array {
             $moment = $date ? ($data[$date->key] ?? null) : null;
+            // A date without a time and the time in a column of its own ("14:30").
+            if ($time && is_string($moment) && strlen($moment) === 10 && is_string($clock = $data[$time->key] ?? null)
+                && preg_match('/^\s*(\d{1,2})[:.](\d{2})/', $clock, $m) && (int) $m[1] < 24 && (int) $m[2] < 60) {
+                $moment .= sprintf(' %02d:%02d', $m[1], $m[2]);
+            }
 
-            // The row's own total when it has one; else price × quantity
-            // (0.5 kg at 3000 a kg is 1500), a row without a quantity once.
+            // The row's own total (the final price) when it has one; else price
+            // × quantity (0.5 kg at 3000 a kg is 1500), a row without a quantity
+            // once, less its discount (in money or in percent), plus delivery.
             $amount = $total ? $number($data[$total->key] ?? null) : null;
             if ($amount === null && $price && ($unitPrice = $number($data[$price->key] ?? null)) !== null) {
                 $amount = Decimal::multiply($unitPrice, ($quantity ? $number($data[$quantity->key] ?? null) : null) ?? 1);
+                if ($percent && ($off = $number($data[$percent->key] ?? null)) !== null && $off > 0 && $off <= 100) {
+                    $amount = Decimal::multiply($amount, (100 - $off) / 100);
+                }
+                if ($discount && ($off = $number($data[$discount->key] ?? null)) !== null) {
+                    $amount -= abs($off);
+                }
+                if ($delivery && ($fee = $number($data[$delivery->key] ?? null)) !== null) {
+                    $amount += $fee;
+                }
             }
 
             return [

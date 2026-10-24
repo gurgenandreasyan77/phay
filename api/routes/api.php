@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\Admin\DataTableRowController as AdminDataTableRo
 use App\Http\Controllers\Api\V1\Admin\EmployeeController as AdminEmployeeController;
 use App\Http\Controllers\Api\V1\Admin\EmployeeGroupController as AdminEmployeeGroupController;
 use App\Http\Controllers\Api\V1\Admin\ExpenseCategoryController as AdminExpenseCategoryController;
+use App\Http\Controllers\Api\V1\Admin\ExpenseStatisticsController as AdminExpenseStatisticsController;
 use App\Http\Controllers\Api\V1\Admin\FeatureFlagController as AdminFeatureFlagController;
 use App\Http\Controllers\Api\V1\Admin\FeedbackController as AdminFeedbackController;
 use App\Http\Controllers\Api\V1\Admin\FinanceController as AdminFinanceController;
@@ -247,6 +248,11 @@ Route::prefix('v1')->group(function () {
                 Route::get('/employees/stats', [AdminEmployeeController::class, 'stats']);
                 Route::get('/assistant', [AdminAssistantController::class, 'show']);
                 Route::post('/assistant', [AdminAssistantController::class, 'store'])->middleware('throttle:assistant');
+                // Each person's kept conversations with the assistant.
+                Route::get('/assistant/conversations', [AdminAssistantController::class, 'conversations']);
+                Route::get('/assistant/conversations/{assistantConversation}', [AdminAssistantController::class, 'conversation']);
+                Route::patch('/assistant/conversations/{assistantConversation}', [AdminAssistantController::class, 'rename']);
+                Route::delete('/assistant/conversations/{assistantConversation}', [AdminAssistantController::class, 'destroy']);
             });
 
             // What the business spends: kinds of expenses and the ones that
@@ -260,6 +266,8 @@ Route::prefix('v1')->group(function () {
                 Route::post('/recurring-expenses', [AdminRecurringExpenseController::class, 'store']);
                 Route::patch('/recurring-expenses/{recurringExpense}', [AdminRecurringExpenseController::class, 'update']);
                 Route::delete('/recurring-expenses/{recurringExpense}', [AdminRecurringExpenseController::class, 'destroy']);
+                // What was spent in a day, week, month, quarter or year, apart from sales.
+                Route::get('/expenses/statistics', AdminExpenseStatisticsController::class);
                 // Revenue − cost of goods − expenses, per day, week, month, quarter or year.
                 Route::get('/analytics/finance', AdminFinanceController::class)->middleware('business.can:insights');
             });
@@ -296,6 +304,8 @@ Route::prefix('v1')->group(function () {
                 Route::post('/google/table', [AdminGoogleCalendarController::class, 'makeTable'])->middleware('throttle:google-sync');
                 Route::post('/data-tables/bulk-delete', [AdminDataTableController::class, 'bulkDestroy']);
                 Route::patch('/data-tables/{dataTable}', [AdminDataTableController::class, 'update']);
+                // What the columns without a role probably mean, by their names and values.
+                Route::get('/data-tables/{dataTable}/role-suggestions', [AdminDataTableController::class, 'roleSuggestions']);
                 Route::delete('/data-tables/{dataTable}', [AdminDataTableController::class, 'destroy']);
 
                 Route::get('/products', [AdminProductController::class, 'index']);

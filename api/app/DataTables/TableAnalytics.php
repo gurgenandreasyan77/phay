@@ -28,7 +28,7 @@ class TableAnalytics
 
     private const TOP_VALUES = 10;
 
-    private const MAX_BREAKDOWNS = 6;
+    private const MAX_BREAKDOWNS = 12;
 
     /** Columns about the buyer (contacts, names) stay out of AI prompts and breakdowns. */
     public const PERSONAL_LABELS = '/հեռախոս|phone|tel\b|телефон|e-?mail|էլ\.?\s*փոստ|почта|հասցե|address|адрес|հաճախորդ|գնորդ|client|customer|buyer|клиент|покупатель|заказчик|անուն\s*ազգանուն|фио|instagram|insta|facebook|telegram|whatsapp|viber|\bnick|\buser/iu';
@@ -89,7 +89,7 @@ class TableAnalytics
         $firstAt = $totals->pluck('first_at')->filter()->min();
         // occurred_at is the business's local time, like the bounds.
         $firstAt = $firstAt ? CarbonImmutable::parse(substr((string) $firstAt, 0, 10), $now->getTimezone()) : null;
-        $series = $this->series($current, $start, $now, $days > 90 ? 'month' : 'day', $tables->contains(fn (DataTable $t) => $t->roleColumn(ColumnRole::Cost) !== null));
+        $series = $this->series($current, $start, $now, $days > 90 ? 'month' : 'day', $tables->contains(fn (DataTable $t) => $t->roleColumn(ColumnRole::Cost) !== null || $t->roleColumn(ColumnRole::Commission) !== null));
 
         return [
             'section' => $section->value,
@@ -147,6 +147,10 @@ class TableAnalytics
             'quantity' => $t->quantityColumn()?->key,
             'unit' => $t->roleColumn(ColumnRole::Unit)?->key,
             'cost' => $t->roleColumn(ColumnRole::Cost)?->key,
+            'price' => $t->roleColumn(ColumnRole::UnitPrice)?->key,
+            'percent' => $t->roleColumn(ColumnRole::DiscountPercent)?->key,
+            'duration' => $t->roleColumn(ColumnRole::Duration)?->key,
+            ...collect(ColumnRole::extraMoney())->mapWithKeys(fn (ColumnRole $role) => [$role->value => $t->roleColumn($role)?->key])->all(),
         ]]);
         $number = fn ($v) => is_int($v) || is_float($v) ? $v : null;
 
@@ -154,15 +158,28 @@ class TableAnalytics
             $data = $r->data ?? [];
             $key = $keys[$r->data_table_id];
             $unit = $key['unit'] ? ($data[$key['unit']] ?? null) : null;
+            $value = fn (?string $k) => $k ? $number($data[$k] ?? null) : null;
+            $quantity = $value($key['quantity']);
+
+            // A discount in money, or in percent of price × quantity.
+            $discount = $value($key['discount']);
+            if ($discount === null && ($percent = $value($key['percent'])) !== null && ($price = $value($key['price'])) !== null) {
+                $discount = Decimal::multiply(Decimal::multiply($price, $quantity ?? 1), $percent / 100);
+            }
 
             return [
                 'table' => $r->data_table_id,
                 'at' => CarbonImmutable::parse($r->getRawOriginal('occurred_at')),
                 'amount' => $r->amount,
                 'data' => $data,
-                'quantity' => $key['quantity'] ? $number($data[$key['quantity']] ?? null) : null,
+                'quantity' => $quantity,
                 'unit' => is_string($unit) && trim($unit) !== '' ? trim($unit) : null,
-                'cost' => $key['cost'] ? $number($data[$key['cost']] ?? null) : null,
+                'cost' => $value($key['cost']),
+                'commission' => $value($key['commission']),
+                'discount' => $discount === null ? null : abs($discount),
+                'delivery_fee' => $value($key['delivery_fee']),
+                'tax' => $value($key['tax']),
+                'duration' => $value($key['duration']),
             ];
         };
     }
@@ -181,7 +198,7 @@ class TableAnalytics
     {
         $orders = $section === DataTableSection::Orders;
         $hasAmount = $tables->contains(fn (DataTable $t) => $t->amountColumn() !== null);
-        $hasCost = $tables->contains(fn (DataTable $t) => $t->roleColumn(ColumnRole::Cost) !== null);
+        $hasCost = $tables->contains(fn (DataTable $t) => $t->roleColumn(ColumnRole::Cost) !== null || $t->roleColumn(ColumnRole::Commission) !== null);
         $hasQuantity = $tables->contains(fn (DataTable $t) => $t->quantityColumn() !== null);
 
         // Days the business could have rows in: a business that started
@@ -203,7 +220,7 @@ class TableAnalytics
             [$profit, $covered, $revenue] = $this->profit($current);
             [$previousProfit, $previousCovered] = $this->profit($previous);
             $priced = $current->whereNotNull('amount')->count();
-            $note = $covered > 0 && $covered < $priced ? "Հաշվված է {$priced} տողից {$covered}-ի համար, որոնց ինքնարժեքը լրացված է։" : null;
+            $note = $covered > 0 && $covered < $priced ? "Հաշվված է {$priced} տողից {$covered}-ի համար, որոնց ".($current->contains(fn ($r) => $r['commission'] !== null) ? 'ինքնարժեքը կամ միջնորդավճարը' : 'ինքնարժեքը').' լրացված է։' : null;
 
             if ($covered > 0) {
                 $metrics[] = ['key' => 'profit', 'label' => 'Շահույթ', 'format' => 'money', 'value' => $profit, 'previous' => $previousCovered > 0 ? $previousProfit : null, 'note' => $note];
@@ -241,18 +258,41 @@ class TableAnalytics
             }
         }
 
+        // Money besides the total: discounts given, commissions paid, delivery charged, tax.
+        $extras = [
+            'discounts' => ['discount', 'Զեղչեր'],
+            'commission' => ['commission', 'Միջնորդավճարներ'],
+            'deliveryFees' => ['delivery_fee', 'Առաքման վճարներ'],
+            'tax' => ['tax', 'Հարկ (ԱԱՀ)'],
+        ];
+        foreach ($extras as $key => [$field, $label]) {
+            $filled = $current->whereNotNull($field);
+            if ($filled->isNotEmpty() || $previous->whereNotNull($field)->isNotEmpty()) {
+                $before = $previous->whereNotNull($field);
+                $metrics[] = ['key' => $key, 'label' => $label, 'format' => 'money', 'value' => $this->round($filled->sum($field)), 'previous' => $before->isEmpty() ? null : $this->round($before->sum($field)), 'note' => $filled->isEmpty() ? null : "{$filled->count()} տողում"];
+            }
+        }
+
+        $timed = $current->whereNotNull('duration');
+        if ($timed->isNotEmpty()) {
+            $before = $previous->whereNotNull('duration');
+            $metrics[] = ['key' => 'averageDuration', 'unit' => 'րոպե', 'label' => 'Միջին տևողություն (րոպե)', 'format' => 'number', 'value' => $this->round($timed->avg('duration')), 'previous' => $before->isEmpty() ? null : $this->round($before->avg('duration'))];
+            $metrics[] = ['key' => 'totalDuration', 'unit' => 'ժամ', 'label' => 'Աշխատած ժամեր', 'format' => 'number', 'value' => $this->round($timed->sum('duration') / 60), 'previous' => $before->isEmpty() ? null : $this->round($before->sum('duration') / 60)];
+        }
+
         return $metrics;
     }
 
     /**
-     * Profit of the rows whose unit cost is filled: amount − cost × quantity.
+     * Profit of the rows whose unit cost or commission is filled:
+     * amount − cost × quantity − commission.
      *
      * @return array{0: int|float, 1: int, 2: int|float} profit, rows counted, their revenue
      */
     private function profit(Collection $rows): array
     {
-        $counted = $rows->filter(fn ($r) => $r['cost'] !== null && $r['amount'] !== null);
-        $cost = $counted->sum(fn ($r) => Decimal::multiply($r['cost'], $r['quantity'] ?? 1));
+        $counted = $rows->filter(fn ($r) => ($r['cost'] !== null || ($r['commission'] ?? null) !== null) && $r['amount'] !== null);
+        $cost = $counted->sum(fn ($r) => self::costOfSale($r));
         $revenue = $counted->sum('amount');
 
         return [$this->round($revenue - $cost), $counted->count(), $this->round($revenue)];
@@ -355,6 +395,19 @@ class TableAnalytics
             ->all();
     }
 
+    /**
+     * What a sale cost the business: unit cost × quantity and the
+     * intermediary's commission.
+     *
+     * @param  array{cost?: int|float|null, quantity?: int|float|null, commission?: int|float|null}  $row
+     */
+    public static function costOfSale(array $row): int|float
+    {
+        $cost = ($row['cost'] ?? null) === null ? 0 : Decimal::multiply($row['cost'], $row['quantity'] ?? 1);
+
+        return $cost + ($row['commission'] ?? 0);
+    }
+
     public static function isPersonal(string $label): bool
     {
         return (bool) preg_match(self::PERSONAL_LABELS, $label);
@@ -388,7 +441,7 @@ class TableAnalytics
     {
         $columns = $this->columnsByMeaning($tables, fn (DataColumn $c) => in_array($c->type, [DataColumnType::Text, DataColumnType::Select, DataColumnType::Boolean], true)
             && ! self::isPersonalColumn($c)
-            && ! in_array($c->role, [ColumnRole::Unit, ColumnRole::Note, ColumnRole::Gender, ColumnRole::Age], true));
+            && ! in_array($c->role, [ColumnRole::Unit, ColumnRole::Note, ColumnRole::Gender, ColumnRole::Age, ColumnRole::Time, ColumnRole::OrderNumber, ColumnRole::Sku], true));
 
         return $columns
             ->map(function (array $column) use ($current) {
@@ -439,7 +492,7 @@ class TableAnalytics
         $units = $tables->mapWithKeys(fn (DataTable $t) => [$t->id => $t->roleColumn(ColumnRole::Unit)?->key]);
 
         // Quantities are in the metrics, per unit; these are the business's own number columns.
-        return $this->columnsByMeaning($tables, fn (DataColumn $c) => $c->type === DataColumnType::Number && ! in_array($c->role, [ColumnRole::Quantity, ColumnRole::Age], true))
+        return $this->columnsByMeaning($tables, fn (DataColumn $c) => $c->type === DataColumnType::Number && ! in_array($c->role, [ColumnRole::Quantity, ColumnRole::Age, ColumnRole::Duration, ColumnRole::DiscountPercent, ...ColumnRole::extraMoney()], true))
             ->flatMap(function (array $column) use ($current, $units) {
                 $values = $current
                     ->map(fn ($r) => [
@@ -505,8 +558,8 @@ class TableAnalytics
             if (isset($points[$key = $row['at']->format($format)])) {
                 $points[$key]['rows']++;
                 $points[$key]['amount'] += $row['amount'] ?? 0;
-                if ($withProfit && ($row['cost'] ?? null) !== null && $row['amount'] !== null) {
-                    $points[$key]['profit'] += $row['amount'] - Decimal::multiply($row['cost'], $row['quantity'] ?? 1);
+                if ($withProfit && (($row['cost'] ?? null) !== null || ($row['commission'] ?? null) !== null) && $row['amount'] !== null) {
+                    $points[$key]['profit'] += $row['amount'] - self::costOfSale($row);
                 }
             }
         }
@@ -562,7 +615,7 @@ class TableAnalytics
      */
     private function hours(Collection $tables, Collection $current): array
     {
-        $timed = $tables->filter(fn (DataTable $t) => $t->dateColumn()?->type === DataColumnType::DateTime)->pluck('id')->all();
+        $timed = $tables->filter(fn (DataTable $t) => $t->dateColumn()?->type === DataColumnType::DateTime || $t->roleColumn(ColumnRole::Time) !== null)->pluck('id')->all();
         $rows = $current->filter(fn ($r) => in_array($r['table'], $timed, true));
 
         if ($rows->isEmpty()) {
@@ -586,9 +639,9 @@ class TableAnalytics
 
         return [
             'date' => $any(fn (DataTable $t) => $t->dateColumn() !== null),
-            'datetime' => $any(fn (DataTable $t) => $t->dateColumn()?->type === DataColumnType::DateTime),
+            'datetime' => $any(fn (DataTable $t) => $t->dateColumn()?->type === DataColumnType::DateTime || $t->roleColumn(ColumnRole::Time) !== null),
             'money' => $any(fn (DataTable $t) => $t->amountColumn() !== null),
-            'cost' => $role(ColumnRole::Cost),
+            'cost' => $role(ColumnRole::Cost) || $role(ColumnRole::Commission),
             'quantity' => $role(ColumnRole::Quantity),
             'item' => $role(ColumnRole::Item),
             'payment' => $role(ColumnRole::Payment),
@@ -596,6 +649,9 @@ class TableAnalytics
             'gender' => $role(ColumnRole::Gender),
             'age' => $role(ColumnRole::Age),
             'status' => $role(ColumnRole::Status),
+            'details' => collect(ColumnRole::details())->contains($role),
+            'deductions' => collect([...ColumnRole::extraMoney(), ColumnRole::DiscountPercent])->contains($role),
+            'duration' => $role(ColumnRole::Duration),
             'ownColumns' => $own([DataColumnType::Text, DataColumnType::Select, DataColumnType::Boolean]),
             'ownNumbers' => $own([DataColumnType::Number]),
             'manyTables' => $tables->count() > 1,

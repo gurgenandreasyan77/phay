@@ -3,6 +3,7 @@
 namespace App\Analytics;
 
 use App\DataTables\TableAnalytics;
+use App\Enums\ColumnRole;
 use App\Enums\DataTableSection;
 use App\Models\AnalyticsDashboard;
 use App\Models\DataTable;
@@ -27,6 +28,12 @@ class Dashboard
         'quantity' => DashboardWidget::Units,
         'averageQuantity' => DashboardWidget::Units,
         'unitPrice' => DashboardWidget::Units,
+        'discounts' => DashboardWidget::Deductions,
+        'commission' => DashboardWidget::Deductions,
+        'deliveryFees' => DashboardWidget::Deductions,
+        'tax' => DashboardWidget::Deductions,
+        'averageDuration' => DashboardWidget::Duration,
+        'totalDuration' => DashboardWidget::Duration,
     ];
 
     /** Breakdowns by the role of their column; a column without one is the business's own. */
@@ -36,6 +43,18 @@ class Dashboard
         'channel' => DashboardWidget::ByChannel,
         'status' => DashboardWidget::ByStatus,
     ];
+
+    /** The widget that shows a breakdown by a column of this role (null: the business's own column). */
+    public static function breakdownWidget(?string $role): DashboardWidget
+    {
+        if (isset(self::BREAKDOWNS[$role ?? ''])) {
+            return self::BREAKDOWNS[$role];
+        }
+
+        $details = array_map(fn (ColumnRole $r) => $r->value, ColumnRole::details());
+
+        return in_array($role, $details, true) ? DashboardWidget::ByDetails : DashboardWidget::ByOwnColumns;
+    }
 
     /**
      * The catalog for a section: every widget, whether its columns are
@@ -94,7 +113,7 @@ class Dashboard
             'months' => $on(DashboardWidget::Months) ? $summary['months'] : null,
             'weekdays' => $on(DashboardWidget::Weekdays) ? $summary['weekdays'] : [],
             'hours' => $on(DashboardWidget::Hours) ? $summary['hours'] : [],
-            'breakdowns' => array_values(array_filter($summary['breakdowns'], fn (array $b) => $on(self::BREAKDOWNS[$b['role']] ?? DashboardWidget::ByOwnColumns))),
+            'breakdowns' => array_values(array_filter($summary['breakdowns'], fn (array $b) => $on(self::breakdownWidget($b['role'])))),
             'numbers' => $on(DashboardWidget::OwnNumbers) ? $summary['numbers'] : [],
             'dashboard' => ['enabled' => $enabled],
         ];

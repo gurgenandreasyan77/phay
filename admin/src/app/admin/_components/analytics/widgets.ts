@@ -31,6 +31,10 @@ export function widgetLabels(id: DashboardWidgetId, section: DataTableSection): 
       return { hy: "Միջին չեկ", ru: "Средний чек", en: "Average check", hint: "Մեկ տողի միջին գումարը" };
     case "units":
       return { hy: "Քանակ ըստ միավորի", ru: "Количество по единицам", en: "Quantity by unit", hint: "կգ, հատ…՝ ընդամենը, միջինը, մեկ միավորի գինը" };
+    case "deductions":
+      return { hy: "Զեղչեր և միջնորդավճարներ", ru: "Скидки и комиссии", en: "Discounts and commissions", hint: "Զեղչեր, միջնորդավճարներ, առաքման վճարներ, հարկ" };
+    case "duration":
+      return { hy: "Տևողություն", ru: "Длительность", en: "Duration", hint: "Ծառայության միջին տևողությունը և աշխատած ժամերը" };
     case "revenueChart":
       return { hy: "Եկամուտ ըստ օրերի", ru: "Выручка по дням", en: "Revenue over time", hint: "Ըստ օրերի, տարվա համար՝ ըստ ամիսների" };
     case "countChart":
@@ -57,6 +61,8 @@ export function widgetLabels(id: DashboardWidgetId, section: DataTableSection): 
       return { hy: "Ըստ աղբյուրի", ru: "По каналам", en: "By channel", hint: "Instagram, կայք…" };
     case "byStatus":
       return { hy: "Ըստ կարգավիճակի", ru: "По статусу", en: "By status", hint: "Նոր, կատարված…" };
+    case "byDetails":
+      return { hy: "Ըստ մոդելի, մատակարարի, միջնորդի…", ru: "По модели, поставщику, посреднику…", en: "By model, supplier, intermediary…", hint: "Մոդել, ապրանքանիշ, երկիր, նյութ, տեսակ, քաղաք և այլն" };
     case "byOwnColumns":
       return { hy: "Ըստ ձեր սյունակների", ru: "По вашим колонкам", en: "By your columns", hint: "Ձեր ցանկերի և այո/ոչ սյունակների արժեքները" };
     case "ownNumbers":
@@ -78,6 +84,9 @@ export const MISSING_LABELS: Record<string, string> = {
   status: "«Կարգավիճակ» սյունակ",
   datetime: "«Ամսաթիվ և ժամ» տեսակի ամսաթիվ",
   ownColumns: "ձեր սեփական ցանկի կամ տեքստի սյունակ",
+  details: "«Մոդել», «Մատակարար», «Միջնորդ», «Երկիր», «Կատեգորիա» կամ նման սյունակ",
+  deductions: "«Զեղչ», «Միջնորդավճար», «Առաքման վճար» կամ «Հարկ» սյունակ",
+  duration: "«Տևողություն» սյունակ",
   ownNumbers: "ձեր սեփական թվային սյունակ",
   manyTables: "առնվազն երկու աղյուսակ",
 };
