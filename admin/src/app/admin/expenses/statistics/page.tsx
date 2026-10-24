@@ -287,45 +287,41 @@ function ExpensesTable({ rows }: { rows: ExpenseLineDto[] }) {
 
   return (
     <TableWrap>
-      <table className="w-full text-sm">
-        <Thead>
-          <Tr>
-            <Th>Ամսաթիվ</Th>
-            <Th>Տեսակ</Th>
-            <Th>Ինչի համար</Th>
-            {has("supplier") ? <Th>Ում</Th> : null}
-            {has("payment") ? <Th>Վճարում</Th> : null}
-            {has("performer") ? <Th>Ով</Th> : null}
-            {has("project") ? <Th>Օբյեկտ</Th> : null}
-            <Th className="text-right">Գումար</Th>
+      <Thead>
+        <Th>Ամսաթիվ</Th>
+        <Th>Տեսակ</Th>
+        <Th>Ինչի համար</Th>
+        {has("supplier") ? <Th>Ում</Th> : null}
+        {has("payment") ? <Th>Վճարում</Th> : null}
+        {has("performer") ? <Th>Ով</Th> : null}
+        {has("project") ? <Th>Օբյեկտ</Th> : null}
+        <Th className="text-right">Գումար</Th>
+      </Thead>
+      <tbody>
+        {rows.map((r, i) => (
+          <Tr key={`${r.rowId ?? "r"}-${r.date}-${i}`}>
+            <Td className="whitespace-nowrap">{formatMoment(r.date)}</Td>
+            <Td>
+              {r.category}
+              {r.recurring ? <Badge className="ml-1.5">կրկնվող</Badge> : null}
+              {!r.inProfit ? <span className="ml-1 text-xs text-ink-faint">(շահույթից դուրս)</span> : null}
+            </Td>
+            <Td>
+              {r.item ?? "—"}
+              {r.tableId && r.table ? (
+                <Link href={tablePath("expenses", r.tableId)} className="block text-xs text-ink-faint hover:text-ink">
+                  {r.table}
+                </Link>
+              ) : null}
+            </Td>
+            {has("supplier") ? <Td>{r.supplier ?? "—"}</Td> : null}
+            {has("payment") ? <Td>{r.payment ?? "—"}</Td> : null}
+            {has("performer") ? <Td>{r.performer ?? "—"}</Td> : null}
+            {has("project") ? <Td>{r.project ?? "—"}</Td> : null}
+            <Td className="whitespace-nowrap text-right font-medium tabular-nums">{money(r.amount)}</Td>
           </Tr>
-        </Thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <Tr key={`${r.rowId ?? "r"}-${r.date}-${i}`}>
-              <Td className="whitespace-nowrap">{formatMoment(r.date)}</Td>
-              <Td>
-                {r.category}
-                {r.recurring ? <Badge className="ml-1.5">կրկնվող</Badge> : null}
-                {!r.inProfit ? <span className="ml-1 text-xs text-ink-faint">(շահույթից դուրս)</span> : null}
-              </Td>
-              <Td>
-                {r.item ?? "—"}
-                {r.tableId && r.table ? (
-                  <Link href={tablePath("expenses", r.tableId)} className="block text-xs text-ink-faint hover:text-ink">
-                    {r.table}
-                  </Link>
-                ) : null}
-              </Td>
-              {has("supplier") ? <Td>{r.supplier ?? "—"}</Td> : null}
-              {has("payment") ? <Td>{r.payment ?? "—"}</Td> : null}
-              {has("performer") ? <Td>{r.performer ?? "—"}</Td> : null}
-              {has("project") ? <Td>{r.project ?? "—"}</Td> : null}
-              <Td className="whitespace-nowrap text-right font-medium tabular-nums">{money(r.amount)}</Td>
-            </Tr>
-          ))}
-        </tbody>
-      </table>
+        ))}
+      </tbody>
     </TableWrap>
   );
 }
