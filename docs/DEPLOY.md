@@ -28,7 +28,7 @@
 | Адрес | Что | Откуда |
 | --- | --- | --- |
 | `https://app.phay.am` | Админка (все бизнесы и платформа) | phay, контейнер `admin`, 127.0.0.1:3001 |
-| `https://api.phay.am` | API: публичный для сайтов (`/api/v1/*`), админский (`/api/v1/admin/*`), файлы (`/storage/*`) | phay, контейнер `api` (nginx) → `backend` (php-fpm), 127.0.0.1:8080 |
+| `https://api.phay.am` | API: публичный для сайтов (`/api/v1/*`), админский (`/api/v1/admin/*`), файлы (`/storage/*`) | phay, контейнер `api` (nginx) → `backend` (php-fpm), 127.0.0.1:8081 |
 | `https://phay.am` | Пока редирект 302 на `app.phay.am` | nginx на хосте |
 | `https://servio.am` | Сайт клининга | servio, контейнер `frontend`, 127.0.0.1:3000 |
 | `admin.servio.am` | Старый адрес админки, редирект 301 на `app.phay.am` | nginx на хосте |
@@ -45,7 +45,7 @@ Cloud и server-блоки в `deploy/phay.nginx.conf`. Я рекомендую 
 
 ```
 браузер ─► nginx на хосте (:80/:443, TLS) ─┬─► 127.0.0.1:3001  phay admin ──► api (внутри Docker)
-                                          ├─► 127.0.0.1:8080  phay api ──► backend ──► postgres
+                                          ├─► 127.0.0.1:8081  phay api ──► backend ──► postgres
                                           └─► 127.0.0.1:3000  servio frontend ──► https://api.phay.am
 ```
 
@@ -202,7 +202,7 @@ sudo ufw status
 Важно: Docker при публикации порта (`ports:` в compose) обходит ufw. Поэтому
 в `compose.prod.yaml` обоих проектов порты опубликованы только на
 `127.0.0.1`, а база вообще не публикуется. Проверка после запуска:
-`sudo ss -tlnp | grep -E ':(3000|3001|8080|5432)'` должен показывать только
+`sudo ss -tlnp | grep -E ':(3000|3001|8081|5432)'` должен показывать только
 `127.0.0.1`.
 
 ### 4.5. Docker, git, make, nginx, certbot
@@ -340,7 +340,7 @@ make prod-ps            # postgres, backend, api, admin: healthy; scheduler: run
 make prod-migrate
 
 # 5. Проверка изнутри сервера и снаружи
-curl -s http://127.0.0.1:8080/api/health
+curl -s http://127.0.0.1:8081/api/health
 curl -sI https://api.phay.am/api/health | head -1
 curl -sI https://app.phay.am | head -1      # 307 → /admin
 
@@ -406,7 +406,7 @@ make prod-artisan cmd="platform:site:create test-shop shop.am --domain=shop.am -
 | Ключ | Значение | Откуда взять |
 | --- | --- | --- |
 | `COMPOSE_PROJECT_NAME` | `phay-prod` | Не менять после первого запуска: смена имени = новые пустые тома |
-| `API_PORT` | `8080` | Порт API на 127.0.0.1, должен совпадать с `upstream phay_api` в nginx |
+| `API_PORT` | `8081` | Порт API на 127.0.0.1, должен совпадать с `upstream phay_api` в nginx. В проде 8081, а не 8080, как локально: 8080 часто занят старым стеком servio |
 | `ADMIN_PORT` | `3001` | Порт админки на 127.0.0.1, `upstream phay_admin` |
 | `POSTGRES_DB`, `POSTGRES_USER` | `phay` | Можно оставить |
 | ★ `POSTGRES_PASSWORD` | случайная строка | `make prod-init` ставит сам (`openssl rand -hex 24`). Задаётся до первого запуска: Postgres запоминает пароль при создании тома, поздняя смена в файле его не меняет |
@@ -637,10 +637,10 @@ make prod-artisan cmd="platform:media:rehost http://localhost:8080 https://api.p
 
 0. Старый стек держит порты 8080 и 3000 (и слушает их на 0.0.0.0, то есть
    открыто в интернет). Пока он работает, запустите новые рядом на других
-   портах: в `phay/.env.prod` `API_PORT=8081`, в `servio/.env.prod`
-   `FRONTEND_PORT=3002`, и те же порты в `upstream` конфигов nginx
-   (`sudo sed -i 's/127.0.0.1:8080;/127.0.0.1:8081;/' /etc/nginx/sites-available/phay.am`).
-   Иначе `phay-prod-api` останется в статусе `Created`. Конфиг nginx
+   портах: Phay в проде и так на 8081 (`API_PORT=8081`, `upstream phay_api`
+   в `deploy/phay.nginx.conf`), а сайту на время поставьте в
+   `servio/.env.prod` `FRONTEND_PORT=3002` и тот же порт в `upstream
+   servio_site` конфига servio.am. Конфиг nginx
    servio.am не трогайте до переключения: он ведёт на старый стек.
    Пользователь и база старого Postgres берутся из самого контейнера:
    `docker exec servio-postgres-1 sh -c 'pg_dump --no-owner --no-acl -U "$POSTGRES_USER" "$POSTGRES_DB"' > backups/old-servio.sql`,
