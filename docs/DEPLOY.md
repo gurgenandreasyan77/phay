@@ -635,6 +635,17 @@ make prod-artisan cmd="platform:media:rehost http://localhost:8080 https://api.p
 Если servio.am уже работает на сервере со старым репозиторием (бэкенд и
 база в одном проекте `servio`):
 
+0. Старый стек держит порты 8080 и 3000 (и слушает их на 0.0.0.0, то есть
+   открыто в интернет). Пока он работает, запустите новые рядом на других
+   портах: в `phay/.env.prod` `API_PORT=8081`, в `servio/.env.prod`
+   `FRONTEND_PORT=3002`, и те же порты в `upstream` конфигов nginx
+   (`sudo sed -i 's/127.0.0.1:8080;/127.0.0.1:8081;/' /etc/nginx/sites-available/phay.am`).
+   Иначе `phay-prod-api` останется в статусе `Created`. Конфиг nginx
+   servio.am не трогайте до переключения: он ведёт на старый стек.
+   Пользователь и база старого Postgres берутся из самого контейнера:
+   `docker exec servio-postgres-1 sh -c 'pg_dump --no-owner --no-acl -U "$POSTGRES_USER" "$POSTGRES_DB"' > backups/old-servio.sql`,
+   файлы: `docker exec servio-backend-1 tar -C /var/www/html/storage/app/public -czf - . > backups/old-servio-storage.tar.gz`,
+   ключ: `docker exec servio-backend-1 printenv APP_KEY`.
 1. Сделайте дамп старой базы и архив файлов:
    `docker compose exec -T postgres pg_dump --no-owner --no-acl -U <user> <db> > old.sql`
    и `docker compose cp backend:/var/www/html/storage/app/public ./old-storage`.
