@@ -56,16 +56,18 @@ export default async function ExpenseStatisticsPage(props: PageProps<"/admin/exp
       {!report ? (
         <EmptyCard>Չհաջողվեց բեռնել վիճակագրությունը։ Թարմացրեք էջը։</EmptyCard>
       ) : (
-        <Report report={report} />
+        <Report report={report} chosen={date} />
       )}
     </div>
   );
 }
 
-function Report({ report }: { report: ExpenseStatisticsDto }) {
+function Report({ report, chosen }: { report: ExpenseStatisticsDto; chosen: string }) {
   const { period, totals } = report;
   const next = shiftPeriod(period.kind, period.start, 1).start;
   const delta = change(totals.total, totals.previous);
+  // The date asked for stays in the field; arrows land on the period's first day.
+  const picked = period.start <= chosen && chosen <= period.end ? chosen : period.start;
 
   return (
     <>
@@ -98,8 +100,8 @@ function Report({ report }: { report: ExpenseStatisticsDto }) {
         {/* Any date: the period of the chosen kind it falls in. */}
         <form action="/admin/expenses/statistics" className="flex items-center gap-2 sm:ml-auto">
           <input type="hidden" name="by" value={report.by} />
-          <Input type="date" name="at" defaultValue={period.start} max={report.today} className="w-40" aria-label="Ամսաթիվ" />
-          <Button type="submit" variant="secondary" size="sm">
+          <Input type="date" name="at" defaultValue={picked} max={report.today} className="w-40" aria-label="Ամսաթիվ" />
+          <Button type="submit" variant="secondary" size="sm" className="whitespace-nowrap">
             <CalendarSearch className="h-4 w-4" />
             Ցույց տալ
           </Button>

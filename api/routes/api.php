@@ -248,6 +248,11 @@ Route::prefix('v1')->group(function () {
                 Route::get('/employees/stats', [AdminEmployeeController::class, 'stats']);
                 Route::get('/assistant', [AdminAssistantController::class, 'show']);
                 Route::post('/assistant', [AdminAssistantController::class, 'store'])->middleware('throttle:assistant');
+                // Each person's kept conversations with the assistant.
+                Route::get('/assistant/conversations', [AdminAssistantController::class, 'conversations']);
+                Route::get('/assistant/conversations/{assistantConversation}', [AdminAssistantController::class, 'conversation']);
+                Route::patch('/assistant/conversations/{assistantConversation}', [AdminAssistantController::class, 'rename']);
+                Route::delete('/assistant/conversations/{assistantConversation}', [AdminAssistantController::class, 'destroy']);
             });
 
             // What the business spends: kinds of expenses and the ones that

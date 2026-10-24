@@ -454,6 +454,28 @@ export type AssistantStatusDto = AssistantUsageDto & {
   offer: { plans: AssistantPlanOfferDto[] };
 };
 
+/** One kept chat with the assistant, named by its first question. */
+export type AssistantConversationDto = {
+  id: number;
+  title: string;
+  /** Questions and answers together. */
+  messages: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type AssistantMessageDto = {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  refused: boolean;
+  createdAt: string | null;
+};
+
+export type AssistantConversationDetailDto = Omit<AssistantConversationDto, "messages"> & {
+  messages: AssistantMessageDto[];
+};
+
 export type AssistantBonusDto = { id: number; amount: number; note: string | null; givenBy: string | null; createdAt: string | null };
 
 /** A person's role inside one business (see the API's BusinessRole). */
@@ -1019,6 +1041,17 @@ export async function getTableStatistics(period: AnalyticsPeriod): Promise<Table
 
 export async function getAssistantStatus(): Promise<AssistantStatusDto | null> {
   const result = await adminApiFetch<AssistantStatusDto>("/admin/assistant");
+  return result.data;
+}
+
+/** The signed-in person's chats with the assistant in this business, the latest first. */
+export async function getAssistantConversations(): Promise<AssistantConversationDto[]> {
+  const result = await adminApiFetch<AssistantConversationDto[]>("/admin/assistant/conversations");
+  return result.data ?? [];
+}
+
+export async function getAssistantConversation(id: number): Promise<AssistantConversationDetailDto | null> {
+  const result = await adminApiFetch<AssistantConversationDetailDto>(`/admin/assistant/conversations/${id}`);
   return result.data;
 }
 
