@@ -10,6 +10,9 @@ import { Sidebar } from "./Sidebar";
 import { SubscriptionBanner } from "./subscription/SubscriptionBanner";
 import { Topbar } from "./Topbar";
 
+/** Sign-in pages and the 2FA setup that comes before everything: no menu. */
+const BARE_PATHS = ["/admin/login", "/admin/forgot-password", "/admin/reset-password", "/admin/invite", "/admin/setup-2fa"];
+
 export function AdminShell({
   features,
   me,
@@ -28,7 +31,7 @@ export function AdminShell({
     setMobileNavOpen(false);
   }
 
-  if (pathname === "/admin/login") {
+  if (BARE_PATHS.includes(pathname)) {
     return <div className="min-h-screen bg-background">{children}</div>;
   }
 

@@ -8,8 +8,10 @@ import { can, isPlatformStaff, isSuperAdmin } from "./roles";
 //
 // A business whose subscription ended is sent to its subscription page;
 // pages it can still open (the subscription, the chat, the account) pass
-// allowLocked.
-export async function requireAdmin(options: { allowLocked?: boolean } = {}): Promise<AdminUserDto> {
+// allowLocked. Someone who must set up 2FA first goes to /admin/setup-2fa.
+export async function requireAdmin(
+  options: { allowLocked?: boolean; allowTwoFactorSetup?: boolean } = {},
+): Promise<AdminUserDto> {
   const token = await getAdminToken();
   if (!token) {
     redirect("/admin/login");
@@ -21,6 +23,10 @@ export async function requireAdmin(options: { allowLocked?: boolean } = {}): Pro
   }
 
   const admin = withMeDefaults(me.data);
+  // Platform staff and (by default) owners must set up 2FA before anything else.
+  if (admin.security?.twoFactorSetupRequired && !options.allowTwoFactorSetup) {
+    redirect("/admin/setup-2fa");
+  }
   if (admin.subscription?.locked && !options.allowLocked) {
     redirect("/admin/subscription");
   }

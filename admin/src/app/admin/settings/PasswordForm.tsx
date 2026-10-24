@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button, Card, FieldLabel, Input } from "../_components/ui";
+import { PASSWORD_HINT, passwordProblem, passwordServerError } from "../_components/auth/AuthCard";
 
 type Errors = Partial<Record<"current_password" | "password", string>>;
 
@@ -16,7 +17,8 @@ export function PasswordForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const local: Errors = {};
-    if (password.length < 8) local.password = "Նոր գաղտնաբառը պետք է լինի առնվազն 8 նիշ։";
+    const rules = passwordProblem(password, password);
+    if (rules) local.password = rules;
     else if (password !== confirmation) local.password = "Նոր գաղտնաբառերը չեն համընկնում։";
     else if (password === current) local.password = "Նոր գաղտնաբառը պետք է տարբերվի ներկայիսից։";
     setErrors(local);
@@ -35,7 +37,7 @@ export function PasswordForm() {
         setErrors(
           json?.errors?.current_password
             ? { current_password: "Ներկայիս գաղտնաբառը սխալ է։" }
-            : { password: "Նոր գաղտնաբառը չի համապատասխանում պահանջներին։" },
+            : { password: passwordServerError(json) ?? "Նոր գաղտնաբառը չի համապատասխանում պահանջներին։" },
         );
         setStatus("idle");
         return;
@@ -77,9 +79,10 @@ export function PasswordForm() {
               autoComplete="new-password"
               value={password}
               required
-              minLength={8}
+              minLength={10}
               onChange={(e) => setPassword(e.target.value)}
             />
+            <p className="text-xs text-ink-muted">{PASSWORD_HINT}</p>
             {errors.password ? <p className="text-xs text-danger">{errors.password}</p> : null}
           </div>
           <div className="space-y-1.5">

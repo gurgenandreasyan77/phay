@@ -140,6 +140,7 @@ export const PLATFORM_NAV_GROUPS: NavGroup[] = [
       { href: "/admin/platform/subscriptions", label: "Բաժանորդագրություններ", icon: CalendarClock, superAdminOnly: true },
       { href: "/admin/platform/plans", label: "Փաթեթներ և գներ", icon: Tags, superAdminOnly: true },
       { href: "/admin/platform/team", label: "Պլատֆորմի թիմ", icon: UsersRound, superAdminOnly: true },
+      { href: "/admin/platform/security", label: "Անվտանգության մատյան", icon: ShieldCheck, superAdminOnly: true },
     ],
   },
 ];

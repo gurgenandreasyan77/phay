@@ -22,6 +22,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // The admin's server (BFF) and the host's nginx sit in front of the
+        // API: trust their X-Forwarded-For so sign-in limits and the security
+        // log see the visitor's IP, not theirs. Only private networks, so a
+        // visitor can't fake it from outside.
+        $middleware->trustProxies(at: ['127.0.0.1', '::1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']);
+
         $middleware->api(append: [
             SetLocale::class,
         ]);
