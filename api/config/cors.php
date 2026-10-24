@@ -21,6 +21,10 @@ return [
 
     'allowed_origins' => array_filter(explode(',', env('CORS_ALLOWED_ORIGINS', ''))),
 
+    // The env list alone (the admin app, local dev). AllowSiteOrigins sets
+    // allowed_origins to these plus every active site's origins per request.
+    'env_allowed_origins' => array_filter(explode(',', env('CORS_ALLOWED_ORIGINS', ''))),
+
     'allowed_origins_patterns' => [],
 
     'allowed_headers' => ['*'],

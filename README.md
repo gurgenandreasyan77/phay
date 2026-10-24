@@ -74,7 +74,16 @@ make setup
    `frontend/.env.example` → `frontend/.env.local` (only if they don't already exist)
 2. build the dev images
 3. start the stack
-4. run migrations and seed the database with the initial service catalog
+4. run migrations and seed the database with Servio's catalog (`ServioDemoSeeder`)
+
+Then put the site key into the root `.env` (the site gets 401 without it) and
+restart the frontend:
+
+```bash
+make site-keys                      # copy the X-Site-Key of servio.am
+# .env: NEXT_PUBLIC_SITE_KEY=site_pk_...
+docker compose up -d frontend
+```
 
 When it finishes:
 - Frontend: http://localhost:3000 (redirects to `/hy`)
@@ -194,7 +203,6 @@ Edit `.env` and set real values for at least:
 ```bash
 docker compose -f compose.prod.yaml up -d --build
 docker compose -f compose.prod.yaml exec backend php artisan migrate --force
-docker compose -f compose.prod.yaml exec backend php artisan db:seed --force
 # The first super admin: prints a one-time link (1 hour) to set a password, then 2FA.
 docker compose -f compose.prod.yaml exec backend php artisan platform:bootstrap you@servio.am --name="Your Name"
 ```
@@ -301,9 +309,14 @@ row (services, products, leads, settings, feature flags...) belongs to one
 business, and every query is limited to the current one automatically
 (`BelongsToTenant` trait).
 
-- **Public API:** the `X-Site-Key` header picks the business. No header means
-  the default business (`servio`, `PLATFORM_DEFAULT_TENANT`), which owns all
-  data created before multi-tenancy, so servio.am works without a key.
+- **Public API:** the `X-Site-Key` header picks the business and is required
+  (no key: 401). `make site-keys` prints every site's key; the site gets it as
+  `NEXT_PUBLIC_SITE_KEY`. CORS allows each active site's origins (its listed
+  origins, else its domain with and without `www`) on top of
+  `CORS_ALLOWED_ORIGINS`, so a new site needs no deploy.
+- **Cache refresh:** after an edit Laravel sends the affected cache tags to each
+  of the business's sites (`revalidate_url` + secret, set on Platform → Sites;
+  `App\Sites\SiteRevalidator`), after the response has gone out.
 - **Admin API:** the signed-in user's business (`tenant_user`). A super admin
   without a business works on the default one.
 

@@ -4,23 +4,15 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 
+/**
+ * The platform needs no seeded content: plans come from migrations, the
+ * super admin from `php artisan platform:super-admin`. Servio's own content
+ * for local work is in ServioDemoSeeder.
+ */
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->call([
-            ServiceCategorySeeder::class,
-            ServiceSeeder::class,
-            AutoCareServiceSeeder::class,
-            ServicePackageSeeder::class,
-            PostSeeder::class,
-            AutoCarePostSeeder::class,
-            SiteSettingSeeder::class,
-            AdditionalServiceSeeder::class,
-            ProductCategorySeeder::class,
-            ProductSeeder::class,
-            MarketTaskPageSeeder::class,
-            CalculatorSettingSeeder::class,
-        ]);
+        //
     }
 }

@@ -760,6 +760,10 @@ export type AdminSiteDto = {
   domain: string | null;
   publicKey: string;
   allowedOrigins: string[];
+  /** Where the platform sends cache refreshes after an edit (the site's /api/revalidate). */
+  revalidateUrl: string | null;
+  /** The webhook secret is write-only: only whether one is set comes back. */
+  hasRevalidateSecret: boolean;
   isActive: boolean;
   /** The business the site belongs to. */
   tenant?: { id: number; name: string };

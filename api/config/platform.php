@@ -7,10 +7,10 @@ return [
     | Default tenant
     |--------------------------------------------------------------------------
     |
-    | The business that requests without an X-Site-Key header, console
-    | commands, seeders and queued jobs act on. It is created by the tenancy
-    | migration and owns every row that existed before multi-tenancy, so the
-    | original site keeps working unchanged.
+    | The business that console commands, seeders and queued jobs act on
+    | when nothing else picks one. It is created by the tenancy migration and
+    | owns every row that existed before multi-tenancy. The public API never
+    | falls back to it: a site must send its X-Site-Key.
     |
     */
 
@@ -28,5 +28,22 @@ return [
     */
 
     'subscription_warn_days' => (int) env('PLATFORM_SUBSCRIPTION_WARN_DAYS', 10),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Legacy site webhook
+    |--------------------------------------------------------------------------
+    |
+    | Before sites had their own cache-refresh webhook, the admin app sent it
+    | to one address from its env. The migration that added the per-site
+    | fields copies these into the default tenant's site; nothing else reads
+    | them.
+    |
+    */
+
+    'legacy_site' => [
+        'revalidate_url' => env('SITE_REVALIDATE_URL'),
+        'revalidate_secret' => env('REVALIDATE_SECRET'),
+    ],
 
 ];

@@ -6,7 +6,7 @@ PROD := -f compose.prod.yaml
 	test test-backend test-frontend test-admin lint typecheck \
 	build prod-build prod-up prod-down prod-logs prod-migrate \
 	shell-backend shell-frontend shell-admin artisan \
-	backup-dbmak restore-db
+	backup-db restore-db site-keys
 
 ## First-time setup: env files, dev images, database ready to use.
 setup:
@@ -17,6 +17,7 @@ setup:
 	docker compose up -d
 	$(MAKE) migrate
 	$(MAKE) seed
+	@echo "Put the site key into .env as NEXT_PUBLIC_SITE_KEY (make site-keys), then: docker compose up -d frontend"
 	@echo "Servio is up. Frontend: http://localhost:$${FRONTEND_PORT:-3000}  Admin: http://localhost:$${ADMIN_PORT:-3001}  API: http://localhost:$${API_PORT:-8080}/api/health"
 
 ## Start/stop the dev stack.
@@ -42,11 +43,17 @@ migrate:
 migrate-status:
 	docker compose exec backend php artisan migrate:status
 
+# Servio's catalog, posts and rates into the default business (local work).
 seed:
-	docker compose exec backend php artisan db:seed --force
+	docker compose exec backend php artisan db:seed --class=ServioDemoSeeder --force
 
 fresh:
-	docker compose exec backend php artisan migrate:fresh --seed --force
+	docker compose exec backend php artisan migrate:fresh --force
+	$(MAKE) seed
+
+## Connected sites with their X-Site-Key (the site's NEXT_PUBLIC_SITE_KEY).
+site-keys:
+	docker compose exec backend php artisan platform:site:list
 
 key-generate:
 	docker compose exec backend php artisan key:generate --show

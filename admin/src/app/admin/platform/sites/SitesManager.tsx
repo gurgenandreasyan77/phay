@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Copy, KeyRound } from "lucide-react";
+import { Check, Copy, KeyRound, RefreshCw } from "lucide-react";
 import type { AdminSiteDto, AdminTenantDto } from "@/lib/adminApi";
 import { Badge, Button, Card, EmptyCard, FieldLabel, FormStatus, Input, Select, Textarea } from "../../_components/ui";
 
@@ -47,6 +47,8 @@ function SiteCard({ site, onChanged }: { site: AdminSiteDto; onChanged: () => vo
   const [domain, setDomain] = useState(site.domain ?? "");
   const [origins, setOrigins] = useState(originsToText(site.allowedOrigins));
   const [isActive, setIsActive] = useState(site.isActive);
+  const [revalidateUrl, setRevalidateUrl] = useState(site.revalidateUrl ?? "");
+  const [revalidateSecret, setRevalidateSecret] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [rotating, setRotating] = useState(false);
 
@@ -54,6 +56,8 @@ function SiteCard({ site, onChanged }: { site: AdminSiteDto; onChanged: () => vo
     name !== site.name ||
     domain !== (site.domain ?? "") ||
     origins !== originsToText(site.allowedOrigins) ||
+    revalidateUrl !== (site.revalidateUrl ?? "") ||
+    revalidateSecret !== "" ||
     isActive !== site.isActive;
 
   async function save() {
@@ -66,11 +70,15 @@ function SiteCard({ site, onChanged }: { site: AdminSiteDto; onChanged: () => vo
           name: name.trim(),
           domain: domain.trim() || null,
           allowed_origins: textToOrigins(origins),
+          revalidate_url: revalidateUrl.trim() || null,
+          // Empty keeps the secret already set.
+          revalidate_secret: revalidateSecret,
           is_active: isActive,
         }),
       });
       setStatus(response.ok ? "saved" : "error");
       if (response.ok) {
+        setRevalidateSecret("");
         // Show the origins the way the API stored them (no trailing slash,
         // no duplicates), so the form isn't "dirty" right after saving.
         setOrigins(originsToText([...new Set(textToOrigins(origins))]));
@@ -151,9 +159,34 @@ function SiteCard({ site, onChanged }: { site: AdminSiteDto; onChanged: () => vo
           />
           <p className="text-xs text-ink-muted">
             Մեկ տողում մեկ հասցե։ Միայն այս հասցեներից բացված էջերը կարող են օգտագործել բանալին բրաուզերում
-            (օրինակ՝ հայտի ձևի համար)։ Դատարկ թողնելու դեպքում՝ ցանկացած հասցե։
+            (օրինակ՝ հայտի ձևի համար)։ Դատարկ թողնելու դեպքում թույլատրվում են դոմենը և նրա www տարբերակը։
           </p>
         </div>
+        <div className="space-y-1.5">
+          <FieldLabel>Քեշի թարմացման հասցե (webhook)</FieldLabel>
+          <Input
+            value={revalidateUrl}
+            onChange={(e) => setRevalidateUrl(e.target.value)}
+            placeholder="https://servio.am/api/revalidate"
+            disabled={status === "saving"}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <FieldLabel>Webhook-ի գաղտնաբառ</FieldLabel>
+          <Input
+            type="password"
+            autoComplete="new-password"
+            value={revalidateSecret}
+            onChange={(e) => setRevalidateSecret(e.target.value)}
+            placeholder={site.hasRevalidateSecret ? "Նշված է․ դատարկ թողեք՝ չփոխելու համար" : "Նվազագույնը 16 նիշ"}
+            disabled={status === "saving"}
+          />
+        </div>
+        <p className="text-xs text-ink-muted md:col-span-2">
+          Ադմինում փոփոխությունից հետո պլատֆորմը այս հասցեին ուղարկում է թարմացվող բաժինները, և կայքը միանգամից
+          ցույց է տալիս նոր տվյալները։ Գաղտնաբառը պետք է համընկնի կայքի <code className="font-mono">REVALIDATE_SECRET</code>-ի հետ։
+        </p>
+        <RevalidationCheck siteId={site.id} enabled={Boolean(site.revalidateUrl && site.hasRevalidateSecret)} />
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
@@ -176,6 +209,41 @@ function SiteCard({ site, onChanged }: { site: AdminSiteDto; onChanged: () => vo
   );
 }
 
+function RevalidationCheck({ siteId, enabled }: { siteId: number; enabled: boolean }) {
+  const [state, setState] = useState<"idle" | "checking" | "ok" | "failed">("idle");
+  const [detail, setDetail] = useState("");
+
+  async function check() {
+    setState("checking");
+    try {
+      const response = await fetch(`/api/admin/sites/${siteId}/check-revalidation`, { method: "POST" });
+      const body = (await response.json().catch(() => null)) as {
+        data?: { ok: boolean; status: number | null; error: string | null };
+      } | null;
+      const result = body?.data;
+      setState(result?.ok ? "ok" : "failed");
+      setDetail(result ? (result.status ? `HTTP ${result.status}` : (result.error ?? "")) : "");
+    } catch {
+      setState("failed");
+      setDetail("");
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 md:col-span-2">
+      <Button variant="secondary" size="sm" onClick={check} disabled={!enabled || state === "checking"}>
+        <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.75} />
+        Ստուգել webhook-ը
+      </Button>
+      {!enabled ? <span className="text-xs text-ink-muted">Նախ պահպանեք հասցեն և գաղտնաբառը։</span> : null}
+      {state === "ok" ? <span className="text-sm text-success">Կայքը ընդունեց թարմացումը։</span> : null}
+      {state === "failed" ? (
+        <span className="text-sm text-danger">Կայքը չընդունեց թարմացումը{detail ? ` (${detail})` : ""}։</span>
+      ) : null}
+    </div>
+  );
+}
+
 function ConnectInstructions({ siteKey }: { siteKey: string }) {
   const envLine = `NEXT_PUBLIC_SITE_KEY=${siteKey}`;
 
@@ -184,7 +252,7 @@ function ConnectInstructions({ siteKey }: { siteKey: string }) {
       <summary className="cursor-pointer font-medium text-ink">Ինչպես միացնել կայքը</summary>
       <div className="mt-3 space-y-3 text-ink-muted">
         <p>
-          <span className="font-medium text-ink">Servio-ի Next.js կայք։</span> Ավելացրեք այս տողը կայքի{" "}
+          <span className="font-medium text-ink">Next.js կայք։</span> Ավելացրեք այս տողը կայքի{" "}
           <code className="font-mono">.env</code> ֆայլում և վերագործարկեք կայքը (production-ում՝ նորից build արեք)։
         </p>
         <div className="flex items-center gap-2">

@@ -327,21 +327,6 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ??
   "http://localhost:8080/api/v1";
 
-// Cache tags of the public site (servio-front). The admin no longer shares a
-// Next.js cache with it, so after a write the route handlers ask the site to
-// drop these tags over HTTP — see src/lib/siteRevalidate.ts.
-export const SERVICE_CATEGORIES_TAG = "service-categories";
-export const SERVICES_TAG = "services";
-export const SERVICE_PACKAGES_TAG = "service-packages";
-export const SERVICE_GALLERY_TAG = "service-gallery";
-export const SERVICE_VIDEOS_TAG = "service-videos";
-export const ADDITIONAL_SERVICES_TAG = "additional-services";
-export const PRODUCTS_TAG = "products";
-export const PRODUCT_CATEGORIES_TAG = "product-categories";
-export const TASK_PAGES_TAG = "task-pages";
-export const CALCULATOR_SETTINGS_TAG = "calculator-settings";
-export const SITE_SETTINGS_TAG = "site-settings";
-
 // Active services from the public catalog, used to fill the service pickers
 // on the order/product/task-page forms. Not cached: the admin should always
 // see the current list.

@@ -15,6 +15,9 @@ class SiteResource extends JsonResource
             'domain' => $this->domain,
             'publicKey' => $this->public_key,
             'allowedOrigins' => $this->allowed_origins ?? [],
+            'revalidateUrl' => $this->revalidate_url,
+            // The secret is write-only: the admin only learns whether one is set.
+            'hasRevalidateSecret' => (bool) $this->revalidate_secret,
             'isActive' => $this->is_active,
             'tenant' => $this->whenLoaded('tenant', fn () => ['id' => $this->tenant->id, 'name' => $this->tenant->name]),
             'createdAt' => $this->created_at?->toIso8601String(),
