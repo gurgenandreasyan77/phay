@@ -6,7 +6,7 @@ import type { ServicePriceType, ServiceStatus } from "@/lib/api";
 import type { AdminServiceCategoryDto, AdminServiceDto, AdminTranslated } from "@/lib/adminApi";
 import { ImageUploadField } from "./ImageUploadField";
 import { TranslatedFields, emptyTranslated, toTranslated, fieldClasses, labelClasses } from "./shared";
-import { Badge, Button, EmptyCard } from "../_components/ui";
+import { Badge, Button, EmptyCard } from "@/ui";
 
 const STATUS_LABELS: Record<ServiceStatus, string> = {
   draft: "Սևագիր",

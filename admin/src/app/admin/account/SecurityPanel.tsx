@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AccountSecurityDto } from "@/lib/adminApi";
-import { Badge, Button, Card, Input, SectionCard, TableWrap, Td, Th, Thead, Tr } from "../_components/ui";
+import { Badge, Button, Card, Input, SectionCard, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { fieldError } from "../_components/auth/AuthCard";
 import { RecoveryCodes, TwoFactorSetup } from "../_components/auth/TwoFactorSetup";
 import { dateTime, deviceLabel } from "../_components/auth/format";

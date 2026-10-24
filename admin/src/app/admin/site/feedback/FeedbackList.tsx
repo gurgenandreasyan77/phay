@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FeedbackMessageDto } from "@/lib/adminApi";
 import { formatDateTime } from "../../_components/tables/shared";
-import { Badge, Card, buttonClasses } from "../../_components/ui";
+import { Badge, Card, buttonClasses } from "@/ui";
 
 export function FeedbackList({ items }: { items: FeedbackMessageDto[] }) {
   return (

@@ -703,7 +703,7 @@ export function ProductEditor({
       {tab === "relations" ? (
         <div className={sectionClasses}>
           <div className="space-y-1.5">
-            <p className={labelClasses}>Առնչվող Servio ծառայություններ</p>
+            <p className={labelClasses}>Առնչվող ծառայություններ</p>
             <div className="flex flex-wrap gap-2">
               {services.map((s) => (
                 <label

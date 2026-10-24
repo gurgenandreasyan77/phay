@@ -484,7 +484,7 @@ export type BusinessRole = "owner" | "admin" | "moderator";
 /** Sections a business role opens: orders (+ dashboard), catalog, settings, insights (analytics + AI). */
 export type BusinessPermission = "orders" | "catalog" | "settings" | "insights" | "expenses";
 
-/** Servio's own people: full rights, or onboarding only (no modules, no team). */
+/** Phay's own people: full rights, or onboarding only (no modules, no team). */
 export type PlatformRole = "super_admin" | "moderator";
 
 export type AdminTenantDto = {
@@ -550,7 +550,7 @@ export type AccountSecurityFlags = {
 /** A one-time link staff pass on (also emailed when mail works). */
 export type AccountLinkDto = { url: string; expiresAt: string; emailed: boolean };
 
-/** A member of Servio's platform team. */
+/** A member of Phay's platform team. */
 export type AdminPlatformUserDto = {
   id: number;
   name: string;

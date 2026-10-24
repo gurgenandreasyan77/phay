@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "../_components/ui";
+import { Button } from "@/ui";
 
 /** Adds the price calculator to the business's services, with starting rates to edit. */
 export function AddCalculatorButton() {

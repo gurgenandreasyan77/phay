@@ -91,7 +91,7 @@
       { "name": "The Border-Not-Shadow Rule", "body": "Resting surfaces (cards, tables, inputs) separate from the page with a 1px border. Shadow is reserved for things that float above content (menus, drawers), never for resting cards.", "section": "elevation" }
     ],
     "dos": [
-      "Do keep every color, radius, and spacing value as a CSS custom property in servio-admin/src/app/admin/admin.css, isolated from the public site's globals.css, so a tenant's brand color and a future dark theme can override them without touching component markup.",
+      "Do keep every color, radius, and spacing value as a CSS custom property in admin/src/app/admin/admin.css, isolated from the public site's globals.css, so a tenant's brand color and a future dark theme can override them without touching component markup.",
       "Do use the secondary button style for delete triggers; reserve solid danger-red for the moment inside a confirmation step.",
       "Do use badges (light tint + semantic text color) for every status value, never a raw colored <span>.",
       "Do render an unbuilt CRM module as a disabled, tagged sidebar row rather than omitting it or faking a working screen."

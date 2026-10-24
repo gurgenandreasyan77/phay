@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
-import { Button, Input } from "../_components/ui";
+import { Button, Input } from "@/ui";
 import { AuthCard, ErrorBox, errorClasses, fieldError, homeFor, labelClasses } from "../_components/auth/AuthCard";
 
 const schema = z.object({

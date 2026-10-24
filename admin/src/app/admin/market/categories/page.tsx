@@ -1,7 +1,7 @@
 import { requirePermission } from "@/lib/adminAuth";
 import { getProductCategoriesAdmin } from "@/lib/adminApi";
 import { CategoriesManager } from "./CategoriesManager";
-import { PageHeader } from "../../_components/ui";
+import { PageHeader } from "@/ui";
 
 export const dynamic = "force-dynamic";
 

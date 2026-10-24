@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireSuperAdmin } from "@/lib/adminAuth";
 import { getSecurityEvents } from "@/lib/adminApi";
-import { EmptyRow, Input, PageHeader, Select, TableWrap, Td, Th, Thead, Tr, buttonClasses, cn } from "../../_components/ui";
+import { EmptyRow, Input, PageHeader, Select, TableWrap, Td, Th, Thead, Tr, buttonClasses, cn } from "@/ui";
 import { dateTime, deviceLabel } from "../../_components/auth/format";
 
 export const dynamic = "force-dynamic";

@@ -13,7 +13,7 @@ import {
   type TableMetricDto,
   type TableStatisticsDto,
 } from "@/lib/adminApi";
-import { buttonClasses, Card, EmptyCard, EmptyRow, PageHeader, SectionCard, TableWrap, Td, Th, Thead, Tr, cn } from "../_components/ui";
+import { buttonClasses, Card, EmptyCard, EmptyRow, PageHeader, SectionCard, TableWrap, Td, Th, Thead, Tr, cn } from "@/ui";
 import { formatMetric, money, PeriodTabs, periodFrom, SOURCE_LABELS } from "../_components/analytics/format";
 import { BarChart, bucketTitle, dateBars } from "../_components/analytics/BarChart";
 import { DonutChart, type Slice } from "../_components/analytics/Charts";

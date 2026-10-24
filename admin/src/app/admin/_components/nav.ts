@@ -118,7 +118,7 @@ export const BUSINESS_NAV_GROUPS: NavGroup[] = [
       { href: "/admin/audit-log", label: "Գործողությունների մատյան", icon: History, soon: true },
       {
         href: "/admin/support",
-        label: "Կապ Servio-ի հետ",
+        label: "Կապ Phay-ի հետ",
         icon: MessageCircle,
         requires: "settings",
         businessOnly: true,

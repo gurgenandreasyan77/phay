@@ -57,7 +57,7 @@ export default function InvitePage() {
     );
   }
 
-  const where = invitation.platformRole ? "Servio պլատֆորմ" : invitation.businesses.join(", ");
+  const where = invitation.platformRole ? "Phay պլատֆորմ" : invitation.businesses.join(", ");
 
   return (
     <AuthCard

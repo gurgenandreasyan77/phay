@@ -13,7 +13,7 @@ import { AdditionalServicesManager } from "./AdditionalServicesManager";
 import { CalculatorSettingsForm } from "./CalculatorSettingsForm";
 import { ServiceCategoriesManager } from "./ServiceCategoriesManager";
 import { ServicesCatalog } from "./ServicesCatalog";
-import { PageHeader, SectionCard, buttonClasses } from "../_components/ui";
+import { PageHeader, SectionCard, buttonClasses } from "@/ui";
 
 export const dynamic = "force-dynamic";
 

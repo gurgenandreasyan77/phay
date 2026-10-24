@@ -1,5 +1,5 @@
 import type { LeadStatus } from "@/lib/adminApi";
-import type { BadgeTone } from "./ui";
+import type { BadgeTone } from "@/ui";
 
 export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
   new: "Նոր",

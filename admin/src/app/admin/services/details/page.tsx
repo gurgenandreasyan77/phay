@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requirePermission } from "@/lib/adminAuth";
 import { getFeatureFlagsAdmin, getServiceCategoriesAdmin, getServicesAdmin } from "@/lib/adminApi";
 import { ServicesManager } from "./ServicesManager";
-import { PageHeader, SectionCard, buttonClasses } from "../../_components/ui";
+import { PageHeader, SectionCard, buttonClasses } from "@/ui";
 
 export const dynamic = "force-dynamic";
 

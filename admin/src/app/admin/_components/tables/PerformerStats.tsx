@@ -2,7 +2,7 @@
 // per employee (the «Կատարող» column), shown on the orders and sales pages.
 import Link from "next/link";
 import type { EmployeeFiguresDto, EmployeeStatsDto, PeriodKind } from "@/lib/adminApi";
-import { cn, SectionCard, TableWrap, Td, Th, Thead, Tr } from "../ui";
+import { cn, SectionCard, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { formatMoney } from "./shared";
 import { PeriodNav } from "./PeriodNav";
 

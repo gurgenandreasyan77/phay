@@ -9,7 +9,7 @@ import type {
   AssistantPlanOfferDto,
   AssistantUsageDto,
 } from "@/lib/adminApi";
-import { Button, Card, cn, Textarea } from "../_components/ui";
+import { Button, Card, cn, Textarea } from "@/ui";
 import { AssistantHistory } from "./AssistantHistory";
 import { AssistantLimitReached, AssistantQuotaBar } from "./AssistantQuota";
 import { SUGGESTIONS } from "./suggestions";
@@ -40,13 +40,13 @@ const ERRORS: Record<string, string> = {
   limit_reached: "Այս ամսվա հարցերը սպառվել են։",
   unavailable: "AI օգնականը հիմա հասանելի չէ։ Փորձեք մեկ րոպեից։",
   // Set-up problems: the platform fixes them, the detail says what to fix.
-  invalid_key: "AI օգնականի բանալին սխալ է։ Դիմեք Servio-ի թիմին։",
-  no_credit: "AI ծառայության հաշվեկշիռը սպառվել է։ Դիմեք Servio-ի թիմին։",
-  bad_model: "Ընտրված AI մոդելը հասանելի չէ։ Դիմեք Servio-ի թիմին։",
-  forbidden: "AI ծառայությունը մերժեց հարցումը։ Դիմեք Servio-ի թիմին։",
+  invalid_key: "AI օգնականի բանալին սխալ է։ Դիմեք Phay-ի թիմին։",
+  no_credit: "AI ծառայության հաշվեկշիռը սպառվել է։ Դիմեք Phay-ի թիմին։",
+  bad_model: "Ընտրված AI մոդելը հասանելի չէ։ Դիմեք Phay-ի թիմին։",
+  forbidden: "AI ծառայությունը մերժեց հարցումը։ Դիմեք Phay-ի թիմին։",
   rate_limited: "Շատ հարցումներ են։ Փորձեք մեկ րոպեից։",
   network: "Սերվերը չի կարողանում կապվել AI ծառայության հետ։ Փորձեք մի փոքր ուշ։",
-  bad_request: "AI ծառայությունը մերժեց հարցումը։ Դիմեք Servio-ի թիմին։",
+  bad_request: "AI ծառայությունը մերժեց հարցումը։ Դիմեք Phay-ի թիմին։",
 };
 
 /** **bold** inside a line of the model's answer. */

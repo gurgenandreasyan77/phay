@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { Check, History, MessageSquare, Pencil, Plus, Trash2, X } from "lucide-react";
 import type { AssistantConversationDto } from "@/lib/adminApi";
-import { Button, Card, cn, Input } from "../_components/ui";
-import { ConfirmDialog } from "../_components/dialog/ConfirmDialog";
+import { Button, Card, cn, Input } from "@/ui";
+import { ConfirmDialog } from "@/ui/dialog/ConfirmDialog";
 import { timeAgo } from "../_components/header/notifications";
 
 /**

@@ -17,7 +17,7 @@ class VerificationCodeMail extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: "Servio: հաստատման կոդ {$this->code}");
+        return new Envelope(subject: "Phay: հաստատման կոդ {$this->code}");
     }
 
     public function content(): Content

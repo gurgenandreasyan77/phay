@@ -1,5 +1,5 @@
 import type { SubscriptionDto, SubscriptionStatus } from "@/lib/adminApi";
-import { Badge, type BadgeTone } from "../ui";
+import { Badge, type BadgeTone } from "@/ui";
 import { formatNumber } from "../tables/shared";
 
 export const STATUS_TONES: Record<SubscriptionStatus, BadgeTone> = {

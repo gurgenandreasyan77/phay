@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, FormStatus, Input } from "../_components/ui";
+import { Button, Card, FormStatus, Input } from "@/ui";
 
 const labelClasses = "text-sm font-medium text-ink";
 

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Upload } from "lucide-react";
 import type { AdminDataImportDto, AdminDataImportPreviewDto, AdminDataTableDto, DataTableSection } from "@/lib/adminApi";
-import { Badge, Button, buttonClasses, Card, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "../ui";
+import { Badge, Button, buttonClasses, Card, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { COLUMN_TYPE_LABELS, formatDateTime, roleLabels, tablePath, validationErrors } from "./shared";
 
 export const IMPORT_ACCEPT = ".csv,.tsv,.txt,.xlsx,.xml";

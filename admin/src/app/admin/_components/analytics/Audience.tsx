@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { AudienceDto, AudienceGroupDto } from "@/lib/adminApi";
 import { formatNumber, tablesPath } from "../tables/shared";
-import { Card, SectionCard } from "../ui";
+import { Card, SectionCard } from "@/ui";
 import { BarChart } from "./BarChart";
 import { DonutChart, RingStat, SampleFrame, type Slice } from "./Charts";
 import { money } from "./format";
@@ -107,7 +107,7 @@ export function AudienceSection({ audience }: { audience: AudienceDto | null }) 
                 <SampleFrame badge="Շուտով">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <SocialTile network="instagram" handle="@servio.am" followers={4820} followersChange={312} reach={18400} engagement={5.8} />
-                    <SocialTile network="facebook" handle="Servio" followers={2140} followersChange={64} reach={7300} engagement={3.1} />
+                    <SocialTile network="facebook" handle="mybusiness" followers={2140} followersChange={64} reach={7300} engagement={3.1} />
                   </div>
                 </SampleFrame>
                 <Hint>

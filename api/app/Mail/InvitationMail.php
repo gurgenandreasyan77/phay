@@ -18,7 +18,7 @@ class InvitationMail extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Հրավեր Servio ադմին վահանակ / Приглашение в Servio');
+        return new Envelope(subject: 'Հրավեր Phay ադմին վահանակ / Приглашение в Phay');
     }
 
     public function content(): Content

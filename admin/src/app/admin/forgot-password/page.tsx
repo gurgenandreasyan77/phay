@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Button, Input } from "../_components/ui";
+import { Button, Input } from "@/ui";
 import { AuthCard, ErrorBox, labelClasses } from "../_components/auth/AuthCard";
 
 /**
@@ -36,7 +36,7 @@ export default function ForgotPasswordPage() {
             Եթե <span className="font-medium">{email}</span> հասցեով մուտք կա, մենք ուղարկել ենք հղում նոր գաղտնաբառ
             ստեղծելու համար։ Հղումը գործում է 1 ժամ և միայն մեկ անգամ։
           </p>
-          <p className="text-ink-muted">Նամակ չե՞ք ստացել. ստուգեք «Սպամ» թղթապանակը կամ դիմեք Servio-ի ադմինիստրատորին։</p>
+          <p className="text-ink-muted">Նամակ չե՞ք ստացել. ստուգեք «Սպամ» թղթապանակը կամ դիմեք Phay-ի ադմինիստրատորին։</p>
           <Link href="/admin/login" className="text-primary hover:underline">
             Վերադառնալ մուտքի էջ
           </Link>

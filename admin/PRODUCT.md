@@ -36,7 +36,7 @@ None tied to a single business — Servio's current teal accent is explicitly be
 
 ## Evidence on Hand
 
-Existing implementation: `servio-admin/src/app/admin/**` (Next.js App Router, Tailwind, tokens in `src/app/admin/admin.css`). Backend: `servio-back/app/Http/Controllers/Api/V1/Admin/*`. Treated as functional/content authority; visual styling is being replaced, not preserved.
+Existing implementation: `admin/src/app/admin/**` (Next.js App Router, Tailwind, tokens in `src/app/admin/admin.css`). Backend: `api/app/Http/Controllers/Api/V1/Admin/*`. Treated as functional/content authority; visual styling is being replaced, not preserved.
 
 ## Product Principles
 

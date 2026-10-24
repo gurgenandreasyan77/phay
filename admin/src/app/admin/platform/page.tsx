@@ -2,7 +2,7 @@ import { requirePlatformStaff } from "@/lib/adminAuth";
 import { getTenantsAdmin } from "@/lib/adminApi";
 import { isSuperAdmin } from "@/lib/roles";
 import { BusinessesManager } from "./BusinessesManager";
-import { PageHeader } from "../_components/ui";
+import { PageHeader } from "@/ui";
 
 export const dynamic = "force-dynamic";
 

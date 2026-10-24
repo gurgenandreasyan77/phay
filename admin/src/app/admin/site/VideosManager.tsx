@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { AdminServiceDto, AdminServiceVideoDto, AdminTranslated, SiteVideoKind } from "@/lib/adminApi";
 import { TranslatedFields, emptyTranslated, toTranslated, fieldClasses, labelClasses } from "../services/shared";
 import { ImageUploadField } from "../services/ImageUploadField";
-import { Badge, buttonClasses } from "../_components/ui";
+import { Badge, buttonClasses } from "@/ui";
 
 export const VIDEO_KIND_LABELS: Record<SiteVideoKind, string> = {
   before_after: "Մինչև/հետո",

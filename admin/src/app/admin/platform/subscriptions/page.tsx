@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireSuperAdmin } from "@/lib/adminAuth";
 import { getSubscriptionsAdmin, type SubscriptionStatus } from "@/lib/adminApi";
 import { BusinessLogo } from "../../_components/BusinessLogo";
-import { EmptyRow, PageHeader, TableWrap, Td, Th, Thead, Tr, cn } from "../../_components/ui";
+import { EmptyRow, PageHeader, TableWrap, Td, Th, Thead, Tr, cn } from "@/ui";
 import { STATUS_LABELS, StatusBadge, amd, formatDay, subscriptionLine } from "../../_components/subscription/shared";
 
 export const dynamic = "force-dynamic";

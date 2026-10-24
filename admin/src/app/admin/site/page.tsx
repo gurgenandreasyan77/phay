@@ -16,7 +16,7 @@ import { BusinessProfileForm } from "../settings/BusinessProfileForm";
 import { ContactChannelsManager } from "../settings/ContactChannelsManager";
 import { GalleryManager } from "./GalleryManager";
 import { VideosManager } from "./VideosManager";
-import { Card, PageHeader, SectionCard, buttonClasses } from "../_components/ui";
+import { Card, PageHeader, SectionCard, buttonClasses } from "@/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +80,7 @@ export default async function AdminSitePage() {
 
       {settings ? (
         <>
-          <SectionCard title="Լոգո և անվանում" description="Երևում են կայքում, ադմին վահանակում և Servio-ի թիմին։">
+          <SectionCard title="Լոգո և անվանում" description="Երևում են կայքում, ադմին վահանակում և Phay-ի թիմին։">
             <BusinessProfileForm key={`${business.name}|${business.logo}`} name={business.name} logo={business.logo} />
           </SectionCard>
 

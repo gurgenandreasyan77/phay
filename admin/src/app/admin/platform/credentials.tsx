@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { AccountLinkDto, AccountSecurityFlags } from "@/lib/adminApi";
-import { Badge, Button } from "../_components/ui";
+import { Badge, Button } from "@/ui";
 import { dateTime } from "../_components/auth/format";
 
 /** A one-time link just made for someone, with who it is for. */
@@ -15,7 +15,7 @@ export type AccountLink = AccountLinkDto & { kind: "invitation" | "reset"; name?
  */
 export function LinkNotice({ link, onDismiss }: { link: AccountLink; onDismiss: () => void }) {
   const [copied, setCopied] = useState(false);
-  const what = link.kind === "invitation" ? "Հրավեր Servio ադմին վահանակ" : "Գաղտնաբառի վերականգնում Servio ադմին վահանակում";
+  const what = link.kind === "invitation" ? "Հրավեր Phay ադմին վահանակ" : "Գաղտնաբառի վերականգնում Phay ադմին վահանակում";
   const action = link.kind === "invitation" ? "ստեղծեք ձեր գաղտնաբառը" : "ստեղծեք նոր գաղտնաբառ";
   const text = [
     `${what}${link.name ? `՝ ${link.name}` : ""}`,

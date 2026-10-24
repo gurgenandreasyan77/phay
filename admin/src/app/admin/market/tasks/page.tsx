@@ -2,7 +2,7 @@ import { requirePermission } from "@/lib/adminAuth";
 import { getTaskPagesAdmin, getProductsAdmin } from "@/lib/adminApi";
 import { getServices } from "@/lib/api";
 import { TaskPagesManager } from "./TaskPagesManager";
-import { PageHeader } from "../../_components/ui";
+import { PageHeader } from "@/ui";
 
 export const dynamic = "force-dynamic";
 

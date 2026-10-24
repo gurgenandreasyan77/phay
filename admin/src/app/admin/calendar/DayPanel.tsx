@@ -5,13 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ExternalLink, MapPin, Phone, Plus, ShoppingBag, Trash2, Wrench } from "lucide-react";
 import type { AdminDataTableDto, CalendarGoogleEventDto, CalendarLeadDto } from "@/lib/adminApi";
-import { Badge, Button, buttonClasses, Card, cn, FieldLabel, Select } from "../_components/ui";
+import { Badge, Button, buttonClasses, Card, cn, FieldLabel, Select } from "@/ui";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_TONES } from "../_components/leadStatus";
 import { CellInput, fromDraft, toDraft, type Draft } from "../_components/tables/RowsGrid";
 import { formatMoney, SECTIONS, tablePath, validationErrors } from "../_components/tables/shared";
 import { contains, filingLabel, isDate, periodOf } from "../_components/tables/periods";
-import { ConfirmDialog } from "../_components/dialog/ConfirmDialog";
-import { DialogClose } from "../_components/dialog/Dialog";
+import { ConfirmDialog } from "@/ui/dialog/ConfirmDialog";
+import { DialogClose } from "@/ui/dialog/Dialog";
 import { GOOGLE_DOT, markShape, type CalendarEntry } from "./entries";
 import styles from "./calendar.module.css";
 

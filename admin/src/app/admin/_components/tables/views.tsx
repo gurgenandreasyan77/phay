@@ -16,7 +16,7 @@ import {
   type DataTableSection,
   type PeriodKind,
 } from "@/lib/adminApi";
-import { buttonClasses, Card, EmptyCard, PageHeader } from "../ui";
+import { buttonClasses, Card, EmptyCard, PageHeader } from "@/ui";
 import { RowsGrid } from "./RowsGrid";
 import { TablesList } from "./TablesList";
 import { ImportWizard } from "./ImportWizard";

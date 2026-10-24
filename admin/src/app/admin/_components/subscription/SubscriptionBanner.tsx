@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AlertTriangle, Lock } from "lucide-react";
 import type { SubscriptionSummaryDto } from "@/lib/adminApi";
-import { cn } from "../ui";
+import { cn } from "@/ui";
 import { daysLeftLabel, formatDay } from "./shared";
 
 /**

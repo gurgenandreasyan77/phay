@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { LeadStatus } from "@/lib/adminApi";
-import { Select } from "../../_components/ui";
+import { Select } from "@/ui";
 
 export function OrderStatusSelect({
   leadId,

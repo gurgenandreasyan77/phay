@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePermission } from "@/lib/adminAuth";
 import { getFeatureFlagsAdmin } from "@/lib/adminApi";
-import { PageHeader, buttonClasses } from "../../../_components/ui";
+import { PageHeader, buttonClasses } from "@/ui";
 import { PostEditor } from "../PostEditor";
 
 export const dynamic = "force-dynamic";

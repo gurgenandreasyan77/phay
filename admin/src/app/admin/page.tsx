@@ -13,7 +13,7 @@ import { bucketLabel, bucketTitle, weekdayShort } from "./_components/analytics/
 import { HBars, RingStat } from "./_components/analytics/Charts";
 import { formatMoment, formatMoney, formatNumber, SECTIONS, tablePath, tablesPath } from "./_components/tables/shared";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_TONES } from "./_components/leadStatus";
-import { Badge, buttonClasses, Card, cn, EmptyCard, EmptyRow, PageHeader, TableWrap, Th, Thead, Td, Tr } from "./_components/ui";
+import { Badge, buttonClasses, Card, cn, EmptyCard, EmptyRow, PageHeader, TableWrap, Th, Thead, Td, Tr } from "@/ui";
 
 export const dynamic = "force-dynamic";
 

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requirePermission } from "@/lib/adminAuth";
 import { getExpenseCategories, getExpenseStatistics, getRecurringExpenses } from "@/lib/adminApi";
 import { TablesListView } from "../_components/tables/views";
-import { Card, cn, SectionCard } from "../_components/ui";
+import { Card, cn, SectionCard } from "@/ui";
 import { money } from "../_components/analytics/format";
 import { FinanceCategories } from "../_components/finance/Finance";
 import { CategoriesManager } from "./CategoriesManager";

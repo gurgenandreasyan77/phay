@@ -15,7 +15,7 @@ import {
   labelClasses,
 } from "../shared";
 import { ImageUploadField } from "../ImageUploadField";
-import { Badge, buttonClasses } from "../../_components/ui";
+import { Badge, buttonClasses } from "@/ui";
 
 const STATUS_LABELS: Record<ServiceStatus, string> = {
   draft: "Սևագիր (չհրապարակված)",

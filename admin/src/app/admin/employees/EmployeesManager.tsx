@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FolderPlus, Pencil, Trash2, UserPlus } from "lucide-react";
 import type { AdminEmployeeDto, AdminEmployeeGroupDto } from "@/lib/adminApi";
-import { Badge, Button, Card, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "../_components/ui";
+import { Badge, Button, Card, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { validationErrors } from "../_components/tables/shared";
 
 type Draft = { name: string; position: string; phone: string; groupId: string };

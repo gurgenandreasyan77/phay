@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Input } from "../ui";
+import { Button, Input } from "@/ui";
 import { PASSWORD_HINT, errorClasses, labelClasses, passwordProblem, passwordServerError } from "./AuthCard";
 
 /**

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { CalendarClock, Crown, Gift, Sparkles } from "lucide-react";
 import type { AssistantPlanOfferDto, AssistantUsageDto } from "@/lib/adminApi";
-import { Card, cn } from "../_components/ui";
+import { Card, cn } from "@/ui";
 import { amd, formatDay } from "../_components/subscription/shared";
 import { formatNumber } from "../_components/tables/shared";
 import { RequestButton } from "../subscription/RequestButton";
@@ -105,7 +105,7 @@ export function AssistantLimitReached({
                   primary
                   confirm={{
                     title: `Անցնե՞լ «${plan.name}» փաթեթին`,
-                    description: "Հայտը կուղարկվի Servio-ի թիմին. փաթեթը փոխելուց հետո նոր սահմանաչափը կգործի անմիջապես։",
+                    description: "Հայտը կուղարկվի Phay-ի թիմին. փաթեթը փոխելուց հետո նոր սահմանաչափը կգործի անմիջապես։",
                     details: [
                       { label: "Ամսական վճար", value: amd(plan.price) },
                       {
@@ -131,7 +131,7 @@ export function AssistantLimitReached({
               primary
               confirm={{
                 title: "Տեղեկացնե՞լ ձեզ Պրեմիումի մասին",
-                description: "Հայտը կուղարկվի Servio-ի թիմին. Պրեմիումում AI հարցերը շատ ավելի են։",
+                description: "Հայտը կուղարկվի Phay-ի թիմին. Պրեմիումում AI հարցերը շատ ավելի են։",
                 confirmLabel: "Այո, ուղարկել",
               }}
             />
@@ -141,7 +141,7 @@ export function AssistantLimitReached({
             label="Խնդրել լրացուցիչ հարցեր"
             confirm={{
               title: "Խնդրե՞լ լրացուցիչ հարցեր",
-              description: "Հայտը կուղարկվի Servio-ի թիմին, որը չատում կպատասխանի։",
+              description: "Հայտը կուղարկվի Phay-ի թիմին, որը չատում կպատասխանի։",
               confirmLabel: "Այո, ուղարկել",
             }}
           />

@@ -4,11 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AccountLinkDto, AdminPlatformUserDto, PlatformRole } from "@/lib/adminApi";
 import { PLATFORM_ROLE_HINTS, PLATFORM_ROLE_LABELS, PLATFORM_ROLES } from "@/lib/roles";
-import { Badge, Button, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "../../_components/ui";
+import { Badge, Button, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { AccountActions, AccountBadges, CopyLoginButton, LinkNotice, type AccountLink } from "../credentials";
 
 /**
- * Servio's own people: super admins and platform moderators (super admin
+ * Phay's own people: super admins and platform moderators (super admin
  * only). Each gets an invitation link, sets their own password and must set
  * up 2FA before the platform opens.
  */

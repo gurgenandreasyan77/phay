@@ -46,7 +46,7 @@ class VerificationCodes
 
         match ($purpose) {
             VerificationPurpose::Email => Mail::to($destination)->send(new VerificationCodeMail($user, $code)),
-            VerificationPurpose::Phone => $this->sms->send($destination, "Servio: հաստատման կոդը՝ {$code}։ Մի փոխանցեք այն ոչ ոքի։"),
+            VerificationPurpose::Phone => $this->sms->send($destination, "Phay: հաստատման կոդը՝ {$code}։ Մի փոխանցեք այն ոչ ոքի։"),
         };
     }
 

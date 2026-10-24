@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requirePermission } from "@/lib/adminAuth";
 import { getProductsAdmin } from "@/lib/adminApi";
 import { ProductsList } from "./ProductsList";
-import { PageHeader, buttonClasses } from "../_components/ui";
+import { PageHeader, buttonClasses } from "@/ui";
 
 export const dynamic = "force-dynamic";
 

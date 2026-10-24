@@ -3,10 +3,10 @@ import "./admin.css";
 import { getFeatureFlagsAdmin, getMe } from "@/lib/adminApi";
 import { AdminShell } from "./_components/AdminShell";
 
-// The admin is its own Next.js app (separate from the public site in
-// servio-front), so this is the root layout and owns <html>/<body>.
+// The admin is its own Next.js app, so this is the root layout and owns
+// <html>/<body>.
 export const metadata: Metadata = {
-  title: "Servio ադմին",
+  title: "Phay ադմին",
   robots: { index: false, follow: false },
 };
 

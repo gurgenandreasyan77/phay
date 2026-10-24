@@ -17,7 +17,7 @@ import {
   Th,
   Thead,
   Tr,
-} from "../_components/ui";
+} from "@/ui";
 import { AccountActions, AccountBadges, CopyLoginButton, LinkNotice, type AccountLink } from "./credentials";
 
 async function fetchLogins(tenantId: number): Promise<AdminTenantUserDto[] | null> {

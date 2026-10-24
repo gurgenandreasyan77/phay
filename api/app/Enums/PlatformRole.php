@@ -3,7 +3,7 @@
 namespace App\Enums;
 
 /**
- * Platform staff (Servio's own people), stored as users.is_super_admin /
+ * Platform staff (Phay's own people), stored as users.is_super_admin /
  * users.is_platform_moderator.
  *
  * - super_admin: everything, including modules of a business and the

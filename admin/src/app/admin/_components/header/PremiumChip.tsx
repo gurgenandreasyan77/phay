@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Crown } from "lucide-react";
 import { useEffect, useState } from "react";
-import { cn } from "../ui";
+import { cn } from "@/ui";
 import styles from "./premium.module.css";
 
 /** What premium gives, one line each, in turn. */

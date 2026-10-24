@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ConfirmDialog, type ConfirmContent } from "../_components/dialog/ConfirmDialog";
-import { Button, cn } from "../_components/ui";
+import { ConfirmDialog, type ConfirmContent } from "@/ui/dialog/ConfirmDialog";
+import { Button, cn } from "@/ui";
 
 type RequestBody =
   | { kind: "renew" }
@@ -63,7 +63,7 @@ export function RequestButton({
   if (state === "sent") {
     return (
       <p className={cn("text-sm", onDark ? "text-[#9fd8c2]" : "text-success")}>
-        Հայտը ուղարկված է։ Servio-ի թիմը կպատասխանի{" "}
+        Հայտը ուղարկված է։ Phay-ի թիմը կպատասխանի{" "}
         <Link href="/admin/support" className="font-medium underline underline-offset-2">
           չատում
         </Link>

@@ -127,7 +127,7 @@ class SecureAuthTest extends TestCase
             ->assertUnprocessable()->assertJsonValidationErrors('password');
         $secret = $this->asBearer($token, 'POST', '/api/v1/admin/security/two-factor', ['password' => self::PASSWORD])
             ->assertOk()
-            ->assertJson(fn ($json) => $json->where('data.otpauthUrl', fn ($url) => str_starts_with($url, 'otpauth://totp/Servio:'))->etc())
+            ->assertJson(fn ($json) => $json->where('data.otpauthUrl', fn ($url) => str_starts_with($url, 'otpauth://totp/Phay:'))->etc())
             ->json('data.secret');
 
         $this->asBearer($token, 'POST', '/api/v1/admin/security/two-factor/confirm', ['code' => '123456'])->assertUnprocessable();

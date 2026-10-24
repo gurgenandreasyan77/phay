@@ -113,7 +113,7 @@ class User extends Authenticatable
             || $this->tenants()->whereKey($tenant->getKey())->exists();
     }
 
-    /** Servio's own people: the super admin and platform moderators. */
+    /** Phay's own people: the super admin and platform moderators. */
     public function isPlatformStaff(): bool
     {
         return $this->platformRole() !== null;
