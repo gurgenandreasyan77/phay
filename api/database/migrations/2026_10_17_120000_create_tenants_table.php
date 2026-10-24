@@ -25,7 +25,7 @@ return new class extends Migration
         // (see config/platform.php). Created even on an empty database so
         // a fresh install and the test suite always have it.
         DB::table('tenants')->insert([
-            'name' => 'Servio',
+            'name' => 'Phay',
             'slug' => config('platform.default_tenant'),
             'default_locale' => 'hy',
             'locales' => json_encode(['hy', 'ru', 'en']),

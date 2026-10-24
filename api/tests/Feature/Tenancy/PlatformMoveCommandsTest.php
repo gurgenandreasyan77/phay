@@ -28,33 +28,34 @@ class PlatformMoveCommandsTest extends TestCase
     public function test_rehost_rewrites_plain_json_and_html_columns_and_leaves_other_hosts(): void
     {
         $tenant = Tenant::default();
-        $tenant->update(['logo' => 'https://servio.am/storage/logos/a.png']);
+        $tenant->update(['logo' => 'https://old.example.am/storage/logos/a.png']);
+        $tenant->sites()->sole()->update(['domain' => 'old.example.am']);
         $post = Post::query()->create([
             'slug' => 'tips',
             'category' => 'cleaning-tips',
             'status' => 'published',
             'title' => ['hy' => 'Խորհուրդ', 'ru' => 'Совет', 'en' => 'Tip'],
             'excerpt' => ['hy' => 'a', 'ru' => 'a', 'en' => 'a'],
-            'content' => ['hy' => '<img src="https://servio.am/storage/p/1.jpg">', 'ru' => '<p>https://cdn.example/x.jpg</p>', 'en' => 'b'],
+            'content' => ['hy' => '<img src="https://old.example.am/storage/p/1.jpg">', 'ru' => '<p>https://cdn.example/x.jpg</p>', 'en' => 'b'],
             'published_at' => now(),
         ]);
 
-        $this->artisan('platform:media:rehost', ['from' => 'https://servio.am', 'to' => 'https://api.phay.am', '--dry-run' => true])
+        $this->artisan('platform:media:rehost', ['from' => 'https://old.example.am', 'to' => 'https://api.phay.am', '--dry-run' => true])
             ->expectsOutputToContain('Dry run')
             ->assertSuccessful();
-        $this->assertSame('https://servio.am/storage/logos/a.png', $tenant->fresh()->logo);
+        $this->assertSame('https://old.example.am/storage/logos/a.png', $tenant->fresh()->logo);
 
-        $this->artisan('platform:media:rehost', ['from' => 'https://servio.am/', 'to' => 'https://api.phay.am'])->assertSuccessful();
+        $this->artisan('platform:media:rehost', ['from' => 'https://old.example.am/', 'to' => 'https://api.phay.am'])->assertSuccessful();
 
         $this->assertSame('https://api.phay.am/storage/logos/a.png', $tenant->fresh()->logo);
         $this->assertSame('<img src="https://api.phay.am/storage/p/1.jpg">', $post->fresh()->content['hy']);
         $this->assertSame('<p>https://cdn.example/x.jpg</p>', $post->fresh()->content['ru']);
         // Site domains are names, not URLs: untouched.
-        $this->assertSame('servio.am', Site::query()->where('tenant_id', $tenant->id)->value('domain'));
+        $this->assertSame('old.example.am', Site::query()->where('tenant_id', $tenant->id)->value('domain'));
     }
 
     public function test_rehost_refuses_nonsense(): void
     {
-        $this->artisan('platform:media:rehost', ['from' => 'servio.am', 'to' => 'https://api.phay.am'])->assertFailed();
+        $this->artisan('platform:media:rehost', ['from' => 'old.example.am', 'to' => 'https://api.phay.am'])->assertFailed();
     }
 }

@@ -78,8 +78,8 @@ class SiteConnectionTest extends TestCase
         app(SiteRevalidator::class)->flush();
 
         Tenant::default()->sites()->sole()->update([
-            'revalidate_url' => 'https://servio.test/api/revalidate',
-            'revalidate_secret' => 'servio-secret-0123456789',
+            'revalidate_url' => 'https://site.test/api/revalidate',
+            'revalidate_secret' => 'site-secret-0123456789',
         ]);
         $shopSite->update([
             'revalidate_url' => 'https://shop.test/api/revalidate',
@@ -90,8 +90,8 @@ class SiteConnectionTest extends TestCase
         $this->patchJson("/api/v1/admin/service-categories/{$category->id}", ['sort_order' => 2])->assertOk();
 
         Http::assertSentCount(1);
-        Http::assertSent(fn (HttpRequest $request) => $request->url() === 'https://servio.test/api/revalidate'
-            && $request->header('X-Revalidate-Secret') === ['servio-secret-0123456789']
+        Http::assertSent(fn (HttpRequest $request) => $request->url() === 'https://site.test/api/revalidate'
+            && $request->header('X-Revalidate-Secret') === ['site-secret-0123456789']
             && $request['tags'] === ['service-categories', 'services']);
     }
 
@@ -101,45 +101,45 @@ class SiteConnectionTest extends TestCase
         app(SiteRevalidator::class)->flush();
         Sanctum::actingAs(User::factory()->create());
 
-        $this->putJson('/api/v1/admin/settings', ['name' => 'Servio'])->assertOk();
+        $this->putJson('/api/v1/admin/settings', ['name' => 'Phay'])->assertOk();
         Http::assertNothingSent();
 
         Tenant::default()->sites()->sole()->update([
-            'revalidate_url' => 'https://servio.test/api/revalidate',
-            'revalidate_secret' => 'servio-secret-0123456789',
+            'revalidate_url' => 'https://site.test/api/revalidate',
+            'revalidate_secret' => 'site-secret-0123456789',
         ]);
 
-        $this->putJson('/api/v1/admin/settings', ['name' => 'Servio'])->assertOk();
+        $this->putJson('/api/v1/admin/settings', ['name' => 'Phay'])->assertOk();
         Http::assertSentCount(1);
     }
 
     public function test_the_webhook_secret_is_encrypted_write_only_and_can_be_checked(): void
     {
-        Http::fake(['servio.test/*' => Http::response(['data' => ['revalidated' => ['site-settings']]])]);
+        Http::fake(['site.test/*' => Http::response(['data' => ['revalidated' => ['site-settings']]])]);
         $this->superAdmin();
         $site = Tenant::default()->sites()->sole();
 
         $this->postJson("/api/v1/admin/sites/{$site->id}/check-revalidation")->assertUnprocessable();
 
         $this->patchJson("/api/v1/admin/sites/{$site->id}", [
-            'revalidate_url' => 'https://servio.test/api/revalidate',
+            'revalidate_url' => 'https://site.test/api/revalidate',
             'revalidate_secret' => 'short',
         ])->assertUnprocessable()->assertJsonValidationErrors('revalidate_secret');
 
         $this->patchJson("/api/v1/admin/sites/{$site->id}", [
-            'revalidate_url' => 'https://servio.test/api/revalidate',
-            'revalidate_secret' => 'servio-secret-0123456789',
+            'revalidate_url' => 'https://site.test/api/revalidate',
+            'revalidate_secret' => 'site-secret-0123456789',
         ])->assertOk()
-            ->assertJsonPath('data.revalidateUrl', 'https://servio.test/api/revalidate')
+            ->assertJsonPath('data.revalidateUrl', 'https://site.test/api/revalidate')
             ->assertJsonPath('data.hasRevalidateSecret', true)
             ->assertJsonMissingPath('data.revalidateSecret');
 
         $stored = DB::table('sites')->where('id', $site->id)->value('revalidate_secret');
-        $this->assertNotSame('servio-secret-0123456789', $stored);
+        $this->assertNotSame('site-secret-0123456789', $stored);
 
         // An empty secret on a later save keeps the one already set.
         $this->patchJson("/api/v1/admin/sites/{$site->id}", ['revalidate_secret' => ''])->assertOk();
-        $this->assertSame('servio-secret-0123456789', $site->fresh()->revalidate_secret);
+        $this->assertSame('site-secret-0123456789', $site->fresh()->revalidate_secret);
 
         $this->postJson("/api/v1/admin/sites/{$site->id}/check-revalidation")
             ->assertOk()

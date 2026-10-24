@@ -42,7 +42,7 @@ class SubscriptionsTest extends TestCase
         return SupportMessage::withoutTenancy()->where('tenant_id', $this->shop->id)->orderBy('id')->pluck('body')->all();
     }
 
-    public function test_a_new_business_starts_a_trial_on_the_default_plan_and_servio_is_unlimited(): void
+    public function test_a_new_business_starts_a_trial_on_the_default_plan_and_the_default_business_is_unlimited(): void
     {
         Sanctum::actingAs($this->owner);
 
@@ -126,7 +126,7 @@ class SubscriptionsTest extends TestCase
         Plan::query()->create(['name' => 'Բիզնես', 'price' => 19900, 'trial_days' => 0, 'included_modules' => [], 'is_active' => true]);
         $this->getJson('/api/v1/admin/me')->assertJsonPath('data.subscription.premium', false);
 
-        // Servio itself never sees the invitation.
+        // The default business never sees the invitation.
         $this->assertTrue(app(Subscriptions::class)->isPremium(app(Subscriptions::class)->for(Tenant::default())));
     }
 

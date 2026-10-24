@@ -1,6 +1,6 @@
 // Server-only. Public-API DTOs the admin reuses (enums, ServiceDto for the
-// service pickers). The Servio site keeps its own copy in its repository:
-// keep the two in sync until both share a generated client.
+// service pickers). Business sites keep their own copy in their repositories:
+// keep them in sync until they share a generated client.
 
 export type Translated = string;
 

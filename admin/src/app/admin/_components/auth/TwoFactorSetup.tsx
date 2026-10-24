@@ -131,7 +131,7 @@ export function RecoveryCodes({ codes, onDone, doneLabel }: { codes: string[]; o
     const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
     const link = document.createElement("a");
     link.href = url;
-    link.download = "servio-recovery-codes.txt";
+    link.download = "phay-recovery-codes.txt";
     link.click();
     URL.revokeObjectURL(url);
   }

@@ -1,7 +1,7 @@
 name: ${COMPOSE_PROJECT_NAME:-phay}
 
 # Phay LOCAL stack (make local-*): the API (php-fpm + nginx), the admin app and Postgres.
-# Sites of the businesses (servio.am and others) are separate projects that
+# Sites of the businesses are separate projects that
 # call this API with their X-Site-Key; nothing of them runs here.
 
 networks:
@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./api:/var/www/html
-    # Sites run as their own projects on the host (e.g. servio on :3000);
+    # Sites run as their own projects on the host (e.g. one on :3000);
     # their cache-refresh webhook is reached through the host. Docker Desktop
     # (Mac) has this name already; Linux needs the mapping.
     extra_hosts:
@@ -53,7 +53,7 @@ services:
       APP_DEBUG: "true"
       APP_URL: http://localhost:${API_PORT:-8080}
       ADMIN_URL: http://localhost:${ADMIN_PORT:-3001}
-      # The admin app and the local Servio site; every connected site's own
+      # The admin app and a local site on :3000; every connected site's own
       # origins are added from Platform → Sites.
       CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:${ADMIN_PORT:-3001}
       DB_CONNECTION: pgsql

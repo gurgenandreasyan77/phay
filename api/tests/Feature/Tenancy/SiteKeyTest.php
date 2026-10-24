@@ -20,7 +20,7 @@ class SiteKeyTest extends TestCase
 {
     use RefreshDatabase, TenancyTestHelpers;
 
-    private Tenant $servio;
+    private Tenant $main;
 
     private Tenant $shop;
 
@@ -30,11 +30,11 @@ class SiteKeyTest extends TestCase
     {
         parent::setUp();
 
-        $this->servio = Tenant::default();
+        $this->main = Tenant::default();
         $this->shop = $this->withServices($this->createTenant('test-shop'));
         $this->shopKey = $this->createSite($this->shop)->public_key;
 
-        $this->createService('sofa-cleaning', 'Servio sofa');
+        $this->createService('sofa-cleaning', 'Main sofa');
         $this->asTenant($this->shop, fn () => $this->createService('sofa-cleaning', 'Shop sofa'));
     }
 
@@ -44,7 +44,7 @@ class SiteKeyTest extends TestCase
         $this->getJson('/api/v1/services?lang=en')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.name', 'Servio sofa');
+            ->assertJsonPath('data.0.name', 'Main sofa');
     }
 
     public function test_without_a_key_nothing_is_served(): void
@@ -68,7 +68,7 @@ class SiteKeyTest extends TestCase
     {
         $this->getJson('/api/v1/services/sofa-cleaning?lang=en')
             ->assertOk()
-            ->assertJsonPath('data.name', 'Servio sofa');
+            ->assertJsonPath('data.name', 'Main sofa');
 
         $this->getJson('/api/v1/services/sofa-cleaning?lang=en', ['X-Site-Key' => $this->shopKey])
             ->assertOk()
@@ -170,6 +170,6 @@ class SiteKeyTest extends TestCase
     {
         $this->getJson('/api/v1/services', ['X-Site-Key' => $this->shopKey])->assertOk();
 
-        $this->assertSame($this->servio->id, app(TenantContext::class)->id());
+        $this->assertSame($this->main->id, app(TenantContext::class)->id());
     }
 }

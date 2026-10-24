@@ -24,7 +24,7 @@ use InvalidArgumentException;
  * business that paid on the 17th gets new requests on the 17th. Bonus
  * requests the super admin gives by hand don't expire: they are spent once
  * the plan's requests of a month run out. An unlimited subscription
- * (Servio itself) has no limit.
+ * (the default business) has no limit.
  *
  * Usage rows are always looked up by tenant_id, so the platform level can
  * read any business's quota.

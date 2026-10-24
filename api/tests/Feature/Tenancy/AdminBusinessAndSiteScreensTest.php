@@ -28,7 +28,7 @@ class AdminBusinessAndSiteScreensTest extends TestCase
 
         $this->getJson('/api/v1/admin/me')
             ->assertOk()
-            ->assertJsonPath('data.currentTenant.slug', 'servio')
+            ->assertJsonPath('data.currentTenant.slug', 'phay')
             ->assertJsonCount(1, 'data.tenants')
             ->assertJsonPath('data.tenants.0.role', 'owner');
 
@@ -87,7 +87,7 @@ class AdminBusinessAndSiteScreensTest extends TestCase
         $this->getJson('/api/v1/admin/tenants')
             ->assertOk()
             ->assertJsonCount(2, 'data')
-            ->assertJsonPath('data.0.slug', 'servio')
+            ->assertJsonPath('data.0.slug', 'phay')
             ->assertJsonPath('data.0.sitesCount', 1)
             ->assertJsonPath('data.0.usersCount', 1);
     }
@@ -100,7 +100,7 @@ class AdminBusinessAndSiteScreensTest extends TestCase
         $this->getJson('/api/v1/admin/sites')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.tenant.name', 'Servio');
+            ->assertJsonPath('data.0.tenant.name', 'Phay');
 
         $this->postJson('/api/v1/admin/sites', ['name' => 'shop.am'])
             ->assertUnprocessable()

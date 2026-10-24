@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-10-16T14:49:01Z",
-  "title": "Design System: Servio Admin",
+  "title": "Design System: Phay Admin",
   "extensions": {
     "colorMeta": {
       "primary": { "role": "primary", "displayName": "Deep Muted Green", "canonical": "#3F6F62", "tonalRamp": ["#13211C", "#1F3830", "#2C4F44", "#345D52", "#3F6F62", "#5E897D", "#8CAEA4", "#E1EBE7"] },
@@ -77,7 +77,7 @@
   ],
   "narrative": {
     "northStar": "The Instrument Panel",
-    "overview": "Servio Admin is being built as a white-label CRM product, not a single business's branded tool — the visual system has to work for any service company it gets relabeled for, so nothing in it is allowed to read as \"AI-generated SaaS\" or as one company's personality. It is an Operate-mode surface: an operator opens it for hours a day to scan leads, prices, and content, so clarity and low visual noise outrank expression. The system explicitly rejects the current-generation AI-app default — purple/blue gradients, neon glow, heavy glassmorphism, oversized rounded corners, loud status pills — in favor of a quieter instrument-panel language: a dark, informationally-neutral sidebar frames a warm, paper-light work surface, and a single muted green stands in for \"this matters\" wherever it appears.",
+    "overview": "Phay Admin is being built as a white-label CRM product, not a single business's branded tool — the visual system has to work for any service company it gets relabeled for, so nothing in it is allowed to read as \"AI-generated SaaS\" or as one company's personality. It is an Operate-mode surface: an operator opens it for hours a day to scan leads, prices, and content, so clarity and low visual noise outrank expression. The system explicitly rejects the current-generation AI-app default — purple/blue gradients, neon glow, heavy glassmorphism, oversized rounded corners, loud status pills — in favor of a quieter instrument-panel language: a dark, informationally-neutral sidebar frames a warm, paper-light work surface, and a single muted green stands in for \"this matters\" wherever it appears.",
     "keyCharacteristics": [
       "Warm light ground, not cold gray or pure white, so long sessions don't feel clinical.",
       "One accent color, used sparingly, never decoratively.",

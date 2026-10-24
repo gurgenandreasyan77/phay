@@ -157,7 +157,7 @@ class RolesAndLoginsTest extends TestCase
         Sanctum::actingAs($me);
 
         $id = $this->postJson('/api/v1/admin/platform-users', [
-            'name' => 'Narek', 'email' => 'narek@servio.am', 'role' => 'moderator',
+            'name' => 'Narek', 'email' => 'narek@phay.am', 'role' => 'moderator',
         ])->assertCreated()
             ->assertJsonPath('data.role', 'moderator')
             ->assertJsonPath('data.activated', false)

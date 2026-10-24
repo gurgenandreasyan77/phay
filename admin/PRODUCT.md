@@ -8,11 +8,11 @@ web
 
 ## Users
 
-Operators/dispatchers at Servio (a cleaning/upholstery-care business in Yerevan) who manage leads, orders, services, and store content. Primarily desktop, but the admin is also opened from phone/tablet while working in the field.
+Owners and staff of small businesses in Armenia (service companies, shops) who manage leads, orders, sales, services, and site content. Primarily desktop, but the admin is also opened from phone/tablet while working in the field.
 
 ## Product Purpose
 
-Internal admin tool that is evolving into a sellable, white-label CRM product for service businesses in general — not just Servio. Today it covers: dashboard overview, leads/orders management, services and additional-services pricing, auto-care content (gallery/videos/service categories), shop products, market categories, SEO task pages, and site settings (address, contact channels).
+Phay: a sellable, white-label CRM and business assistant for small businesses. Today it covers: dashboard overview, leads/orders management, services and additional-services pricing, auto-care content (gallery/videos/service categories), shop products, market categories, SEO task pages, and site settings (address, contact channels).
 
 ## Positioning
 
@@ -32,7 +32,7 @@ White-label requirement: every color/spacing/radius token must live in CSS varia
 
 ## Brand Commitments
 
-None tied to a single business — Servio's current teal accent is explicitly being replaced by a new, reusable design-system palette (recorded in DESIGN.md) rather than preserved as brand identity.
+None tied to a single business — the original teal accent is explicitly being replaced by a new, reusable design-system palette (recorded in DESIGN.md) rather than preserved as brand identity.
 
 ## Evidence on Hand
 

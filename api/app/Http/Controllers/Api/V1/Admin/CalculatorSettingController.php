@@ -10,7 +10,7 @@ use Illuminate\Http\JsonResponse;
 
 /**
  * The price calculator of the services module. A business has none until
- * someone adds it (it starts with the cleaning rates Servio began with);
+ * someone adds it (it starts with the default cleaning rates);
  * reading never makes one.
  */
 class CalculatorSettingController extends Controller

@@ -384,7 +384,7 @@ export function ProductEditor({
 
   const seoSnippetUrl = useMemo(() => {
     const category = categories.find((c) => c.id === form.primaryCategoryId);
-    return `servio.am/hy/market/${category ? "..." : "kategoria"}/${form.slugHy || "slug"}`;
+    return `/hy/market/${category ? "..." : "kategoria"}/${form.slugHy || "slug"}`;
   }, [categories, form.primaryCategoryId, form.slugHy]);
 
   async function handleSubmit(e: React.FormEvent) {

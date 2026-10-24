@@ -104,7 +104,7 @@ class BusinessOwnerAccessTest extends TestCase
     public function test_the_owner_sees_and_changes_only_their_business_data(): void
     {
         $shop = $this->withServices($this->createTenant('test-shop'));
-        $servioService = $this->createService('sofa', 'Servio sofa');
+        $mainService = $this->createService('sofa', 'Main sofa');
         $shopService = $this->asTenant($shop, fn () => $this->createService('shop-item', 'Shop item'));
         Sanctum::actingAs($this->createOwnerLogin($shop));
 
@@ -113,9 +113,9 @@ class BusinessOwnerAccessTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $shopService->id);
 
-        $this->patchJson("/api/v1/admin/services/{$servioService->id}", ['status' => 'hidden'])->assertNotFound();
-        $this->deleteJson("/api/v1/admin/services/{$servioService->id}")->assertNotFound();
-        $this->assertSame('active', $servioService->fresh()->status->value);
+        $this->patchJson("/api/v1/admin/services/{$mainService->id}", ['status' => 'hidden'])->assertNotFound();
+        $this->deleteJson("/api/v1/admin/services/{$mainService->id}")->assertNotFound();
+        $this->assertSame('active', $mainService->fresh()->status->value);
     }
 
     public function test_a_suspended_business_locks_its_owner_out_but_not_the_platform_admin(): void
@@ -214,7 +214,7 @@ class BusinessOwnerAccessTest extends TestCase
     public function test_a_super_admin_turns_a_module_on_for_one_business_from_the_platform(): void
     {
         $shop = $this->createTenant('test-shop');
-        Sanctum::actingAs(User::factory()->superAdmin()->create()); // works on Servio
+        Sanctum::actingAs(User::factory()->superAdmin()->create()); // works on the default business
 
         $this->getJson("/api/v1/admin/tenants/{$shop->id}/features")
             ->assertOk()
@@ -236,11 +236,11 @@ class BusinessOwnerAccessTest extends TestCase
 
     public function test_the_super_admin_command_promotes_an_existing_login(): void
     {
-        $user = User::factory()->create(['email' => 'boss@servio.am']);
+        $user = User::factory()->create(['email' => 'boss@phay.am']);
 
-        $this->artisan('platform:super-admin', ['email' => 'boss@servio.am'])->assertSuccessful();
+        $this->artisan('platform:super-admin', ['email' => 'boss@phay.am'])->assertSuccessful();
         $this->assertTrue($user->fresh()->is_super_admin);
 
-        $this->artisan('platform:super-admin', ['email' => 'nobody@servio.am'])->assertFailed();
+        $this->artisan('platform:super-admin', ['email' => 'nobody@phay.am'])->assertFailed();
     }
 }

@@ -12,14 +12,14 @@ use Tests\TestCase;
 
 /**
  * The upholstery calculator and its add-on services are a part of the
- * services module a business has only once it was added (Servio has one),
+ * services module a business has only once it was added (the default business has one),
  * not a module of their own.
  */
 class ServicesCalculatorTest extends TestCase
 {
     use RefreshDatabase, TenancyTestHelpers;
 
-    public function test_servio_keeps_its_calculator_and_add_ons(): void
+    public function test_the_default_business_keeps_its_calculator_and_add_ons(): void
     {
         $this->assertTrue(Feature::for(Tenant::default())->active('services'));
         $this->assertSame(1, CalculatorSetting::withoutTenancy()->where('tenant_id', Tenant::default()->id)->count());

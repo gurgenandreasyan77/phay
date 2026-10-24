@@ -51,6 +51,8 @@
         <!-- compose.yaml gives the backend the old site webhook for a one-time migration; tests start without one. -->
         <env name="SITE_REVALIDATE_URL" value="" force="true"/>
         <env name="REVALIDATE_SECRET" value="" force="true"/>
+        <!-- A local api/.env may name an older default business; tests make their own. -->
+        <env name="PLATFORM_DEFAULT_TENANT" value="phay" force="true"/>
 
         <server name="APP_ENV" value="testing" force="true"/>
         <server name="DB_CONNECTION" value="sqlite" force="true"/>
@@ -62,5 +64,6 @@
         <server name="DB_URL" value="" force="true"/>
         <server name="SITE_REVALIDATE_URL" value="" force="true"/>
         <server name="REVALIDATE_SECRET" value="" force="true"/>
+        <server name="PLATFORM_DEFAULT_TENANT" value="phay" force="true"/>
     </php>
 </phpunit>

@@ -82,7 +82,7 @@ class SiteModuleTest extends TestCase
         $this->getJson('/api/v1/posts/sofa-care', ['X-Site-Key' => $key])->assertNotFound();
         $this->getJson("/api/v1/admin/posts/{$post['id']}")->assertOk()->assertJsonPath('data.status', 'draft');
 
-        // Servio's posts stay Servio's.
+        // The default business's posts stay its own.
         $this->assertSame(1, Post::withoutTenancy()->where('tenant_id', $shop->id)->count());
         $this->deleteJson("/api/v1/admin/posts/{$post['id']}")->assertNoContent();
         $this->assertSame(0, Post::withoutTenancy()->where('tenant_id', $shop->id)->count());
@@ -126,7 +126,7 @@ class SiteModuleTest extends TestCase
 
     public function test_videos_are_before_after_or_informational(): void
     {
-        Sanctum::actingAs(User::factory()->superAdmin()->create()); // works on Servio
+        Sanctum::actingAs(User::factory()->superAdmin()->create()); // works on the default business
 
         $this->postJson('/api/v1/admin/service-videos', ['video_path' => '/uploads/a.mp4', 'kind' => 'before_after', 'is_published' => true])
             ->assertCreated()->assertJsonPath('data.kind', 'before_after');

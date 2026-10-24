@@ -6,8 +6,8 @@ and subscriptions. Each business is a tenant. A business can also connect its
 own public website, which reads its catalog and sends leads through the
 public API.
 
-Servio (servio.am) is one of those businesses. Its website lives in its own
-repository and talks to Phay over HTTP, like any other site.
+Each business website lives in its own repository and talks to Phay over
+HTTP with its site key.
 
 ```
 phay/
@@ -25,7 +25,7 @@ phay/
 ```
 browser ──► admin (:3001)  ──► api nginx (:8080) ──► backend (php-fpm) ──► postgres
                                       ▲
-business websites (servio.am, ...) ───┘  X-Site-Key header
+business websites ────────────────────┘  X-Site-Key header
 ```
 
 - **admin** talks only to the admin API, through its own `/api/admin/*` route
@@ -40,14 +40,14 @@ business websites (servio.am, ...) ───┘  X-Site-Key header
   Sites, `App\Sites\SiteRevalidator`), after the response has gone out.
 
 The stack is its own Docker Compose project (`phay`) with its own network,
-database and volumes, so a site's stack (for example `servio`) runs next to it
+database and volumes, so a business site's stack runs next to it
 on the same machine without clashing. A site in another compose project
 reaches the API at `http://host.docker.internal:8080`.
 
 ## Running it
 
 Full step-by-step guide (in Russian): **[docs/DEPLOY.md](docs/DEPLOY.md)**:
-server preparation shared with the Servio site (Docker, firewall, nginx,
+server preparation (Docker, firewall, nginx,
 certificates), production and local setup, every env variable and where to
 get it, the first super admin, backups, updates, rollback.
 
@@ -104,7 +104,7 @@ are encrypted with it.
 ## Production
 
 `app.phay.am` (admin), `api.phay.am` (API), `phay.am` (redirects to the admin
-for now), next to the Servio site on the same server. Ports are published on
+for now); business sites can run next to it on the same server. Ports are published on
 127.0.0.1 only, the host nginx (`deploy/phay.nginx.conf`) terminates TLS.
 Besides php-fpm a `scheduler` container runs `schedule:work` (subscription
 warnings, session pruning). See `docs/DEPLOY.md`.
@@ -125,3 +125,9 @@ warnings, session pruning). See `docs/DEPLOY.md`.
 make local-test-backend   # PHPUnit on in-memory SQLite, never touches the dev database
 make local-test-admin     # eslint + tsc
 ```
+
+## Brand assets
+
+`admin/src/app/icon.png` (favicon and app icon of the admin) is a
+**placeholder**: a plain "P" on the primary colour. Replace it with the real
+Phay logo at the same path and size (512×512 PNG); nothing else refers to it.

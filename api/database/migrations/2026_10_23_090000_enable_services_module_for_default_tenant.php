@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * The services catalog became an optional, paid module ("services", off by
- * default). Servio, the default business, keeps it: its site shows them.
+ * default). The default business keeps it: its site shows them.
  */
 return new class extends Migration
 {
