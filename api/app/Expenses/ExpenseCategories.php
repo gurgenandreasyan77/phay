@@ -42,6 +42,23 @@ final class ExpenseCategories
         'other' => ['Այլ ծախսեր', true, 'այլ|прочее|другое|разное|other|misc'],
     ];
 
+    /** Whether a value reads as one of the ready-made categories ("Налоги", "Tax"), without the database. */
+    public static function known(string $value): bool
+    {
+        $name = Employee::normalize($value);
+        if ($name === '') {
+            return false;
+        }
+
+        foreach (self::DEFAULTS as [$label, , $words]) {
+            if ($name === Employee::normalize($label) || preg_match('/'.$words.'/iu', $name)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** @return Collection<int, ExpenseCategory> the business's categories, ready-made ones made if missing */
     public static function all(): Collection
     {

@@ -4,6 +4,7 @@ namespace App\Expenses;
 
 use App\DataTables\Decimal;
 use App\DataTables\Period;
+use App\DataTables\TableAnalytics;
 use App\Enums\ColumnRole;
 use App\Enums\DataTableSection;
 use App\Enums\LeadStatus;
@@ -23,6 +24,7 @@ use Illuminate\Support\Collection;
  *
  *   revenue        orders and sales tables (amount) + completed site orders (final price)
  *   − cost of goods    unit cost × quantity of the rows that have one (ColumnRole::Cost)
+ *                      and commissions paid to intermediaries (ColumnRole::Commission)
  *   = gross profit
  *   − expenses     rows of the expenses tables and recurring expenses, of the
  *                  categories counted in the profit (ExpenseCategory::in_profit)
@@ -148,6 +150,7 @@ final class Finance
         $costs = $tables->mapWithKeys(fn (DataTable $t) => [$t->id => [
             'cost' => $t->roleColumn(ColumnRole::Cost)?->key,
             'quantity' => $t->quantityColumn()?->key,
+            'commission' => $t->roleColumn(ColumnRole::Commission)?->key,
         ]]);
         $number = fn ($v) => is_int($v) || is_float($v) ? $v : null;
         $rows = [];
@@ -172,7 +175,12 @@ final class Finance
                     $rows[] = [
                         'at' => substr((string) $row->getRawOriginal('occurred_at'), 0, 10),
                         'amount' => (float) $row->amount,
-                        'cogs' => $cost === null ? 0 : Decimal::multiply($cost, ($key['quantity'] ? $number($data[$key['quantity']] ?? null) : null) ?? 1),
+                        // Unit cost × quantity and the intermediary's commission.
+                        'cogs' => TableAnalytics::costOfSale([
+                            'cost' => $cost,
+                            'quantity' => $key['quantity'] ? $number($data[$key['quantity']] ?? null) : null,
+                            'commission' => $key['commission'] ? $number($data[$key['commission']] ?? null) : null,
+                        ]),
                     ];
                 }
             });
@@ -199,7 +207,7 @@ final class Finance
             'rows' => $rows,
             'tables' => $tables->count(),
             'site' => $site,
-            'withCost' => $tables->contains(fn (DataTable $t) => $t->roleColumn(ColumnRole::Cost) !== null),
+            'withCost' => $tables->contains(fn (DataTable $t) => $t->roleColumn(ColumnRole::Cost) !== null || $t->roleColumn(ColumnRole::Commission) !== null),
             'priced' => $priced,
             'costed' => $costed,
         ];

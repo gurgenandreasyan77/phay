@@ -82,8 +82,8 @@ final readonly class DataColumn
             return [null, 'Պետք է լինի թիվ։'];
         }
 
-        // "12 500 ֏", "12,500.50", "12500,5", "AMD 900"; but not "Item 1".
-        $clean = preg_replace('/[\s\x{00A0}\x{202F}\']|֏|դր\.?|amd|драм|руб\.?|₽|\$|€|usd|eur/iu', '', $raw);
+        // "12 500 ֏", "12,500.50", "12500,5", "AMD 900", "10%"; but not "Item 1".
+        $clean = preg_replace('/[\s\x{00A0}\x{202F}\']|֏|դր\.?|amd|драм|руб\.?|₽|\$|€|usd|eur|%/iu', '', $raw);
 
         if (! preg_match('/^[+-]?[\d.,]*\d[\d.,]*$/', $clean)) {
             return [null, 'Պետք է լինի թիվ։'];

@@ -87,7 +87,8 @@ class DataImportController extends Controller
             'total_rows' => count($sheet->rows),
         ]);
 
-        $preview = $this->preview($import, $sheet, $table);
+        $section = $table?->section ?? DataTableSection::tryFrom((string) $request->input('section'));
+        $preview = $this->preview($import, $sheet, $table, $section);
         if (! $table && $request->filled('section')) {
             $preview['matchingTables'] = $this->matchingTables(DataTableSection::from($request->input('section')), $sheet);
         }
@@ -212,9 +213,9 @@ class DataImportController extends Controller
             ->all();
     }
 
-    private function preview(DataImport $import, Sheet $sheet, ?DataTable $table): array
+    private function preview(DataImport $import, Sheet $sheet, ?DataTable $table, ?DataTableSection $section = null): array
     {
-        $mapping = $table ? ColumnMatcher::suggest($table->columnDefinitions(), $sheet->headers) : null;
+        $mapping = $table ? ColumnMatcher::suggest($table->columnDefinitions(), $sheet->headers, $sheet->rows) : null;
         $dateColumn = $table?->dateColumn();
 
         return [
@@ -226,7 +227,7 @@ class DataImportController extends Controller
             'truncated' => $sheet->truncated,
             'maxRows' => FileReader::MAX_ROWS,
             'mapping' => $mapping,
-            'guessedColumns' => ColumnMatcher::guessColumns($sheet->headers, $sheet->rows),
+            'guessedColumns' => ColumnMatcher::guessColumns($sheet->headers, $sheet->rows, $section ?? $table?->section),
         ];
     }
 

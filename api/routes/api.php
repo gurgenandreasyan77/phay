@@ -296,6 +296,8 @@ Route::prefix('v1')->group(function () {
                 Route::post('/google/table', [AdminGoogleCalendarController::class, 'makeTable'])->middleware('throttle:google-sync');
                 Route::post('/data-tables/bulk-delete', [AdminDataTableController::class, 'bulkDestroy']);
                 Route::patch('/data-tables/{dataTable}', [AdminDataTableController::class, 'update']);
+                // What the columns without a role probably mean, by their names and values.
+                Route::get('/data-tables/{dataTable}/role-suggestions', [AdminDataTableController::class, 'roleSuggestions']);
                 Route::delete('/data-tables/{dataTable}', [AdminDataTableController::class, 'destroy']);
 
                 Route::get('/products', [AdminProductController::class, 'index']);
