@@ -2,7 +2,7 @@ import { requireAdmin } from "@/lib/adminAuth";
 import { getSubscription } from "@/lib/adminApi";
 import { can, isPlatformStaff } from "@/lib/roles";
 import type { CSSProperties } from "react";
-import { Badge, Card, EmptyCard, EmptyRow, PageHeader, SectionCard, TableWrap, Td, Th, Thead, Tr } from "../_components/ui";
+import { Badge, Card, EmptyCard, EmptyRow, PageHeader, SectionCard, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { PriceBreakdown, StatusBadge, amd, formatDay, subscriptionLine } from "../_components/subscription/shared";
 import { DaysRing } from "./DaysRing";
 import { ModuleCard } from "./ModuleCard";
@@ -71,7 +71,7 @@ export default async function SubscriptionPage() {
                 confirm={{
                   title: "Երկարացնե՞լ բաժանորդագրությունը",
                   description:
-                    "Հայտը կուղարկվի Servio-ի թիմին, որը չատում կգրի վճարման մանրամասները։ Վճարելուց հետո ժամկետը կերկարաձգվի ընթացիկ ավարտի օրից։",
+                    "Հայտը կուղարկվի Phay-ի թիմին, որը չատում կգրի վճարման մանրամասները։ Վճարելուց հետո ժամկետը կերկարաձգվի ընթացիկ ավարտի օրից։",
                   details: [
                     { label: "Ամսական վճար", value: amd(subscription.pricing.total) },
                     {
@@ -136,7 +136,7 @@ export default async function SubscriptionPage() {
                         label="Անցնել այս փաթեթին"
                         confirm={{
                           title: `Անցնե՞լ «${plan.name}» փաթեթին`,
-                          description: "Հայտը կուղարկվի Servio-ի թիմին, որը չատում կհաստատի անցումը։",
+                          description: "Հայտը կուղարկվի Phay-ի թիմին, որը չատում կհաստատի անցումը։",
                           details: [
                             ...(subscription.plan
                               ? [{ label: `Հիմա՝ «${subscription.plan.name}»`, value: `${amd(subscription.plan.price)}/ամիս` }]

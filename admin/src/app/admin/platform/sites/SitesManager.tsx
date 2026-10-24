@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, KeyRound, RefreshCw } from "lucide-react";
 import type { AdminSiteDto, AdminTenantDto } from "@/lib/adminApi";
-import { Badge, Button, Card, EmptyCard, FieldLabel, FormStatus, Input, Select, Textarea } from "../../_components/ui";
+import { Badge, Button, Card, EmptyCard, FieldLabel, FormStatus, Input, Select, Textarea } from "@/ui";
 
 export function SitesManager({
   sites,

@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
-import { cn } from "../ui";
+import { cn } from "@/ui";
 import styles from "./dialog.module.css";
 
 /**

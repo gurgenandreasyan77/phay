@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/adminAuth";
 import { getAccountSecurity } from "@/lib/adminApi";
 import { PasswordForm } from "../settings/PasswordForm";
-import { PageHeader, SectionCard } from "../_components/ui";
+import { PageHeader, SectionCard } from "@/ui";
 import { SecurityPanel } from "./SecurityPanel";
 
 export const dynamic = "force-dynamic";

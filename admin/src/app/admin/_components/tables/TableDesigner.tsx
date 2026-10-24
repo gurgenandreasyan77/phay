@@ -11,7 +11,7 @@ import type {
   DataTableSection,
   TablePeriod,
 } from "@/lib/adminApi";
-import { Button, Card, FieldLabel, Input, Select, Textarea } from "../ui";
+import { Button, Card, FieldLabel, Input, Select, Textarea } from "@/ui";
 import {
   COLUMN_ROLES,
   COLUMN_TYPE_LABELS,
@@ -364,7 +364,7 @@ export function TableDesigner({
           <div className="flex flex-wrap items-center gap-3 rounded-md border border-primary/30 bg-primary-light/40 px-4 py-3">
             <p className="flex-1 text-sm text-ink">
               {columns.filter((c) => c.role === null).length} սյունակի իմաստը նշված չէ, ուստի վիճակագրությունը և AI-ը
-              դրանք չեն հասկանում։ Servio-ն կարող է ճանաչել դրանք ըստ անվան և արժեքների (օր.՝ «iPhone 15» → Մոդել)։
+              դրանք չեն հասկանում։ Phay-ն կարող է ճանաչել դրանք ըստ անվան և արժեքների (օր.՝ «iPhone 15» → Մոդել)։
             </p>
             <Button variant="secondary" size="sm" onClick={recognise}>
               <Sparkles className="h-4 w-4" />

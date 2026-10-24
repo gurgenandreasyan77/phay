@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requirePermission } from "@/lib/adminAuth";
 import { can, isPlatformStaff } from "@/lib/roles";
 import { getCalendar, getGoogleState } from "@/lib/adminApi";
-import { buttonClasses, cn, EmptyCard, PageHeader } from "../_components/ui";
+import { buttonClasses, cn, EmptyCard, PageHeader } from "@/ui";
 import { bucketTitle, weekdayShort } from "../_components/analytics/BarChart";
 import { formatMoney, SECTIONS, tablePath } from "../_components/tables/shared";
 import { DayView } from "./DayView";

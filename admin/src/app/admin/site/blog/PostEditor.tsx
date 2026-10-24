@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { AdminPostDto, AdminTranslated, PostCategory, PostStatus } from "@/lib/adminApi";
 import { ImageUploadField } from "../../services/ImageUploadField";
 import { LOCALES, TranslatedFields, emptyTranslated, fieldClasses, labelClasses, toTranslated } from "../../services/shared";
-import { Button, buttonClasses } from "../../_components/ui";
+import { Button, buttonClasses } from "@/ui";
 import { POST_CATEGORY_LABELS } from "./shared";
 
 type Form = {

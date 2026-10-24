@@ -1,7 +1,7 @@
 import { requirePermission } from "@/lib/adminAuth";
 import { can, isPlatformStaff } from "@/lib/roles";
 import { getAssistantConversation, getAssistantConversations, getAssistantStatus, getDataTables } from "@/lib/adminApi";
-import { PageHeader } from "../_components/ui";
+import { PageHeader } from "@/ui";
 import { AssistantChat } from "./AssistantChat";
 import { SUGGESTIONS } from "./suggestions";
 

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { FileSpreadsheet } from "lucide-react";
 import type { AdminDataImportPreviewDto, DataTableSection } from "@/lib/adminApi";
-import { buttonClasses, Card } from "../ui";
+import { buttonClasses, Card } from "@/ui";
 import { IMPORT_ACCEPT, uploadImportFile } from "./ImportWizard";
 import { TableDesigner } from "./TableDesigner";
 import { tablePath } from "./shared";

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import type { ExpenseCategoryDto, RecurringExpenseDto, RecurringFrequency } from "@/lib/adminApi";
-import { Button, Card, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "../_components/ui";
+import { Button, Card, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { formatMoment, formatMoney } from "../_components/tables/shared";
 import { today } from "../_components/tables/periods";
 import { FREQUENCIES, FREQUENCY_LABELS, send } from "./shared";

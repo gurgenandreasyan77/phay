@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { AdminProductDto, AdminProductStatus } from "@/lib/adminApi";
-import { Badge, type BadgeTone, EmptyRow, Input, TableWrap, Th, Thead, Td, Tr } from "../_components/ui";
+import { Badge, type BadgeTone, EmptyRow, Input, TableWrap, Th, Thead, Td, Tr } from "@/ui";
 
 const STATUS_LABELS: Record<AdminProductStatus, string> = {
   draft: "Draft",

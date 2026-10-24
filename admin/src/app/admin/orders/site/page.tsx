@@ -6,7 +6,7 @@ import { SearchBox } from "./SearchBox";
 import { OrderStatusSelect } from "./OrderStatusSelect";
 import { OrderPriceInput } from "./OrderPriceInput";
 import { LEAD_STATUS_LABELS } from "../../_components/leadStatus";
-import { Badge, buttonClasses, EmptyRow, PageHeader, TableWrap, Th, Thead, Td, Tr } from "../../_components/ui";
+import { Badge, buttonClasses, EmptyRow, PageHeader, TableWrap, Th, Thead, Td, Tr } from "@/ui";
 
 export const dynamic = "force-dynamic";
 

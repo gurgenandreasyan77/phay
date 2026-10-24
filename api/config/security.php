@@ -14,7 +14,7 @@ return [
     */
 
     'two_factor' => [
-        'issuer' => env('TWO_FACTOR_ISSUER', 'Servio'),
+        'issuer' => env('TWO_FACTOR_ISSUER', 'Phay'),
         'required_for_owners' => (bool) env('TWO_FACTOR_REQUIRED_FOR_OWNERS', true),
         // How long the code step of a sign-in waits for the code.
         'challenge_ttl_minutes' => 5,
@@ -45,7 +45,7 @@ return [
     | Where links point
     |--------------------------------------------------------------------------
     |
-    | The admin panel (servio-admin) the invitation and reset links open.
+    | The admin panel (admin/) the invitation and reset links open.
     |
     */
 

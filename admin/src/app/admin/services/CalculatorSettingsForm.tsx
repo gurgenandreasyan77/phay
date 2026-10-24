@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CalculatorSettingsDto } from "@/lib/api";
-import { Button, FieldLabel, FormStatus, Input } from "../_components/ui";
+import { Button, FieldLabel, FormStatus, Input } from "@/ui";
 
 const PROPERTY_TYPES: { key: "apartment" | "house" | "office"; label: string }[] = [
   { key: "apartment", label: "Բնակարան" },

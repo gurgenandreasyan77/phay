@@ -2,7 +2,7 @@
 
 import { AlertTriangle, HelpCircle } from "lucide-react";
 import { useId, type ReactNode } from "react";
-import { Button, cn } from "../ui";
+import { Button, cn } from "@/ui";
 import { Dialog, DialogClose } from "./Dialog";
 
 /** What a confirmation says: plain data, so a server page can pass it. */

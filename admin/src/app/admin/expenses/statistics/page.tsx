@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CalendarSearch, ChevronLeft, ChevronRight } from "lucide-react";
 import { requirePermission } from "@/lib/adminAuth";
 import { getExpenseStatistics, type ExpenseLineDto, type ExpenseStatisticsDto, type PeriodKind } from "@/lib/adminApi";
-import { Badge, Button, buttonClasses, Card, cn, EmptyCard, Input, PageHeader, SectionCard, TableWrap, Td, Th, Thead, Tr } from "../../_components/ui";
+import { Badge, Button, buttonClasses, Card, cn, EmptyCard, Input, PageHeader, SectionCard, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { BarChart } from "../../_components/analytics/BarChart";
 import { DonutChart, HBars } from "../../_components/analytics/Charts";
 import { money } from "../../_components/analytics/format";

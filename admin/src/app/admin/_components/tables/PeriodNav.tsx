@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { PeriodKind } from "@/lib/adminApi";
-import { buttonClasses, cn } from "../ui";
+import { buttonClasses, cn } from "@/ui";
 import { PERIOD_KINDS, PERIOD_UNIT_LABELS, periodOf, shiftPeriod, today } from "./periods";
 
 /** The period of the page's search params; month of today by default, null for all time. */

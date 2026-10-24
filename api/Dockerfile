@@ -11,8 +11,8 @@ RUN apk add --no-cache libpq fcgi libpng libjpeg-turbo freetype libzip \
     && docker-php-ext-install pdo_pgsql pgsql bcmath opcache gd zip \
     && apk del .build-deps
 
-COPY --from=configs php/php.ini /usr/local/etc/php/conf.d/99-servio.ini
-COPY --from=configs php/fpm-pool.conf /usr/local/etc/php-fpm.d/zz-servio.conf
+COPY --from=configs php/php.ini /usr/local/etc/php/conf.d/99-phay.ini
+COPY --from=configs php/fpm-pool.conf /usr/local/etc/php-fpm.d/zz-phay.conf
 
 # ---- dev: source is bind-mounted at runtime, vendor/ comes from the host --
 FROM php-base AS dev

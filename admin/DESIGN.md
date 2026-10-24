@@ -185,7 +185,7 @@ Two radius steps, deliberately small: 8px (`rounded-md`) for buttons and inputs,
 ## Do's and Don'ts
 
 ### Do:
-- **Do** keep every color, radius, and spacing value as a CSS custom property in `servio-admin/src/app/admin/admin.css` (its own Tailwind v4 `@theme` entry point, isolated from the public site's `globals.css`) so a tenant's brand color and a future dark theme can override them without touching component markup.
+- **Do** keep every color, radius, and spacing value as a CSS custom property in `admin/src/app/admin/admin.css` (its own Tailwind v4 `@theme` entry point, isolated from the public site's `globals.css`) so a tenant's brand color and a future dark theme can override them without touching component markup.
 - **Do** use the secondary button style for delete triggers; reserve solid danger-red for the moment inside a confirmation step.
 - **Do** use badges (light tint + semantic text color) for every status value, never a raw colored `<span>`.
 - **Do** render an unbuilt CRM module as a disabled, tagged sidebar row rather than omitting it or faking a working screen.

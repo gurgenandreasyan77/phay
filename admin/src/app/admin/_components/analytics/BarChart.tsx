@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { cn } from "../ui";
+import { cn } from "@/ui";
 import styles from "./charts.module.css";
 import { formatNumber } from "../tables/shared";
 

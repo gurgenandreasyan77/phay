@@ -1,4 +1,4 @@
-import { cn } from "./ui";
+import { cn } from "@/ui";
 
 /** A business's logo, or the first letter of its name when it has none. */
 export function BusinessLogo({

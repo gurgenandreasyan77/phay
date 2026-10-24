@@ -5,7 +5,7 @@ import { AddressForm } from "./AddressForm";
 import { BusinessProfileForm } from "./BusinessProfileForm";
 import { ContactChannelsManager } from "./ContactChannelsManager";
 import { PasswordForm } from "./PasswordForm";
-import { PageHeader, SectionCard } from "../_components/ui";
+import { PageHeader, SectionCard } from "@/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +34,7 @@ export default async function AdminSettingsPage() {
         <>
           <SectionCard
             title="Բիզնեսի պրոֆիլ"
-            description="Անվանումը և լոգոն երևում են ադմին վահանակում և Servio-ի թիմին։"
+            description="Անվանումը և լոգոն երևում են ադմին վահանակում և Phay-ի թիմին։"
           >
             <BusinessProfileForm key={`${business.name}|${business.logo}`} name={business.name} logo={business.logo} />
           </SectionCard>

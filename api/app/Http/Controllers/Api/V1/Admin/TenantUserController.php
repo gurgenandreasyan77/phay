@@ -19,7 +19,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Logins of a business (platform staff only). Servio's people create them
+ * Logins of a business (platform staff only). Phay's people create them
  * while onboarding a client (no self sign-up). Each login has a role in the
  * business (owner, admin, moderator, see BusinessRole) and sees only that
  * business.

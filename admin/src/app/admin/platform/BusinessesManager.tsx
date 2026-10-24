@@ -8,7 +8,7 @@ import type { AdminTenantDto } from "@/lib/adminApi";
 import { BusinessLogo } from "../_components/BusinessLogo";
 import { TenantLoginsPanel } from "./TenantLoginsPanel";
 import { TenantModulesPanel } from "./TenantModulesPanel";
-import { Badge, Button, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr, buttonClasses } from "../_components/ui";
+import { Badge, Button, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr, buttonClasses } from "@/ui";
 
 const LOCALE_LABELS: Record<string, string> = { hy: "Հայերեն", ru: "Русский", en: "English" };
 

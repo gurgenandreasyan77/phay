@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePermission } from "@/lib/adminAuth";
 import { getFeatureFlagsAdmin, getFeedbackMessages } from "@/lib/adminApi";
-import { EmptyCard, PageHeader, buttonClasses } from "../../_components/ui";
+import { EmptyCard, PageHeader, buttonClasses } from "@/ui";
 import { FeedbackList } from "./FeedbackList";
 
 export const dynamic = "force-dynamic";

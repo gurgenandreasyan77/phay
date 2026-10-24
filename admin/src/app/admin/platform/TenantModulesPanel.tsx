@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { AdminFeatureFlagDto, AdminTenantDto } from "@/lib/adminApi";
-import { Badge, Button, Card, EmptyCard, SectionCard, cn } from "../_components/ui";
+import { Badge, Button, Card, EmptyCard, SectionCard, cn } from "@/ui";
 
 async function fetchModules(tenantId: number): Promise<AdminFeatureFlagDto[] | null> {
   const response = await fetch(`/api/admin/tenants/${tenantId}/features`, { cache: "no-store" });

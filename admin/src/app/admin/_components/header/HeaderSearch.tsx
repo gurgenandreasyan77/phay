@@ -6,7 +6,7 @@ import { Loader2, Search, X } from "lucide-react";
 import type { FeatureFlags } from "@/lib/api";
 import type { AdminUserDto } from "@/lib/adminApi";
 import { visibleNavGroups } from "../nav";
-import { cn } from "../ui";
+import { cn } from "@/ui";
 
 type SearchItem = { id: number | string; title: string; subtitle: string | null; url: string };
 type SearchGroup = { key: string; items: SearchItem[] };

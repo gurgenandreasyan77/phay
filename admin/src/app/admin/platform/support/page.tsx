@@ -1,7 +1,7 @@
 import { requirePlatformStaff } from "@/lib/adminAuth";
 import { getSupportConversations, getTenantsAdmin } from "@/lib/adminApi";
 import { PlatformSupport } from "./PlatformSupport";
-import { PageHeader } from "../../_components/ui";
+import { PageHeader } from "@/ui";
 
 export const dynamic = "force-dynamic";
 

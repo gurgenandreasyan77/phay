@@ -12,7 +12,7 @@ import { TenantSwitcher } from "./TenantSwitcher";
 import { HeaderSearch } from "./header/HeaderSearch";
 import { NotificationBell } from "./header/NotificationBell";
 import { PremiumChip } from "./header/PremiumChip";
-import { cn } from "./ui";
+import { cn } from "@/ui";
 
 const EXTRA_SEGMENT_LABELS: Record<string, string> = {
   new: "Նոր",
@@ -125,7 +125,7 @@ export function Topbar({
             <div className="absolute right-0 top-full mt-1.5 w-56 rounded-lg border border-border bg-surface p-1.5 shadow-md">
               <div className="px-2.5 py-2">
                 <p className="text-sm font-medium text-ink">{adminEmail ?? "Ադմինիստրատոր"}</p>
-                <p className="text-xs text-ink-muted">{me?.currentTenant?.name ?? "Servio"}</p>
+                <p className="text-xs text-ink-muted">{me?.currentTenant?.name ?? "Phay"}</p>
               </div>
               <div className="my-1 h-px bg-border" />
               <Link

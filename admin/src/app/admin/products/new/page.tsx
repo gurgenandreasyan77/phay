@@ -2,7 +2,7 @@ import { requirePermission } from "@/lib/adminAuth";
 import { getProductsAdmin, getProductCategoriesAdmin } from "@/lib/adminApi";
 import { getServices } from "@/lib/api";
 import { ProductEditor } from "../ProductEditor";
-import { PageHeader } from "../../_components/ui";
+import { PageHeader } from "@/ui";
 
 export const dynamic = "force-dynamic";
 

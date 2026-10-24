@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { ModulePriceDto } from "@/lib/adminApi";
-import { Button, FormStatus, Input, SectionCard, TableWrap, Td, Th, Thead, Tr } from "../../_components/ui";
+import { Button, FormStatus, Input, SectionCard, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 
 /** The monthly price of each module, added when a business has it on. */
 export function ModulePricesForm({ modules }: { modules: ModulePriceDto[] }) {

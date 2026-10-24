@@ -6,7 +6,7 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
 import type { FinanceCategoryDto, FinanceDto, FinancePeriodDto, PeriodKind } from "@/lib/adminApi";
-import { buttonClasses, Card, cn, TableWrap, Td, Th, Thead, Tr } from "../ui";
+import { buttonClasses, Card, cn, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { money as formatMoney } from "../analytics/format";
 import { PERIOD_KINDS, PERIOD_UNIT_LABELS, shiftPeriod, today } from "../tables/periods";
 import { BarChart } from "../analytics/BarChart";

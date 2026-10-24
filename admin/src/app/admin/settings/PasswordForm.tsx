@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, FieldLabel, Input } from "../_components/ui";
+import { Button, Card, FieldLabel, Input } from "@/ui";
 import { PASSWORD_HINT, passwordProblem, passwordServerError } from "../_components/auth/AuthCard";
 
 type Errors = Partial<Record<"current_password" | "password", string>>;

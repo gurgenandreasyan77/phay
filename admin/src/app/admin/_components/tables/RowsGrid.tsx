@@ -12,7 +12,7 @@ import type {
   ExpenseCategoryDto,
   PeriodKind,
 } from "@/lib/adminApi";
-import { Badge, Button, EmptyRow, Input, Select, TableWrap, Td, Th, Thead, Tr } from "../ui";
+import { Badge, Button, EmptyRow, Input, Select, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { formatCell, validationErrors } from "./shared";
 import { PERIOD_KINDS, PERIOD_UNIT_LABELS, periodOf, shiftPeriod, today } from "./periods";
 

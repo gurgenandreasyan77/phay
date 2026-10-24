@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Button } from "../_components/ui";
+import { Button } from "@/ui";
 import { TwoFactorSetup } from "../_components/auth/TwoFactorSetup";
 
 export function SetupTwoFactor({ required, home }: { required: boolean; home: string }) {

@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { formatNumber } from "../tables/shared";
-import { cn } from "../ui";
+import { cn } from "@/ui";
 import { compact } from "./BarChart";
 import styles from "./charts.module.css";
 

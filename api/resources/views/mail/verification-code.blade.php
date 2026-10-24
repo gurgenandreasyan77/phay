@@ -7,7 +7,7 @@
 **{{ $code }}**
 </x-mail::panel>
 
-Կոդը գործում է {{ config('security.codes.ttl_minutes') }} րոպե։ Մի փոխանցեք այն ոչ ոքի, նույնիսկ Servio-ի աշխատակցին։
+Կոդը գործում է {{ config('security.codes.ttl_minutes') }} րոպե։ Մի փոխանցեք այն ոչ ոքի, նույնիսկ Phay-ի աշխատակցին։
 
 ---
 

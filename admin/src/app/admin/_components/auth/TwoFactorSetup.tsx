@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { Button, Input } from "../ui";
+import { Button, Input } from "@/ui";
 import { errorClasses, fieldError, labelClasses } from "./AuthCard";
 
 type Step = { name: "password" } | { name: "scan"; secret: string; otpauthUrl: string } | { name: "codes"; codes: string[] };
@@ -125,7 +125,7 @@ export function TwoFactorSetup({ onDone, doneLabel = "Պատրաստ է" }: { on
 export function RecoveryCodes({ codes, onDone, doneLabel }: { codes: string[]; onDone: () => void; doneLabel: string }) {
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
-  const text = ["Servio — 2FA վերականգնման կոդեր", "Յուրաքանչյուրը գործում է մեկ անգամ։", "", ...codes].join("\n");
+  const text = ["Phay — 2FA վերականգնման կոդեր", "Յուրաքանչյուրը գործում է մեկ անգամ։", "", ...codes].join("\n");
 
   function download() {
     const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));

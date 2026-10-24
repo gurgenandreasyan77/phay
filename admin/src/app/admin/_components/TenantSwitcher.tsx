@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Building2, Check, ChevronDown } from "lucide-react";
 import type { AdminTenantDto } from "@/lib/adminApi";
-import { cn } from "./ui";
+import { cn } from "@/ui";
 
 /**
  * Shows which business the admin is working on and, when the user has more

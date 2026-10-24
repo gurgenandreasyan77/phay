@@ -19,7 +19,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Servio's own team on the platform (super admin only): other super admins
+ * Phay's own team on the platform (super admin only): other super admins
  * and moderators who onboard clients. Like business logins they get an
  * invitation link to set their own password, and they must use 2FA.
  */

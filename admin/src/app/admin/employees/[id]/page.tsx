@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requirePermission } from "@/lib/adminAuth";
 import { can } from "@/lib/roles";
 import { getEmployee } from "@/lib/adminApi";
-import { buttonClasses, Card, EmptyRow, PageHeader, TableWrap, Td, Th, Thead, Tr } from "../../_components/ui";
+import { buttonClasses, Card, EmptyRow, PageHeader, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { formatMoment, formatMoney, tablePath } from "../../_components/tables/shared";
 import { filingLabel } from "../../_components/tables/periods";
 

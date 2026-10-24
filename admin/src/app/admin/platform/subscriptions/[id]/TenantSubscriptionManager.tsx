@@ -3,7 +3,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { TenantSubscriptionDetailDto } from "@/lib/adminApi";
-import { Button, Card, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "../../../_components/ui";
+import { Button, Card, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { PriceBreakdown, StatusBadge, amd, formatDay, subscriptionLine } from "../../../_components/subscription/shared";
 
 type Unit = "day" | "week" | "month";

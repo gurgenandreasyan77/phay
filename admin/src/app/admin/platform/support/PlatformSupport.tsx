@@ -6,7 +6,7 @@ import type { SupportConversationDto } from "@/lib/adminApi";
 import { BusinessLogo } from "../../_components/BusinessLogo";
 import { ChatThread } from "../../_components/chat/ChatThread";
 import { notifySupportActivity } from "../../_components/chat/unread";
-import { EmptyCard, Select, cn } from "../../_components/ui";
+import { EmptyCard, Select, cn } from "@/ui";
 
 type TenantRef = { id: number; name: string; logo: string | null };
 

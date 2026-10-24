@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminServiceCategoryDto, AdminTranslated } from "@/lib/adminApi";
 import { TranslatedFields, emptyTranslated, toTranslated, fieldClasses, labelClasses } from "./shared";
-import { Badge, buttonClasses } from "../_components/ui";
+import { Badge, buttonClasses } from "@/ui";
 
 type FormState = { slug: string; icon: string; sortOrder: string; name: AdminTranslated; description: AdminTranslated };
 

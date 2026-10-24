@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { AnalyticsPeriod, TableMetricDto } from "@/lib/adminApi";
-import { cn } from "../ui";
+import { cn } from "@/ui";
 import { formatNumber } from "../tables/shared";
 
 export const PERIODS: { days: AnalyticsPeriod; label: string }[] = [

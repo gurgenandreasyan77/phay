@@ -6,7 +6,7 @@ import type { AdminServiceDto, AdminServiceGalleryItemDto, AdminTranslated } fro
 import type { CarBodyType } from "@/lib/api";
 import { TranslatedFields, emptyTranslated, toTranslated, fieldClasses, labelClasses } from "../services/shared";
 import { ImageUploadField } from "../services/ImageUploadField";
-import { buttonClasses } from "../_components/ui";
+import { buttonClasses } from "@/ui";
 
 const CAR_TYPES: CarBodyType[] = ["compact", "sedan", "wagon", "crossover", "suv", "minivan", "minibus", "commercial"];
 

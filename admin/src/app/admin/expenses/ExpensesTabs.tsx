@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BarChart3, Wallet } from "lucide-react";
-import { cn } from "../_components/ui";
+import { cn } from "@/ui";
 
 /** The expenses section's two screens: the expenses themselves and their statistics. */
 export function ExpensesTabs({ active }: { active: "list" | "statistics" }) {

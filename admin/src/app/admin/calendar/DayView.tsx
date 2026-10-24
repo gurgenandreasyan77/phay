@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
-import { Dialog } from "../_components/dialog/Dialog";
+import { Dialog } from "@/ui/dialog/Dialog";
 import { DayPanel, type DayPanelProps } from "./DayPanel";
 
 /** Below `lg` the day's panel sits under the grid, out of sight: a phone. */

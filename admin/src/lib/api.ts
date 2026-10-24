@@ -1,7 +1,6 @@
 // Server-only. Public-API DTOs the admin reuses (enums, ServiceDto for the
-// service pickers) plus the public site's cache tags. Copied from
-// servio-front/src/lib/api.ts when the admin moved into its own app — keep
-// the two in sync until both share a generated client.
+// service pickers). The Servio site keeps its own copy in its repository:
+// keep the two in sync until both share a generated client.
 
 export type Translated = string;
 

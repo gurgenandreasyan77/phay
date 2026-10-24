@@ -86,7 +86,7 @@ class Notifier
                     $tenant,
                     BusinessRole::SETTINGS,
                     $notice['type'] ?? NotificationType::SupportMessage,
-                    $notice['title'] ?? 'Նոր հաղորդագրություն Servio-ից',
+                    $notice['title'] ?? 'Նոր հաղորդագրություն Phay-ից',
                     Str::limit($message->body, 160),
                     $notice['url'] ?? '/admin/support',
                 );

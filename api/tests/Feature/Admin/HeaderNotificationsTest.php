@@ -82,7 +82,7 @@ class HeaderNotificationsTest extends TestCase
         Sanctum::actingAs($owner);
         $bell = $this->bell();
         $this->assertSame(1, $bell['meta']['unread']);
-        $this->assertSame('Նոր հաղորդագրություն Servio-ից', $bell['data'][0]['title']);
+        $this->assertSame('Նոր հաղորդագրություն Phay-ից', $bell['data'][0]['title']);
         $this->assertSame('/admin/support', $bell['data'][0]['url']);
 
         // The chat isn't the moderator's (orders only).

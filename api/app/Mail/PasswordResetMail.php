@@ -18,7 +18,7 @@ class PasswordResetMail extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Գաղտնաբառի վերականգնում / Сброс пароля Servio');
+        return new Envelope(subject: 'Գաղտնաբառի վերականգնում / Сброс пароля Phay');
     }
 
     public function content(): Content

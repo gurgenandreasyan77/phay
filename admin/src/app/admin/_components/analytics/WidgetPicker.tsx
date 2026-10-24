@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LayoutGrid } from "lucide-react";
 import type { DashboardWidgetId, DataTableSection, TableAnalyticsDto } from "@/lib/adminApi";
-import { Button, Card, cn } from "../ui";
+import { Button, Card, cn } from "@/ui";
 import { MISSING_LABELS, WIDGET_GROUPS, widgetLabels } from "./widgets";
 
 /**

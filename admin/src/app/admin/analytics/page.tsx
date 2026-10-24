@@ -34,7 +34,7 @@ import {
   Th,
   Thead,
   Tr,
-} from "../_components/ui";
+} from "@/ui";
 
 export const dynamic = "force-dynamic";
 

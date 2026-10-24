@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import type { ExpenseCategoryDto } from "@/lib/adminApi";
-import { Badge, Button, Input, TableWrap, Td, Th, Thead, Tr } from "../_components/ui";
+import { Badge, Button, Input, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { CATEGORY_HINTS, send } from "./shared";
 
 /**

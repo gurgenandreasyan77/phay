@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePermission } from "@/lib/adminAuth";
 import { getFeatureFlagsAdmin, getPostsAdmin } from "@/lib/adminApi";
-import { Badge, EmptyRow, PageHeader, TableWrap, Td, Th, Thead, Tr, buttonClasses } from "../../_components/ui";
+import { Badge, EmptyRow, PageHeader, TableWrap, Td, Th, Thead, Tr, buttonClasses } from "@/ui";
 import { formatMoment } from "../../_components/tables/shared";
 import { POST_CATEGORY_LABELS } from "./shared";
 

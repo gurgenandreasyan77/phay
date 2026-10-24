@@ -1,6 +1,6 @@
 import { requirePermission } from "@/lib/adminAuth";
 import { getEmployeeGroups, getEmployees } from "@/lib/adminApi";
-import { PageHeader, SectionCard } from "../_components/ui";
+import { PageHeader, SectionCard } from "@/ui";
 import { EmployeesList, GroupsManager, NewEmployeeForm } from "./EmployeesManager";
 
 export const dynamic = "force-dynamic";

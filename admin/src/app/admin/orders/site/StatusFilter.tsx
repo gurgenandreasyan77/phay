@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import type { LeadStatus } from "@/lib/adminApi";
-import { Select } from "../../_components/ui";
+import { Select } from "@/ui";
 
 export function StatusFilter({ statusLabels }: { statusLabels: Record<LeadStatus, string> }) {
   const router = useRouter();

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Card } from "../ui";
+import { Card } from "@/ui";
 
 /** The frame of the sign-in pages (login, invitation, password reset, 2FA setup). */
 export function AuthCard({

@@ -1,38 +1,40 @@
-name: ${COMPOSE_PROJECT_NAME:-servio}
+name: ${COMPOSE_PROJECT_NAME:-phay}
 
 networks:
-  servio:
+  phay:
 
 volumes:
   postgres_data:
+  # Uploaded files (logos, photos, videos): written by backend, served by api.
+  public_storage:
 
 services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-servio}
-      POSTGRES_USER: ${POSTGRES_USER:-servio}
+      POSTGRES_DB: ${POSTGRES_DB:-phay}
+      POSTGRES_USER: ${POSTGRES_USER:-phay}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-servio} -d ${POSTGRES_DB:-servio}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-phay} -d ${POSTGRES_DB:-phay}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - servio
+      - phay
 
   backend:
     build:
-      context: ./servio-back
+      context: ./api
       target: php
       additional_contexts:
-        configs: ./servio-docker
+        configs: ./docker
     restart: unless-stopped
     environment:
-      APP_NAME: ${APP_NAME:-Servio}
+      APP_NAME: ${APP_NAME:-Phay}
       APP_ENV: production
       APP_KEY: ${APP_KEY:?APP_KEY must be set — see README}
       APP_DEBUG: "false"
@@ -40,26 +42,22 @@ services:
       DB_CONNECTION: pgsql
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_DATABASE: ${POSTGRES_DB:-servio}
-      DB_USERNAME: ${POSTGRES_USER:-servio}
+      DB_DATABASE: ${POSTGRES_DB:-phay}
+      DB_USERNAME: ${POSTGRES_USER:-phay}
       DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
-      # Copied once into the default business's site by the migration that
-      # gave every site its own cache-refresh webhook (Platform → Sites).
-      SITE_REVALIDATE_URL: http://frontend:3000/api/revalidate
-      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS must be set}
       LEADS_RATE_LIMIT_PER_MINUTE: ${LEADS_RATE_LIMIT_PER_MINUTE:-5}
       ADMIN_LOGIN_RATE_LIMIT_PER_MINUTE: ${ADMIN_LOGIN_RATE_LIMIT_PER_MINUTE:-5}
       # Sign-in security: links in emails, mail, SMS codes (see README).
-      ADMIN_URL: ${ADMIN_URL:?ADMIN_URL must be set (e.g. https://admin.servio.am)}
+      ADMIN_URL: ${ADMIN_URL:?ADMIN_URL must be set (e.g. https://app.phay.am)}
       MAIL_MAILER: ${MAIL_MAILER:-smtp}
       MAIL_SCHEME: ${MAIL_SCHEME:-}
       MAIL_HOST: ${MAIL_HOST:-}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
-      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@servio.am}
-      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Servio}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-no-reply@phay.am}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Phay}
       SMS_DRIVER: ${SMS_DRIVER:-log}
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
@@ -73,103 +71,34 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
       LOG_CHANNEL: stack
+    volumes:
+      - public_storage:/var/www/html/storage/app/public
     depends_on:
       postgres:
         condition: service_healthy
     networks:
-      - servio
+      - phay
 
   api:
     build:
-      context: ./servio-back
+      context: ./api
       target: nginx
       additional_contexts:
-        configs: ./servio-docker
+        configs: ./docker
     restart: unless-stopped
+    volumes:
+      - public_storage:/var/www/html/public/storage:ro
     ports:
       - "${API_PORT:-8080}:80"
     depends_on:
       backend:
         condition: service_healthy
     networks:
-      - servio
-
-  frontend:
-    build:
-      context: ./servio-front
-      target: runner
-      # NEXT_PUBLIC_* vars are inlined into the JS bundle at `next build`
-      # time (see servio-front/Dockerfile) — passing them only via
-      # `environment:` below has no effect on the compiled output, so they
-      # must also be forwarded here as build args. Keep this list in sync
-      # with the Dockerfile's ARG list and the environment: block below.
-      args:
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?NEXT_PUBLIC_SITE_URL must be set}
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL must be set}
-        NEXT_PUBLIC_SITE_KEY: ${NEXT_PUBLIC_SITE_KEY:-}
-        NEXT_PUBLIC_CONTACT_PHONE: ${NEXT_PUBLIC_CONTACT_PHONE:-+374 55 337633}
-        NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL:-info@servio.am}
-        NEXT_PUBLIC_CONTACT_CITY: ${NEXT_PUBLIC_CONTACT_CITY:-Yerevan, Armenia}
-        NEXT_PUBLIC_INSTAGRAM_URL: ${NEXT_PUBLIC_INSTAGRAM_URL:-}
-        NEXT_PUBLIC_FACEBOOK_URL: ${NEXT_PUBLIC_FACEBOOK_URL:-}
-        NEXT_PUBLIC_WHATSAPP_URL: ${NEXT_PUBLIC_WHATSAPP_URL:-}
-        NEXT_PUBLIC_TELEGRAM_URL: ${NEXT_PUBLIC_TELEGRAM_URL:-}
-        NEXT_PUBLIC_VIBER_URL: ${NEXT_PUBLIC_VIBER_URL:-}
-        NEXT_PUBLIC_GA_ID: ${NEXT_PUBLIC_GA_ID:-}
-        NEXT_PUBLIC_GTM_ID: ${NEXT_PUBLIC_GTM_ID:-}
-        NEXT_PUBLIC_GSC_VERIFICATION: ${NEXT_PUBLIC_GSC_VERIFICATION:-}
-        NEXT_PUBLIC_BING_VERIFICATION: ${NEXT_PUBLIC_BING_VERIFICATION:-}
-        NEXT_PUBLIC_LEGAL_NAME: ${NEXT_PUBLIC_LEGAL_NAME:-Servio}
-        NEXT_PUBLIC_BUSINESS_STREET: ${NEXT_PUBLIC_BUSINESS_STREET:-}
-        NEXT_PUBLIC_BUSINESS_LOCALITY: ${NEXT_PUBLIC_BUSINESS_LOCALITY:-Yerevan}
-        NEXT_PUBLIC_BUSINESS_COUNTRY: ${NEXT_PUBLIC_BUSINESS_COUNTRY:-AM}
-        NEXT_PUBLIC_BUSINESS_LAT: ${NEXT_PUBLIC_BUSINESS_LAT:-}
-        NEXT_PUBLIC_BUSINESS_LNG: ${NEXT_PUBLIC_BUSINESS_LNG:-}
-        NEXT_PUBLIC_HOURS_OPENS: ${NEXT_PUBLIC_HOURS_OPENS:-09:00}
-        NEXT_PUBLIC_HOURS_CLOSES: ${NEXT_PUBLIC_HOURS_CLOSES:-20:00}
-        NEXT_PUBLIC_GOOGLE_MAPS_URL: ${NEXT_PUBLIC_GOOGLE_MAPS_URL:-}
-    restart: unless-stopped
-    # NEXT_PUBLIC_* here are mostly inert (already baked into the build via
-    # build.args above) — kept so `NEXT_INTERNAL_API_URL` sits alongside its
-    # related vars and so `docker compose config` shows the full picture.
-    environment:
-      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?NEXT_PUBLIC_SITE_URL must be set}
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL must be set}
-      NEXT_PUBLIC_SITE_KEY: ${NEXT_PUBLIC_SITE_KEY:-}
-      NEXT_INTERNAL_API_URL: http://api/api/v1
-      ADMIN_URL: ${ADMIN_URL:?ADMIN_URL must be set (e.g. https://admin.servio.am)}
-      REVALIDATE_SECRET: ${REVALIDATE_SECRET:?REVALIDATE_SECRET must be set}
-      NEXT_PUBLIC_CONTACT_PHONE: ${NEXT_PUBLIC_CONTACT_PHONE:-+374 55 337633}
-      NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL:-info@servio.am}
-      NEXT_PUBLIC_CONTACT_CITY: ${NEXT_PUBLIC_CONTACT_CITY:-Yerevan, Armenia}
-      NEXT_PUBLIC_INSTAGRAM_URL: ${NEXT_PUBLIC_INSTAGRAM_URL:-}
-      NEXT_PUBLIC_FACEBOOK_URL: ${NEXT_PUBLIC_FACEBOOK_URL:-}
-      NEXT_PUBLIC_WHATSAPP_URL: ${NEXT_PUBLIC_WHATSAPP_URL:-}
-      NEXT_PUBLIC_TELEGRAM_URL: ${NEXT_PUBLIC_TELEGRAM_URL:-}
-      NEXT_PUBLIC_VIBER_URL: ${NEXT_PUBLIC_VIBER_URL:-}
-      NEXT_PUBLIC_GA_ID: ${NEXT_PUBLIC_GA_ID:-}
-      NEXT_PUBLIC_GTM_ID: ${NEXT_PUBLIC_GTM_ID:-}
-      NEXT_PUBLIC_GSC_VERIFICATION: ${NEXT_PUBLIC_GSC_VERIFICATION:-}
-      NEXT_PUBLIC_BING_VERIFICATION: ${NEXT_PUBLIC_BING_VERIFICATION:-}
-      NEXT_PUBLIC_LEGAL_NAME: ${NEXT_PUBLIC_LEGAL_NAME:-Servio}
-      NEXT_PUBLIC_BUSINESS_STREET: ${NEXT_PUBLIC_BUSINESS_STREET:-}
-      NEXT_PUBLIC_BUSINESS_LOCALITY: ${NEXT_PUBLIC_BUSINESS_LOCALITY:-Yerevan}
-      NEXT_PUBLIC_BUSINESS_COUNTRY: ${NEXT_PUBLIC_BUSINESS_COUNTRY:-AM}
-      NEXT_PUBLIC_BUSINESS_LAT: ${NEXT_PUBLIC_BUSINESS_LAT:-}
-      NEXT_PUBLIC_BUSINESS_LNG: ${NEXT_PUBLIC_BUSINESS_LNG:-}
-      NEXT_PUBLIC_HOURS_OPENS: ${NEXT_PUBLIC_HOURS_OPENS:-09:00}
-      NEXT_PUBLIC_HOURS_CLOSES: ${NEXT_PUBLIC_HOURS_CLOSES:-20:00}
-      NEXT_PUBLIC_GOOGLE_MAPS_URL: ${NEXT_PUBLIC_GOOGLE_MAPS_URL:-}
-    ports:
-      - "${FRONTEND_PORT:-3000}:3000"
-    depends_on:
-      - api
-    networks:
-      - servio
+      - phay
 
   admin:
     build:
-      context: ./servio-admin
+      context: ./admin
       target: runner
     restart: unless-stopped
     environment:
@@ -178,6 +107,5 @@ services:
       - "${ADMIN_PORT:-3001}:3001"
     depends_on:
       - api
-      - frontend
     networks:
-      - servio
+      - phay

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminContactChannelDto } from "@/lib/adminApi";
-import { Button, EmptyRow, Input, Select, TableWrap, Th, Thead, Td, Tr } from "../_components/ui";
+import { Button, EmptyRow, Input, Select, TableWrap, Th, Thead, Td, Tr } from "@/ui";
 
 type ChannelType = AdminContactChannelDto["type"];
 

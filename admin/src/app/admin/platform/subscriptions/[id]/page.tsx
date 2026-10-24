@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSuperAdmin } from "@/lib/adminAuth";
 import { getTenantSubscriptionAdmin } from "@/lib/adminApi";
-import { PageHeader } from "../../../_components/ui";
+import { PageHeader } from "@/ui";
 import { TenantSubscriptionManager } from "./TenantSubscriptionManager";
 
 export const dynamic = "force-dynamic";

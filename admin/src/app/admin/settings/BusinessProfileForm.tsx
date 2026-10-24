@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BusinessLogo } from "../_components/BusinessLogo";
-import { Button, Card, FieldLabel, FormStatus, Input } from "../_components/ui";
+import { Button, Card, FieldLabel, FormStatus, Input } from "@/ui";
 
 /** The business's name and logo: shown in its admin and in the platform's list of businesses. */
 export function BusinessProfileForm({ name: initialName, logo: initialLogo }: { name: string; logo: string | null }) {

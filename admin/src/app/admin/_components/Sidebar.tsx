@@ -7,7 +7,7 @@ import type { AdminUserDto } from "@/lib/adminApi";
 import { isPlatformStaff } from "@/lib/roles";
 import { ArrowLeft } from "lucide-react";
 import { PLATFORM_HOME, isActiveHref, isPlatformPath, visibleNavGroups } from "./nav";
-import { cn } from "./ui";
+import { cn } from "@/ui";
 import { useSupportUnread } from "./chat/unread";
 import { BusinessLogo } from "./BusinessLogo";
 
@@ -38,7 +38,7 @@ export function Sidebar({
     <nav className={cn("flex h-full flex-col bg-sidebar text-sidebar-text", className)}>
       <div className="flex h-16 items-center gap-2.5 px-5">
         {!onPlatform && businessLogo ? (
-          <BusinessLogo name={businessName ?? "Servio"} logo={businessLogo} size="sm" className="border-0" />
+          <BusinessLogo name={businessName ?? "Phay"} logo={businessLogo} size="sm" className="border-0" />
         ) : (
           <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
             S
@@ -46,7 +46,7 @@ export function Sidebar({
         )}
         <div className="min-w-0 leading-tight">
           <p className="truncate text-sm font-semibold text-sidebar-text">
-            {onPlatform ? "Servio" : (businessName ?? "Servio")}
+            {onPlatform ? "Phay" : (businessName ?? "Phay")}
           </p>
           <p className="text-xs text-sidebar-text-muted">{onPlatform ? "Պլատֆորմ" : "Ադմին վահանակ"}</p>
         </div>

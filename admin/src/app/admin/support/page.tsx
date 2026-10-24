@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { requirePermission } from "@/lib/adminAuth";
 import { isPlatformStaff } from "@/lib/roles";
 import { BusinessSupportChat } from "./BusinessSupportChat";
-import { PageHeader } from "../_components/ui";
+import { PageHeader } from "@/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +14,8 @@ export default async function AdminSupportPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Կապ Servio-ի հետ"
-        description="Հարց կամ խնդիր ունե՞ք։ Գրեք Servio-ի թիմին, և մենք կպատասխանենք այստեղ։"
+        title="Կապ Phay-ի հետ"
+        description="Հարց կամ խնդիր ունե՞ք։ Գրեք Phay-ի թիմին, և մենք կպատասխանենք այստեղ։"
       />
       <BusinessSupportChat />
     </div>

@@ -1,6 +1,6 @@
 import { requireSuperAdmin } from "@/lib/adminAuth";
 import { getModulePricesAdmin, getPlansAdmin } from "@/lib/adminApi";
-import { PageHeader } from "../../_components/ui";
+import { PageHeader } from "@/ui";
 import { ModulePricesForm } from "./ModulePricesForm";
 import { PlansManager } from "./PlansManager";
 

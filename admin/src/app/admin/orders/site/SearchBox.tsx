@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { Button, Input } from "../../_components/ui";
+import { Button, Input } from "@/ui";
 
 export function SearchBox() {
   const router = useRouter();

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Trash2, TriangleAlert, Upload } from "lucide-react";
 import type { AdminDataTableDto, DataTableSection, TablePeriod } from "@/lib/adminApi";
-import { Button, buttonClasses, EmptyRow, Input, Select, TableWrap, Td, Th, Thead, Tr } from "../ui";
+import { Button, buttonClasses, EmptyRow, Input, Select, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { formatDateTime, formatMoment, formatMoney, tablePath } from "./shared";
 import { contains, PERIOD_KINDS, TABLE_PERIOD_LABELS } from "./periods";
 

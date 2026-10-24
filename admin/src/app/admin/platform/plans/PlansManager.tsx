@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { ModulePriceDto, PlanDto } from "@/lib/adminApi";
-import { Badge, Button, Card, FieldLabel, Input, SectionCard, Textarea } from "../../_components/ui";
+import { Badge, Button, Card, FieldLabel, Input, SectionCard, Textarea } from "@/ui";
 import { amd } from "../../_components/subscription/shared";
 
 type Draft = {

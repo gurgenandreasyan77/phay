@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, CheckCheck, Send } from "lucide-react";
 import type { SupportMessageDto } from "@/lib/adminApi";
-import { Button, Textarea, cn } from "../ui";
+import { Button, Textarea, cn } from "@/ui";
 
 /** How often an open conversation asks for new messages (no realtime yet). */
 const POLL_MS = 10_000;
@@ -138,8 +138,8 @@ export function ChatThread({
                   <p className="mb-0.5 text-xs font-medium text-ink-muted">
                     {message.fromPlatform
                       ? message.authorName
-                        ? `${message.authorName} · Servio`
-                        : "Servio"
+                        ? `${message.authorName} · Phay`
+                        : "Phay"
                       : message.authorName}
                   </p>
                 ) : null}

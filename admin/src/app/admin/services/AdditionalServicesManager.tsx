@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { AdditionalServiceCategory, PriceUnit } from "@/lib/api";
 import type { AdminAdditionalServiceDto, AdminTranslated } from "@/lib/adminApi";
 import { ImageUploadField } from "./ImageUploadField";
-import { Badge, Button, EmptyCard, FieldLabel, Input, Select } from "../_components/ui";
+import { Badge, Button, EmptyCard, FieldLabel, Input, Select } from "@/ui";
 
 type Locale = "hy" | "ru" | "en";
 const LOCALES: { key: Locale; label: string }[] = [

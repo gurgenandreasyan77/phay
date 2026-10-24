@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { CalendarCog, Check, RefreshCw, Table2, Unplug } from "lucide-react";
 import type { GoogleStateDto, GoogleTablePreviewDto } from "@/lib/adminApi";
-import { Badge, Button, buttonClasses, Card, cn } from "../_components/ui";
-import { ConfirmDialog, type ConfirmContent } from "../_components/dialog/ConfirmDialog";
-import { Dialog, DialogClose } from "../_components/dialog/Dialog";
+import { Badge, Button, buttonClasses, Card, cn } from "@/ui";
+import { ConfirmDialog, type ConfirmContent } from "@/ui/dialog/ConfirmDialog";
+import { Dialog, DialogClose } from "@/ui/dialog/Dialog";
 import { formatDateTime, tablePath } from "../_components/tables/shared";
 
 /** What came back from Google's consent page (?google=…). */
@@ -266,7 +266,7 @@ export function GoogleSync({
               Google օրացույցի հետ համաժամեցումը հարթակում դեռ կարգավորված չէ։{" "}
               {staff ? (
                 <span className="text-ink-faint">
-                  Ավելացրեք GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET և GOOGLE_REDIRECT_URI՝ servio-back/.env-ում։
+                  Ավելացրեք GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET և GOOGLE_REDIRECT_URI՝ api/.env-ում։
                 </span>
               ) : (
                 <Link href="/admin/support" className="font-medium text-primary underline">

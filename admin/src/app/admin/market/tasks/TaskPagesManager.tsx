@@ -315,7 +315,7 @@ function TaskPageForm({
       <TranslatedFields label="SEO նկարագրություն" value={form.seoDescription} onChange={(v) => set("seoDescription", v)} multiline />
 
       <div className="space-y-1.5">
-        <p className={labelClasses}>Առնչվող Servio ծառայություն</p>
+        <p className={labelClasses}>Առնչվող ծառայություն</p>
         <select
           value={form.relatedServiceId ?? ""}
           onChange={(e) => set("relatedServiceId", e.target.value ? Number(e.target.value) : null)}
