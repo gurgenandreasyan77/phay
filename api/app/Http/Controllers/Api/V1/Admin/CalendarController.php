@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\DataTables\PeriodTables;
+use App\Enums\ColumnRole;
 use App\Enums\DataColumnType;
 use App\Enums\DataTableSection;
 use App\Http\Controllers\Controller;
@@ -16,9 +17,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * The orders of a few weeks by day: rows of the business's order tables
- * that have a date column (by their occurred_at, the business's local
- * time), and the site's orders by the date the customer asked for. Not a
+ * The orders of a few weeks by day: rows of the business's order and sales
+ * tables that have a date column (by their occurred_at, the business's
+ * local time; each row says its section, so the calendar shows services
+ * and sales apart), and the site's orders by the date the customer asked
+ * for. Not a
  * store of its own: the calendar adds and deletes rows through the rows API,
  * so analytics and the AI assistant always see what the calendar shows.
  */
@@ -42,8 +45,13 @@ class CalendarController extends Controller
         abort_if($from->diffInDays($to) >= self::MAX_DAYS, 422, 'The range is too long.');
 
         // Tables without a date column can't be put on days.
+        $sections = array_values(array_filter(
+            [DataTableSection::Orders, DataTableSection::Sales],
+            fn (DataTableSection $section) => DataTableController::sectionAllowed($section),
+        ));
         $tables = DataTable::query()
-            ->where('section', DataTableSection::Orders)
+            ->whereIn('section', array_map(fn (DataTableSection $s) => $s->value, $sections))
+            ->orderByRaw("CASE WHEN section = 'orders' THEN 0 ELSE 1 END")
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get()
@@ -61,6 +69,9 @@ class CalendarController extends Controller
             ->get(['id', 'data_table_id', 'data', 'occurred_at', 'amount', 'source', 'external_id']);
 
         $timed = $tables->mapWithKeys(fn (DataTable $table) => [$table->id => $table->dateColumn()->type === DataColumnType::DateTime]);
+        // A date column with the time in a column of its own (ColumnRole::Time): a row whose time is filled.
+        $clocked = $tables->mapWithKeys(fn (DataTable $table) => [$table->id => $table->roleColumn(ColumnRole::Time) !== null]);
+        $sectionOf = $tables->mapWithKeys(fn (DataTable $table) => [$table->id => $table->section->value]);
 
         $leads = Lead::query()
             ->with('service')
@@ -98,15 +109,18 @@ class CalendarController extends Controller
             'periods' => (object) $tables->filter(fn (DataTable $t) => $t->period() !== null)
                 ->mapWithKeys(fn (DataTable $t) => [$t->id => $t->period()->toArray()])
                 ->all(),
-            'rows' => $rows->take(self::MAX_ROWS)->map(function (DataTableRow $row) use ($timed) {
+            'rows' => $rows->take(self::MAX_ROWS)->map(function (DataTableRow $row) use ($timed, $clocked, $sectionOf) {
                 $at = CarbonImmutable::parse($row->getRawOriginal('occurred_at'));
+                $time = $timed[$row->data_table_id] || ($clocked[$row->data_table_id] && $at->format('H:i') !== '00:00');
 
                 return [
                     'id' => $row->id,
                     'tableId' => $row->data_table_id,
+                    // orders (a service done) or sales (goods sold): shown apart.
+                    'section' => $sectionOf[$row->data_table_id],
                     'date' => $at->toDateString(),
                     // Only a date-and-time column has a time; a date column's rows are "all day".
-                    'time' => $timed[$row->data_table_id] ? $at->format('H:i') : null,
+                    'time' => $time ? $at->format('H:i') : null,
                     'amount' => $row->amount,
                     'values' => (object) ($row->data ?? []),
                     // "google": made from a Google Calendar event.

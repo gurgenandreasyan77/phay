@@ -1183,9 +1183,11 @@ export async function getDataTables(section?: DataTableSection): Promise<AdminDa
 export type CalendarRowDto = {
   id: number;
   tableId: number;
+  /** "orders": a service done; "sales": goods sold. Shown apart. */
+  section: "orders" | "sales";
   /** "Y-m-d", the business's local day. */
   date: string;
-  /** "H:i" for a date-and-time column; null for a date column (the whole day). */
+  /** "H:i" for a date-and-time column or a filled time column; null for the whole day. */
   time: string | null;
   amount: number | null;
   values: Record<string, DataCellValue>;

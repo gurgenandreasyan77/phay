@@ -9,7 +9,7 @@ import { bucketTitle, weekdayShort } from "../_components/analytics/BarChart";
 import { formatMoney, SECTIONS, tablePath } from "../_components/tables/shared";
 import { DayView } from "./DayView";
 import { addDays, addMonths, isDay, today, visibleDays, type CalendarView } from "./dates";
-import { GOOGLE_DOT, groupByDay, tableColor, type CalendarDay } from "./entries";
+import { GOOGLE_DOT, groupByDay, markShape, tableColor, type CalendarDay } from "./entries";
 import { GoogleSync } from "./GoogleSync";
 import styles from "./calendar.module.css";
 
@@ -25,9 +25,12 @@ function href(view: CalendarView, day: string, open = false): string {
 
 /**
  * The calendar: the orders of each day, from the order tables (rows with a
- * date) and from the site. A day opens on the right, where an order is
- * added to a table or deleted from it, and so from the analytics too. On a
- * phone a day with orders opens them in a sheet from the bottom.
+ * date) and from the site, and the day's sales from the sales tables, apart:
+ * services as round dots, sales as amber squares, each with its own count,
+ * so a business that does both sees how many of each a day had. A day
+ * opens on the right, where a row is added to a table or deleted from it,
+ * and so from the analytics too. On a phone a day opens in a sheet from
+ * the bottom.
  */
 export default async function AdminCalendarPage(props: PageProps<"/admin/calendar">) {
   const me = await requirePermission("orders");
@@ -53,7 +56,7 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
     <div className="space-y-6">
       <PageHeader
         title="Օրացույց"
-        description="Ձեր պատվերներն ըստ օրերի՝ պատվերների աղյուսակներից, կայքից և Google օրացույցից։ Ընտրեք օրը՝ պատվեր ավելացնելու կամ ջնջելու համար. փոփոխությունները միանգամից երևում են աղյուսակում և վերլուծության մեջ։"
+        description="Ձեր պատվերներն ու վաճառքներն ըստ օրերի՝ աղյուսակներից, կայքից և Google օրացույցից։ Ծառայությունները՝ կանաչ կետերով, վաճառքները՝ դեղին քառակուսիներով։ Ընտրեք օրը՝ ավելացնելու կամ ջնջելու համար. փոփոխությունները միանգամից երևում են աղյուսակում և վերլուծության մեջ։"
       />
 
       {google ? (
@@ -109,7 +112,9 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
               <div key={`${view}-${days[0]}`} className="grid grid-cols-7">
                 {days.map((d, i) => {
                   const info = byDay.get(d);
-                  const count = (info?.entries.length ?? 0) + (info?.leads.length ?? 0) + (info?.google.length ?? 0);
+                  const services = info?.totals.services.count ?? 0;
+                  const sales = info?.totals.sales.count ?? 0;
+                  const count = services + sales + (info?.google.length ?? 0);
                   const outside = view === "month" && d.slice(0, 7) !== day.slice(0, 7);
 
                   return (
@@ -136,9 +141,9 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
                       </span>
                       {view === "week" ? (
                         <ul className="space-y-1 text-xs">
-                          {info?.entries.map((e, j) => (
+                          {info?.services.map((e, j) => (
                             <li key={e.id} className={cn(styles.item, "flex items-start gap-1")} style={{ "--j": j } as CSSProperties}>
-                              <span className={cn("mt-1 h-1.5 w-1.5 shrink-0 rounded-full", tableColor(data, e.tableId))} />
+                              <span className={cn("mt-1 h-1.5 w-1.5 shrink-0", markShape("orders"), tableColor(data, e.tableId))} />
                               <span className="min-w-0 break-words text-ink">
                                 {e.time ? <span className="text-ink-muted">{e.time} </span> : null}
                                 {e.title}
@@ -149,6 +154,19 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
                             <li key={`lead-${l.id}`} className="flex items-start gap-1">
                               <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-info" />
                               <span className="min-w-0 break-words text-info">{l.service ?? l.name}</span>
+                            </li>
+                          ))}
+                          {info?.sales.map((e, j) => (
+                            <li
+                              key={e.id}
+                              className={cn(styles.item, "flex items-start gap-1 rounded-sm bg-warning-light/70 px-1 py-0.5")}
+                              style={{ "--j": (info?.services.length ?? 0) + j } as CSSProperties}
+                            >
+                              <span className={cn("mt-1 h-1.5 w-1.5 shrink-0", markShape("sales"), tableColor(data, e.tableId))} />
+                              <span className="min-w-0 break-words text-ink">
+                                {e.title}
+                                {e.quantity ? <span className="text-ink-muted"> × {e.quantity}</span> : null}
+                              </span>
                             </li>
                           ))}
                           {info?.google.map((g) => (
@@ -163,17 +181,26 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
                         </ul>
                       ) : count > 0 ? (
                         <>
-                          <span className={cn(styles.count, "text-xs font-medium text-ink")}>
-                            {count} <span className="hidden sm:inline">պատվեր</span>
-                          </span>
+                          {services > 0 || (info?.google.length ?? 0) > 0 ? (
+                            <span className={cn(styles.count, "flex items-center gap-1 text-xs font-medium text-ink")}>
+                              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                              {services + (info?.google.length ?? 0)} <span className="hidden sm:inline">պատվեր</span>
+                            </span>
+                          ) : null}
+                          {sales > 0 ? (
+                            <span className={cn(styles.count, "flex items-center gap-1 text-xs font-medium text-warning")}>
+                              <span className="h-1.5 w-1.5 rounded-[2px] bg-chart-3" />
+                              {sales} <span className="hidden sm:inline">վաճառք</span>
+                            </span>
+                          ) : null}
                           {info && info.amount > 0 ? (
                             <span className="hidden text-xs text-ink-muted sm:block">{formatMoney(info.amount)}</span>
                           ) : null}
                           <span className="mt-auto flex flex-wrap gap-0.5">
-                            {info?.entries.slice(0, 8).map((e, j) => (
+                            {info?.services.slice(0, 8).map((e, j) => (
                               <span
                                 key={e.id}
-                                className={cn(styles.dot, "h-1.5 w-1.5 rounded-full", tableColor(data, e.tableId))}
+                                className={cn(styles.dot, "h-1.5 w-1.5", markShape("orders"), tableColor(data, e.tableId))}
                                 style={{ "--i": i, "--j": j } as CSSProperties}
                               />
                             ))}
@@ -184,11 +211,18 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
                                 style={{ "--i": i, "--j": j + 8 } as CSSProperties}
                               />
                             ))}
+                            {info?.sales.slice(0, 8).map((e, j) => (
+                              <span
+                                key={e.id}
+                                className={cn(styles.dot, "h-1.5 w-1.5", markShape("sales"), tableColor(data, e.tableId))}
+                                style={{ "--i": i, "--j": j + 12 } as CSSProperties}
+                              />
+                            ))}
                             {info?.google.slice(0, 6).map((g, j) => (
                               <span
                                 key={`google-${g.id}`}
                                 className={cn(styles.dot, "h-1.5 w-1.5 rounded-full", GOOGLE_DOT)}
-                                style={{ "--i": i, "--j": j + 12 } as CSSProperties}
+                                style={{ "--i": i, "--j": j + 20 } as CSSProperties}
                               />
                             ))}
                           </span>
@@ -202,9 +236,10 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
               {data.tables.map((t) => (
-                <Link key={t.id} href={tablePath("orders", t.id)} className="inline-flex items-center gap-1.5 hover:text-ink">
-                  <span className={cn("h-2 w-2 rounded-full", tableColor(data, t.id))} />
+                <Link key={t.id} href={tablePath(t.section, t.id)} className="inline-flex items-center gap-1.5 hover:text-ink">
+                  <span className={cn("h-2 w-2", markShape(t.section), tableColor(data, t.id))} />
                   {t.name}
+                  {t.section === "sales" ? <span className="text-ink-faint">(վաճառք)</span> : null}
                 </Link>
               ))}
               {data.leads.length > 0 ? (
@@ -219,7 +254,7 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
                   Google օրացույց (դեռ աղյուսակում չէ)
                 </span>
               ) : null}
-              {data.truncated ? <span className="text-warning">Ցուցադրված են ոչ բոլոր պատվերները. ընտրեք շաբաթը։</span> : null}
+              {data.truncated ? <span className="text-warning">Ցուցադրված են ոչ բոլոր տողերը. ընտրեք շաբաթը։</span> : null}
             </div>
           </div>
 
@@ -230,7 +265,8 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
             day={day}
             title={bucketTitle(day)}
             tables={data.tables}
-            entries={byDay.get(day)?.entries ?? []}
+            services={byDay.get(day)?.services ?? []}
+            sales={byDay.get(day)?.sales ?? []}
             leads={byDay.get(day)?.leads ?? []}
             google={byDay.get(day)?.google ?? []}
             colors={Object.fromEntries(data.tables.map((t) => [t.id, tableColor(data, t.id)]))}
