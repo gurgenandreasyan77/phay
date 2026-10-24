@@ -150,7 +150,7 @@ class AdminAssistantTest extends TestCase
         $this->postJson('/api/v1/admin/assistant', ['messages' => [['role' => 'user', 'content' => 'Որքա՞ն մոմ ենք վաճառել հոկտեմբերին']]])->assertOk();
 
         [$tables, $found, $byMonth, $byItem, $finance, $site] = $this->client->toolResults;
-        $this->assertCount(5, $this->client->toolDefinitions);
+        $this->assertCount(6, $this->client->toolDefinitions);
         $this->assertSame(['Ապրանք', 'Քանակ', 'Գին', 'Ամսաթիվ'], array_column($tables['tables'][0]['columns'], 'label'));
         $this->assertSame(2, $found['matched']);
         $this->assertSame(['Ապրանք' => 'Մոմ', 'Քանակ' => 2, 'Գին' => 4500], $found['rows'][0]['values']);
