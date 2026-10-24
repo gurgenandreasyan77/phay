@@ -10,8 +10,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Public API: the X-Site-Key header picks the tenant whose content is
- * served and who receives the leads. No header means the default tenant,
- * so a site that hasn't been given a key yet keeps working as before.
+ * served and who receives the leads. Every site must send it; there is no
+ * fallback business, so a misconfigured site fails loudly instead of
+ * showing someone else's content.
  */
 class ResolveSiteTenant
 {
@@ -24,7 +25,7 @@ class ResolveSiteTenant
         $key = $request->header(self::HEADER);
 
         if ($key === null || $key === '') {
-            return $this->runAs($this->context->current(), $request, $next);
+            abort(401, 'Site key required.');
         }
 
         $site = Site::query()->with('tenant')->where('public_key', $key)->first();

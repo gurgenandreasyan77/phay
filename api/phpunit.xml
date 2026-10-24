@@ -48,6 +48,9 @@
         <env name="PULSE_ENABLED" value="false" force="true"/>
         <env name="TELESCOPE_ENABLED" value="false" force="true"/>
         <env name="NIGHTWATCH_ENABLED" value="false" force="true"/>
+        <!-- compose.yaml gives the backend the old site webhook for a one-time migration; tests start without one. -->
+        <env name="SITE_REVALIDATE_URL" value="" force="true"/>
+        <env name="REVALIDATE_SECRET" value="" force="true"/>
 
         <server name="APP_ENV" value="testing" force="true"/>
         <server name="DB_CONNECTION" value="sqlite" force="true"/>
@@ -57,5 +60,7 @@
         <server name="DB_USERNAME" value="" force="true"/>
         <server name="DB_PASSWORD" value="" force="true"/>
         <server name="DB_URL" value="" force="true"/>
+        <server name="SITE_REVALIDATE_URL" value="" force="true"/>
+        <server name="REVALIDATE_SECRET" value="" force="true"/>
     </php>
 </phpunit>

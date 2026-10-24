@@ -38,12 +38,22 @@ class SiteKeyTest extends TestCase
         $this->asTenant($this->shop, fn () => $this->createService('sofa-cleaning', 'Shop sofa'));
     }
 
-    public function test_without_a_key_the_default_business_is_served(): void
+    public function test_the_default_business_site_key_serves_the_default_business(): void
     {
+        // Tests send the default business's site key unless they pass another.
         $this->getJson('/api/v1/services?lang=en')
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.name', 'Servio sofa');
+    }
+
+    public function test_without_a_key_nothing_is_served(): void
+    {
+        $this->withoutHeader('X-Site-Key');
+
+        $this->getJson('/api/v1/services?lang=en')->assertUnauthorized();
+        $this->getJson('/api/v1/settings')->assertUnauthorized();
+        $this->postJson('/api/v1/leads', ['name' => 'Ani', 'phone' => '+37455000000', 'consent' => true])->assertUnauthorized();
     }
 
     public function test_with_a_key_only_that_business_is_served(): void

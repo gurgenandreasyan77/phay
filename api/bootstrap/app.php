@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AllowSiteOrigins;
 use App\Http\Middleware\EnsureBusinessPermission;
 use App\Http\Middleware\EnsurePlatformStaff;
 use App\Http\Middleware\EnsureSuperAdmin;
@@ -27,6 +28,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // log see the visitor's IP, not theirs. Only private networks, so a
         // visitor can't fake it from outside.
         $middleware->trustProxies(at: ['127.0.0.1', '::1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']);
+
+        // Before HandleCors, which is part of the global stack.
+        $middleware->prepend(AllowSiteOrigins::class);
 
         $middleware->api(append: [
             SetLocale::class,

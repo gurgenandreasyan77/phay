@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Sites\SiteOrigins;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
@@ -24,11 +25,18 @@ class Site extends Model
         'domain',
         'public_key',
         'allowed_origins',
+        'revalidate_url',
+        'revalidate_secret',
         'is_active',
+    ];
+
+    protected $hidden = [
+        'revalidate_secret',
     ];
 
     protected $casts = [
         'allowed_origins' => 'array',
+        'revalidate_secret' => 'encrypted',
         'is_active' => 'boolean',
     ];
 
@@ -37,6 +45,9 @@ class Site extends Model
         static::creating(function (Site $site) {
             $site->public_key ??= static::generateKey();
         });
+
+        static::saved(fn () => SiteOrigins::forget());
+        static::deleted(fn () => SiteOrigins::forget());
     }
 
     public static function generateKey(): string
@@ -60,5 +71,32 @@ class Site extends Model
         }
 
         return in_array(rtrim($origin, '/'), array_map(fn ($o) => rtrim($o, '/'), $this->allowed_origins), true);
+    }
+
+    /**
+     * Origins a browser on this site sends: the listed ones, or the domain
+     * with and without www when none are listed.
+     *
+     * @return list<string>
+     */
+    public function browserOrigins(): array
+    {
+        if (! empty($this->allowed_origins)) {
+            return array_values(array_map(fn ($o) => rtrim($o, '/'), $this->allowed_origins));
+        }
+
+        if (! $this->domain) {
+            return [];
+        }
+
+        $host = preg_replace('/^www\./i', '', $this->domain);
+
+        return ["https://{$host}", "https://www.{$host}"];
+    }
+
+    /** The cache-refresh webhook is set up and can be called. */
+    public function canRevalidate(): bool
+    {
+        return $this->is_active && $this->revalidate_url && $this->revalidate_secret;
     }
 }

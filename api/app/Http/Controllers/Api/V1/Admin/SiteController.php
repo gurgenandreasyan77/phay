@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\SiteResource;
 use App\Models\Site;
 use App\Models\Tenant;
+use App\Sites\SiteCacheTag;
+use App\Sites\SiteRevalidator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -52,6 +54,19 @@ class SiteController extends Controller
         return new SiteResource($site->fresh('tenant'));
     }
 
+    /**
+     * Sends the site one cache refresh right now, so whoever set up the
+     * webhook sees at once whether the address and secret work.
+     */
+    public function checkRevalidation(Site $site, SiteRevalidator $revalidator): JsonResponse
+    {
+        if (! $site->canRevalidate()) {
+            return response()->json(['message' => 'Կայքի webhook-ի հասցեն կամ գաղտնաբառը նշված չէ։'], 422);
+        }
+
+        return response()->json(['data' => $revalidator->send($site, [SiteCacheTag::SiteSettings->value])]);
+    }
+
     private function validated(Request $request, bool $creating): array
     {
         $required = $creating ? 'required' : 'sometimes';
@@ -62,8 +77,15 @@ class SiteController extends Controller
             'allowed_origins' => ['sometimes', 'nullable', 'array', 'max:20'],
             // scheme://host[:port], exactly what a browser sends as Origin.
             'allowed_origins.*' => ['string', 'max:255', 'regex:#^https?://[a-z0-9.-]+(:\d+)?$#i'],
+            'revalidate_url' => ['sometimes', 'nullable', 'url:http,https', 'max:255'],
+            // Empty or missing keeps the current one; it is never sent back.
+            'revalidate_secret' => ['sometimes', 'nullable', 'string', 'min:16', 'max:255'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
+
+        if (array_key_exists('revalidate_secret', $validated) && blank($validated['revalidate_secret'])) {
+            unset($validated['revalidate_secret']);
+        }
 
         if (array_key_exists('allowed_origins', $validated)) {
             $validated['allowed_origins'] = array_values(array_unique($validated['allowed_origins'] ?? [])) ?: null;

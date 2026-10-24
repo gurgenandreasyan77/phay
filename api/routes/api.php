@@ -185,6 +185,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('/sites', [AdminSiteController::class, 'store']);
                 Route::patch('/sites/{site}', [AdminSiteController::class, 'update']);
                 Route::post('/sites/{site}/rotate-key', [AdminSiteController::class, 'rotateKey']);
+                Route::post('/sites/{site}/check-revalidation', [AdminSiteController::class, 'checkRevalidation'])->middleware('throttle:10,1');
                 // The chat with businesses: every conversation, and one business's.
                 Route::get('/support/conversations', [AdminPlatformSupportController::class, 'conversations']);
                 Route::get('/tenants/{tenant}/messages', [AdminPlatformSupportController::class, 'index']);

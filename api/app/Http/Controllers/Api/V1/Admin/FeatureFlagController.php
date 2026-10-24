@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Features\FeatureFlag;
 use App\Http\Controllers\Controller;
 use App\Models\FeatureFlagLog;
+use App\Sites\SiteCacheTag;
+use App\Sites\SiteRevalidator;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -50,6 +53,9 @@ class FeatureFlagController extends Controller
                 'new_value' => $newValue,
                 'changed_by_id' => $request->user()->id,
             ]);
+
+            // A module turned on or off changes what every public endpoint answers.
+            app(SiteRevalidator::class)->touch(app(TenantContext::class)->id(), ...SiteCacheTag::cases());
         }
 
         return response()->json(['data' => $this->present($flag)]);

@@ -13,6 +13,8 @@ use App\Models\User;
 use App\Security\Sms\LogSmsSender;
 use App\Security\Sms\SmsSender;
 use App\Security\Sms\TwilioSmsSender;
+use App\Sites\RefreshSiteCache;
+use App\Sites\SiteRevalidator;
 use App\Tenancy\TenantContext;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -34,6 +36,9 @@ class AppServiceProvider extends ServiceProvider
         // One tenant per request, command or queued job ("scoped" resets
         // between Octane requests and queue jobs).
         $this->app->scoped(TenantContext::class);
+
+        // Collects cache tags during a request; sent once when it ends.
+        $this->app->scoped(SiteRevalidator::class);
 
         // No social network can be connected yet; an Instagram source replaces this.
         $this->app->bind(SocialSource::class, NullSocialSource::class);
@@ -138,6 +143,12 @@ class AppServiceProvider extends ServiceProvider
         foreach (FeatureFlag::cases() as $flag) {
             Feature::define($flag->value, fn () => $flag->default());
         }
+
+        foreach (array_keys(RefreshSiteCache::TAGS) as $model) {
+            $model::observe(RefreshSiteCache::class);
+        }
+
+        $this->app->terminating(fn () => $this->app->make(SiteRevalidator::class)->flush());
 
         Gate::define('manage-feature-flags', fn (User $user) => $user->is_super_admin);
         Gate::define('manage-tenants', fn (User $user) => $user->isPlatformStaff());
