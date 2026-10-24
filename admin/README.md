@@ -4,7 +4,7 @@ The admin panel of Phay, a standalone Next.js 16 app. It talks only to the
 Laravel API (`../api`, `/api/v1/admin/*`) and knows nothing about the
 businesses' websites.
 
-- Dev: `make up` from the repo root, then http://localhost:3001 (redirects to `/admin`).
+- Dev: `make local-up` from the repo root, then http://localhost:3001 (redirects to `/admin`).
 - Without Docker: `npm ci && npm run dev` (port 3001), with `NEXT_INTERNAL_API_URL`
   pointing at the API (e.g. `http://localhost:8080/api/v1`).
 - UI kit: `src/ui` (import from `@/ui`, dialogs from `@/ui/dialog/...`).

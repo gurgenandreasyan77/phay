@@ -3,6 +3,7 @@ vendor/
 .env
 .env.*
 !.env.example
+!.env.prod.example
 .idea/
 .DS_Store
 *.log
