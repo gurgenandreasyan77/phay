@@ -230,7 +230,7 @@ class SearchController extends Controller
                 'id' => $tenant->id,
                 'title' => $tenant->name,
                 'subtitle' => $tenant->slug,
-                'url' => '/admin/platform?q='.rawurlencode($tenant->name),
+                'url' => '/admin/platform/businesses/'.$tenant->id,
             ])->values()->all();
     }
 

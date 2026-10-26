@@ -111,7 +111,9 @@ class AuthController extends Controller
         $user = $request->user();
         $tenant = Tenant::query()->findOrFail($validated['tenant_id']);
 
-        abort_unless($user->canAccessTenant($tenant), 403, 'You have no access to this business.');
+        // Only into a business of one's own: platform staff looks at the
+        // others from the platform level (GET /admin/tenants/{t}/overview).
+        abort_unless($user->isMemberOf($tenant), 403, 'You have no access to this business.');
 
         $user->forceFill(['current_tenant_id' => $tenant->id])->save();
         $user->setRelation('currentTenant', $tenant);
@@ -141,10 +143,8 @@ class AuthController extends Controller
     {
         $role = $user->businessRole($current);
 
-        // Platform staff can switch to any business; everyone else to theirs.
-        $tenants = $user->isPlatformStaff()
-            ? Tenant::query()->orderBy('id')->get()
-            : $user->tenants()->orderBy('tenants.id')->get();
+        // The businesses one can switch to: one's own (platform staff too).
+        $tenants = $user->tenants()->orderBy('tenants.id')->get();
 
         return [
             'id' => $user->id,
@@ -153,7 +153,7 @@ class AuthController extends Controller
             'isSuperAdmin' => $user->is_super_admin,
             'platformRole' => $user->platformRole()?->value,
             // The role in the current business and what it allows there
-            // (platform staff act as the owner).
+            // (none for platform staff that isn't one of its people).
             'businessRole' => $role?->value,
             'permissions' => $role?->permissions() ?? [],
             'currentTenant' => new TenantResource($current),

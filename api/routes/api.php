@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\V1\Admin\ModulePriceController as AdminModulePriceC
 use App\Http\Controllers\Api\V1\Admin\NotificationController as AdminNotificationController;
 use App\Http\Controllers\Api\V1\Admin\PasswordController as AdminPasswordController;
 use App\Http\Controllers\Api\V1\Admin\PlanController as AdminPlanController;
+use App\Http\Controllers\Api\V1\Admin\PlatformBusinessController as AdminPlatformBusinessController;
 use App\Http\Controllers\Api\V1\Admin\PlatformSubscriptionController as AdminPlatformSubscriptionController;
 use App\Http\Controllers\Api\V1\Admin\PlatformSupportController as AdminPlatformSupportController;
 use App\Http\Controllers\Api\V1\Admin\PlatformUserController as AdminPlatformUserController;
@@ -183,6 +184,9 @@ Route::prefix('v1')->group(function () {
             Route::middleware('platform.staff')->group(function () {
                 Route::get('/tenants', [AdminTenantController::class, 'index']);
                 Route::post('/tenants', [AdminTenantController::class, 'store']);
+                // One business from the platform level: activity, subscription,
+                // modules, AI usage; never its orders, sales or money.
+                Route::get('/tenants/{tenant}/overview', [AdminPlatformBusinessController::class, 'show']);
                 Route::get('/tenants/{tenant}/users', [AdminTenantUserController::class, 'index']);
                 Route::post('/tenants/{tenant}/users', [AdminTenantUserController::class, 'store']);
                 Route::patch('/tenants/{tenant}/users/{user}', [AdminTenantUserController::class, 'update']);

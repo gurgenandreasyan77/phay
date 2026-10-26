@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import type { FeatureFlags } from "@/lib/api";
 import type { AdminUserDto, BusinessPermission } from "@/lib/adminApi";
-import { can, isPlatformStaff, isSuperAdmin } from "@/lib/roles";
+import { can, isOutsideBusiness, isPlatformStaff, isSuperAdmin } from "@/lib/roles";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -63,9 +63,8 @@ export type NavGroup = {
 };
 
 /**
- * The admin of one business: what its owner always sees, and what a super
- * admin sees after entering a business. Modules appear only when that
- * business has them turned on.
+ * The admin of one business, for its own people (platform staff only when it
+ * is one of them). Modules appear only when that business has them turned on.
  */
 export const BUSINESS_NAV_GROUPS: NavGroup[] = [
   {
@@ -155,22 +154,32 @@ export function isPlatformPath(pathname: string): boolean {
 
 export const ALL_NAV_ITEMS: NavItem[] = [...BUSINESS_NAV_GROUPS, ...PLATFORM_NAV_GROUPS].flatMap((group) => group.items);
 
-type NavUser = (Pick<AdminUserDto, "platformRole" | "permissions"> & Pick<Partial<AdminUserDto>, "subscription">) | null;
+type NavUser =
+  | (Pick<AdminUserDto, "platformRole" | "permissions"> & Pick<Partial<AdminUserDto>, "subscription" | "businessRole">)
+  | null;
+
+/**
+ * The platform level: platform staff on /admin/platform/*, and anywhere for
+ * staff that isn't one of the current business's people (it never gets the
+ * business's menu or data).
+ */
+export function showsPlatformLevel(me: NavUser, pathname: string): boolean {
+  return isPlatformStaff(me) && (isPlatformPath(pathname) || isOutsideBusiness(me));
+}
 
 /** What a business whose subscription ended can still open (see requireAdmin). */
 const OPEN_WHEN_LOCKED = ["/admin/subscription", "/admin/support"];
 
 /**
- * The menu for this page: the platform level on /admin/platform/*, the
- * business admin elsewhere. Drops modules the business has off and sections
+ * The menu for this page: the platform level on /admin/platform/* (and for
+ * staff outside the business), the business admin elsewhere. Drops modules the business has off and sections
  * the user's role doesn't open; a business's own people also don't see the
  * "soon" placeholders, only what works today.
  */
 export function visibleNavGroups(features: FeatureFlags, me: NavUser, pathname: string): NavGroup[] {
   const staff = isPlatformStaff(me);
 
-  const groups =
-    staff && isPlatformPath(pathname)
+  const groups = showsPlatformLevel(me, pathname)
       ? PLATFORM_NAV_GROUPS.map((group) => ({
           ...group,
           items: group.items.filter((item) => !item.superAdminOnly || isSuperAdmin(me)),
@@ -204,6 +213,8 @@ const EXACT_HREFS = ["/admin", PLATFORM_HOME, "/admin/site"];
 const OWN_ITEMS = ["/admin/expenses/statistics"];
 
 export function isActiveHref(href: string, pathname: string): boolean {
+  // A business's page belongs to the list of businesses.
+  if (href === PLATFORM_HOME && pathname.startsWith(`${PLATFORM_HOME}/businesses/`)) return true;
   if (OWN_ITEMS.some((own) => own !== href && own.startsWith(href) && pathname.startsWith(own))) return false;
   return EXACT_HREFS.includes(href) ? pathname === href : pathname.startsWith(href);
 }

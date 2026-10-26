@@ -619,13 +619,13 @@ export type AdminUserDto = {
   isSuperAdmin: boolean;
   /** Null for a business's own people. */
   platformRole: PlatformRole | null;
-  /** Role in the current business (platform staff act as its owner). */
+  /** Role in the current business (null for platform staff that isn't one of its people). */
   businessRole: BusinessRole | null;
   /** What that role opens in the current business. */
   permissions: BusinessPermission[];
   /** The business the admin panel is working on right now (null if the API didn't say). */
   currentTenant: AdminTenantDto | null;
-  /** Businesses the user can switch to (all of them for a super admin). */
+  /** Businesses the user can switch to: their own (platform staff too). */
   tenants: AdminTenantDto[];
   /** The current business's subscription (absent from an older API). */
   subscription?: SubscriptionSummaryDto | null;
@@ -1927,6 +1927,51 @@ export async function getModulePricesAdmin(): Promise<ModulePriceDto[]> {
 export async function getSubscriptionsAdmin(status?: SubscriptionStatus): Promise<PlatformSubscriptionRowDto[]> {
   const result = await adminApiFetch<PlatformSubscriptionRowDto[]>(`/admin/subscriptions${status ? `?status=${status}` : ""}`);
   return result.data ?? [];
+}
+
+/**
+ * One business from the platform level (platform staff): how long and how
+ * actively it uses Phay, its subscription, modules, agents and AI usage.
+ * Never its own data (orders, sales, money, conversations).
+ */
+export type BusinessOverviewDto = {
+  tenant: {
+    id: number;
+    name: string;
+    logo: string | null;
+    slug: string;
+    status: "active" | "suspended";
+    defaultLocale: string;
+    timezone: string | null;
+    createdAt: string | null;
+  };
+  activity: {
+    createdAt: string | null;
+    daysOnPlatform: number | null;
+    /** Days its own people opened the admin, since the start. */
+    activeDays: number;
+    /** The same over the last 30 days. */
+    activeDaysRecent: number;
+    firstActiveDay: string | null;
+    lastActiveDay: string | null;
+    lastSeenAt: string | null;
+    /** The last 30 days, oldest first. */
+    recent: { date: string; active: boolean }[];
+  };
+  subscription: SubscriptionDto;
+  /** The platform's money: the super admin only (null for a moderator). */
+  payments: { count: number; total: number; latest: SubscriptionPaymentDto[] } | null;
+  modules: { key: string; label: string; active: boolean }[];
+  agents: { key: string; persona: Record<string, string>; label: string; active: boolean }[];
+  assistant: AssistantUsageDto & { bonuses: AssistantBonusDto[] | null };
+  people: { logins: number; activated: number; byRole: Record<BusinessRole, number>; employees: number };
+  support: { unread: number; lastMessageAt: string | null };
+  sites: number;
+};
+
+export async function getBusinessOverviewAdmin(tenantId: number): Promise<BusinessOverviewDto | null> {
+  const result = await adminApiFetch<BusinessOverviewDto>(`/admin/tenants/${tenantId}/overview`);
+  return result.data;
 }
 
 export async function getTenantSubscriptionAdmin(tenantId: number): Promise<TenantSubscriptionDetailDto | null> {

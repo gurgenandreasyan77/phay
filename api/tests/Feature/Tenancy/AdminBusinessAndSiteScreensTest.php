@@ -32,12 +32,15 @@ class AdminBusinessAndSiteScreensTest extends TestCase
             ->assertJsonCount(1, 'data.tenants')
             ->assertJsonPath('data.tenants.0.role', 'owner');
 
+        // Platform staff switches only between businesses of its own; the
+        // others it sees from the platform level.
         $this->superAdmin();
 
         $this->getJson('/api/v1/admin/me')
             ->assertOk()
-            ->assertJsonCount(2, 'data.tenants')
-            ->assertJsonPath('data.tenants.1.slug', $shop->slug);
+            ->assertJsonCount(1, 'data.tenants')
+            ->assertJsonPath('data.tenants.0.slug', 'phay');
+        $this->postJson('/api/v1/admin/switch-tenant', ['tenant_id' => $shop->id])->assertForbidden();
     }
 
     public function test_switching_business_changes_what_the_admin_works_on(): void
