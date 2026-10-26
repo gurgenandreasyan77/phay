@@ -20,7 +20,7 @@ PROD_DB_USER  = $(call env_get,POSTGRES_USER,$(PROD_ENV),phay)
 PROD_DB_NAME  = $(call env_get,POSTGRES_DB,$(PROD_ENV),phay)
 
 .PHONY: help \
-	local-setup local-composer local-key local-build local-up local-down local-restart \
+	local-setup local-composer local-vendor local-key local-build local-up local-down local-restart \
 	local-logs local-ps local-migrate local-migrate-status local-fresh \
 	local-site-keys local-bootstrap local-artisan local-shell local-shell-admin \
 	local-test local-test-backend local-test-admin local-backup local-restore \
@@ -39,7 +39,7 @@ help: ## This list
 local-setup: ## First start on a new machine: env files, vendor, images, APP_KEY, migrations
 	[ -f .env ] || cp .env.example .env
 	[ -f api/.env ] || cp api/.env.example api/.env
-	[ -d api/vendor ] || $(MAKE) local-composer
+	$(MAKE) local-vendor
 	$(LOCAL) build
 	$(LOCAL) up -d
 	grep -qE '^APP_KEY=.+' api/.env || $(MAKE) local-key
@@ -51,13 +51,18 @@ local-setup: ## First start on a new machine: env files, vendor, images, APP_KEY
 local-composer: ## composer install into api/vendor (the dev image has no composer)
 	docker run --rm -v "$(CURDIR)/api:/app" -w /app composer:2 composer install --ignore-platform-reqs --no-interaction
 
+# api/ is bind-mounted into the backend, so vendor/ has to exist on the host:
+# a fresh clone (or a pulled composer.lock) needs it before artisan can start.
+local-vendor: ## composer install only when api/vendor is missing or older than composer.lock
+	[ -f api/vendor/autoload.php ] && [ api/vendor/autoload.php -nt api/composer.lock ] || $(MAKE) local-composer
+
 local-key: ## Generate APP_KEY into api/.env (only for a new local database)
 	$(LOCAL) exec backend php artisan key:generate --force
 
 local-build: ## Rebuild local images
 	$(LOCAL) build
 
-local-up: ## Start the local stack
+local-up: local-vendor ## Start the local stack
 	$(LOCAL) up -d
 
 local-down: ## Stop the local stack (data stays in volumes)
@@ -99,7 +104,7 @@ local-shell-admin: ## Shell in the admin container
 
 local-test: local-test-backend local-test-admin ## Backend tests + admin lint and typecheck
 
-local-test-backend: ## PHPUnit (in-memory SQLite, never touches the local database)
+local-test-backend: local-vendor ## PHPUnit (in-memory SQLite, never touches the local database)
 	$(LOCAL) exec backend php artisan test
 
 # `npm run typecheck` drops .next/types first: route types left by an old
