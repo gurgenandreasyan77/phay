@@ -5,6 +5,7 @@ namespace App\Http\Resources\Admin;
 use App\Models\DataTable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Carbon;
 
 /** @mixin DataTable */
 class DataTableResource extends JsonResource
@@ -22,6 +23,8 @@ class DataTableResource extends JsonResource
             // An older version, replaced by a newer one: kept, but no longer counted.
             'archivedAt' => $this->archived_at?->toIso8601String(),
             'replacedById' => $this->replaced_by_id,
+            // Archived by splitting or joining tables (a TableReshape, which can be undone).
+            'reshapeId' => $this->reshape_id,
             // What the table is kept for (TablePeriod; null: not chosen) and
             // the period it holds: the chosen one, or the month read from its
             // name or rows (inferred) for a table made before periods.
@@ -40,7 +43,7 @@ class DataTableResource extends JsonResource
             'firstAt' => $this->whenAggregated('rows', 'occurred_at', 'min', fn ($v) => $v ? substr((string) $v, 0, 16) : null),
             'lastAt' => $this->whenAggregated('rows', 'occurred_at', 'max', fn ($v) => $v ? substr((string) $v, 0, 16) : null),
             'amountTotal' => $this->whenAggregated('rows', 'amount', 'sum', fn ($v) => $v === null ? null : round((float) $v, 2)),
-            'lastImportAt' => $this->whenAggregated('imports', 'created_at', 'max', fn ($v) => $v ? \Illuminate\Support\Carbon::parse($v)->toIso8601String() : null),
+            'lastImportAt' => $this->whenAggregated('imports', 'created_at', 'max', fn ($v) => $v ? Carbon::parse($v)->toIso8601String() : null),
             'createdAt' => $this->created_at?->toIso8601String(),
             'updatedAt' => $this->updated_at?->toIso8601String(),
         ];

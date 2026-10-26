@@ -4,6 +4,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Paperclip, Send, Sparkles } from "lucide-react";
 import type {
   AgentDto,
+  AssistantActionDto,
   AssistantAttachmentDto,
   AssistantConversationDetailDto,
   AssistantConversationDto,
@@ -27,19 +28,21 @@ import {
   type ShownFile,
 } from "./Attachments";
 import { SUGGESTIONS } from "./suggestions";
+import { AnswerActions } from "./AnswerActions";
 
-type Message = { role: "user" | "assistant"; content: string; files?: ShownFile[] };
+type Message = { role: "user" | "assistant"; content: string; files?: ShownFile[]; actions?: AssistantActionDto[] };
 
 const REFUSED = "Այս հարցին չեմ կարող պատասխանել։ Փորձեք ձևակերպել այլ կերպ։";
 
 /** A kept question or answer as the chat shows it. */
-function toMessage(message: Pick<AssistantMessageDto, "role" | "content" | "refused" | "attachments">): Message {
+function toMessage(message: Pick<AssistantMessageDto, "role" | "content" | "refused" | "attachments" | "actions">): Message {
   if (message.role === "user") {
     return { role: "user", content: message.content, files: (message.attachments ?? []).map(shownFromAttachment) };
   }
   return {
     role: "assistant",
     content: message.refused ? REFUSED : message.content || "Պատասխանը դատարկ է։ Փորձեք կրկին։",
+    actions: message.actions ?? [],
   };
 }
 
@@ -303,16 +306,17 @@ export function AssistantChat({
         return;
       }
 
-      const { reply, refused, conversation, attachments, ...nextUsage } = json.data as {
+      const { reply, refused, conversation, attachments, actions, ...nextUsage } = json.data as {
         reply: string;
         refused: boolean;
+        actions?: AssistantActionDto[];
         conversation: AssistantConversationDto | null;
         attachments?: AssistantAttachmentDto[];
       } & AssistantUsageDto;
       // The question shows its kept files (served by the API, no local blobs).
       const asked: Message = { role: "user", content: text, files: (attachments ?? []).map(shownFromAttachment) };
       for (const f of sending) if (f.src?.startsWith("blob:")) URL.revokeObjectURL(f.src);
-      setMessages([...messages, asked, toMessage({ role: "assistant", content: reply, refused })]);
+      setMessages([...messages, asked, toMessage({ role: "assistant", content: reply, refused, actions })]);
       setUsage(nextUsage);
       if (conversation) {
         // The asked chat goes to the top of the history.
@@ -407,6 +411,7 @@ export function AssistantChat({
               message.role === "assistant" && agent ? (
                 <AgentBubble key={i} agent={agent}>
                   <Formatted text={message.content} />
+                  <AnswerActions actions={message.actions ?? []} />
                 </AgentBubble>
               ) : (
                 <div key={i} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
@@ -422,7 +427,10 @@ export function AssistantChat({
                         {message.content ? <p className="whitespace-pre-line">{message.content}</p> : null}
                       </div>
                     ) : (
-                      <Formatted text={message.content} />
+                      <>
+                        <Formatted text={message.content} />
+                        <AnswerActions actions={message.actions ?? []} />
+                      </>
                     )}
                   </div>
                 </div>

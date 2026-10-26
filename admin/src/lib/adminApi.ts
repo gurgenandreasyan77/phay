@@ -254,6 +254,8 @@ export type AdminDataTableDto = {
   /** An older version replaced by a newer one: kept, but left out of the calendar and analytics. */
   archivedAt: string | null;
   replacedById: number | null;
+  /** Archived by splitting or joining tables: the reshape (it can be undone). */
+  reshapeId: number | null;
   rowsCount?: number;
   /** In the list only: rows with no date, first and last date ("Y-m-d H:i"), money of all rows, last import. */
   rowsWithoutDate?: number;
@@ -266,6 +268,68 @@ export type AdminDataTableDto = {
 };
 
 export type DataCellValue = string | number | boolean | null;
+
+/** Rows without a date when tables are split or joined: a table of their own, or the newest table. */
+export type ReshapeUndated = "separate" | "latest";
+
+/** What splitting or joining tables makes (the API's TableReshaper preview). */
+export type TableReshapePreviewDto = {
+  section: DataTableSection;
+  period: TablePeriod;
+  periodLabel: string;
+  undated: ReshapeUndated;
+  sources: { id: number; name: string; period: string | null }[];
+  targets: {
+    key: string;
+    name: string;
+    period: PeriodDto | null;
+    rows: number;
+    amount: number;
+    firstAt: string | null;
+    lastAt: string | null;
+    /** The table of the rows without a date. */
+    undated: boolean;
+  }[];
+  rows: number;
+  undatedRows: number;
+  columns: string[];
+  /** Columns some of the tables had and the first one didn't. */
+  addedColumns: string[];
+  /** Other tables already kept for one of these periods. */
+  conflicts: { id: number; name: string; period: string | null }[];
+};
+
+/** A reshape: planned (by an AI agent, the preview as things are now), applied or undone. */
+export type TableReshapeDto = {
+  id: number;
+  status: "planned" | "applied" | "undone";
+  appliedAt: string | null;
+  undoneAt: string | null;
+  section: DataTableSection;
+  period: TablePeriod;
+  periodLabel: string;
+  /** Planned but no longer possible (a table was deleted...), and why. */
+  stale?: string | null;
+  /** Applied or undone: the tables that went in and came out. */
+  results?: { id: number; name: string; rows: number; archived: boolean }[];
+  /** Applied: why it can't be undone any more, null when it can. */
+  undoBlocked?: string | null;
+} & Partial<Omit<TableReshapePreviewDto, "sources" | "section" | "period" | "periodLabel">> & {
+    sources?: { id: number; name: string; period?: string | null; rows?: number; archived?: boolean }[];
+  };
+
+/** A card under an answer of the AI assistant: a reshape to apply, or a file to download. */
+export type AssistantActionDto =
+  | { type: "reshape"; id: number }
+  | {
+      type: "download";
+      kind: "tables" | "finance" | "expenses";
+      ids?: number[];
+      by?: PeriodKind;
+      date?: string;
+      format: "xlsx" | "csv";
+      label: string;
+    };
 
 export type AdminDataTableRowDto = {
   id: number;
@@ -481,6 +545,8 @@ export type AssistantMessageDto = {
   refused: boolean;
   /** Files of a question (none on answers). */
   attachments?: AssistantAttachmentDto[];
+  /** Cards under an answer: a reshape to apply, a file to download. */
+  actions?: AssistantActionDto[];
   createdAt: string | null;
 };
 
@@ -1395,6 +1461,11 @@ export async function getLeads(params: {
       ? { currentPage: json.meta.current_page, lastPage: json.meta.last_page, total: json.meta.total }
       : empty.meta,
   };
+}
+
+export async function getTableReshape(id: number): Promise<TableReshapeDto | null> {
+  const result = await adminApiFetch<TableReshapeDto>(`/admin/table-reshapes/${id}`);
+  return result.data;
 }
 
 export async function getDataTables(section?: DataTableSection): Promise<AdminDataTableDto[]> {

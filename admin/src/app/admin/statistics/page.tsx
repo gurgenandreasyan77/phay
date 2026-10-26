@@ -18,6 +18,7 @@ import { formatMetric, money, PeriodTabs, periodFrom, SOURCE_LABELS } from "../_
 import { BarChart, bucketTitle, dateBars } from "../_components/analytics/BarChart";
 import { DonutChart, type Slice } from "../_components/analytics/Charts";
 import { formatMoment, formatNumber, SECTIONS, tablePath } from "../_components/tables/shared";
+import { DownloadLinks, reportDownloadHref } from "../_components/downloads/downloads";
 import { FinanceCategories, FinanceNav, FinanceNotes, FinanceTable, FinanceTiles, financeParams, NetProfitChart } from "../_components/finance/Finance";
 
 export const dynamic = "force-dynamic";
@@ -486,7 +487,10 @@ function FinanceSection({ report, period }: { report: FinanceDto; period: string
             Եկամուտ − ապրանքի ինքնարժեք − ծախսեր։ Շահույթից դուրս ծախսերը (սարքավորում, վարկ…) հանվում են միայն «Մնացած գումարից»։
           </p>
         </div>
-        <FinanceNav base="/admin/statistics" report={report} keep={{ period }} />
+        <div className="flex flex-wrap items-center gap-2">
+          <FinanceNav base="/admin/statistics" report={report} keep={{ period }} />
+          <DownloadLinks href={(format) => reportDownloadHref("finance", report.by, report.current.start, format)} label="Ներբեռնել շահույթի հաշվետվությունը" />
+        </div>
       </div>
       <FinanceTiles period={report.current} previous={report.current.previous} withCost={report.has.cost} />
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">

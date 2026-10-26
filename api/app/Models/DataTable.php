@@ -4,8 +4,8 @@ namespace App\Models;
 
 use App\DataTables\CurrentTableScope;
 use App\DataTables\DataColumn;
-use App\Enums\ColumnRole;
 use App\DataTables\Period;
+use App\Enums\ColumnRole;
 use App\Enums\DataTableSection;
 use App\Enums\TablePeriod;
 use App\Models\Concerns\BelongsToTenant;
@@ -27,7 +27,7 @@ class DataTable extends Model
     /** A table made from the business's Google calendars (App\Google\CalendarTables). */
     public const SOURCE_GOOGLE = 'google';
 
-    protected $fillable = ['section', 'name', 'description', 'columns', 'period', 'period_start', 'sort_order', 'source', 'archived_at', 'replaced_by_id'];
+    protected $fillable = ['section', 'name', 'description', 'columns', 'period', 'period_start', 'sort_order', 'source', 'archived_at', 'replaced_by_id', 'reshape_id'];
 
     protected $casts = [
         'section' => DataTableSection::class,

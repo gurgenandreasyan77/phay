@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Assistant\AnthropicAssistantClient;
 use App\Assistant\AssistantClient;
+use App\Assistant\ReplyActions;
 use App\Audience\SocialSource;
 use App\Features\FeatureFlag;
 use App\Google\GoogleCalendarClient;
@@ -41,6 +42,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Collects cache tags during a request; sent once when it ends.
         $this->app->scoped(SiteRevalidator::class);
+
+        // Cards the AI assistant's tools offer in one answer (a reshape, a download).
+        $this->app->scoped(ReplyActions::class);
 
         // The business's connected Instagram / Facebook (social module); none: no figures.
         $this->app->bind(SocialSource::class, MetaSocialSource::class);

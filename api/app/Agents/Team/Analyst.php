@@ -44,7 +44,7 @@ class Analyst extends Agent
 
     public function tools(): array
     {
-        return ['list_tables', 'find_rows', 'group_rows', 'finance_report', 'expenses_report', 'site_orders', 'social_profile', 'social_posts', 'social_competitors'];
+        return ['list_tables', 'find_rows', 'group_rows', 'finance_report', 'expenses_report', 'site_orders', 'social_profile', 'social_posts', 'social_competitors', 'download_file'];
     }
 
     public function usesFigures(): bool

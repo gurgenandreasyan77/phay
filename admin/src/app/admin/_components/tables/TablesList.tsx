@@ -3,11 +3,13 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Trash2, TriangleAlert, Upload } from "lucide-react";
+import { CalendarRange, Download, Trash2, TriangleAlert, Upload } from "lucide-react";
 import type { AdminDataTableDto, DataTableSection, TablePeriod } from "@/lib/adminApi";
 import { Button, buttonClasses, EmptyRow, Input, Select, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { formatDateTime, formatMoment, formatMoney, tablePath } from "./shared";
 import { contains, PERIOD_KINDS, TABLE_PERIOD_LABELS } from "./periods";
+import { ReshapeDialog } from "./Reshape";
+import { tablesDownloadHref } from "../downloads/downloads";
 
 /** What a table is kept for: its period's kind, or any dates. */
 function kindOf(table: AdminDataTableDto): TablePeriod {
@@ -17,7 +19,8 @@ function kindOf(table: AdminDataTableDto): TablePeriod {
 /**
  * Every table of a section in one list: a business that imports a file a
  * day ends up with dozens, so they're searched, sorted by their latest row
- * and deleted one by one or several at once.
+ * and deleted one by one or several at once. Chosen tables can also be
+ * split into periods or put together (ReshapeDialog) and downloaded.
  */
 export function TablesList({
   section,
@@ -34,6 +37,7 @@ export function TablesList({
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [reshaping, setReshaping] = useState<number[] | null>(null);
 
   const shown = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -49,6 +53,9 @@ export function TablesList({
   }, [tables, search, kind]);
 
   const kinds = [...PERIOD_KINDS, "custom" as const].filter((k) => tables.some((t) => kindOf(t) === k));
+
+  // Old versions are kept as they are: only current tables are split or joined.
+  const current = (ids: Set<number>) => tables.filter((t) => ids.has(t.id) && !t.archivedAt).map((t) => t.id);
 
   const allShownSelected = shown.length > 0 && shown.every((t) => selected.has(t.id));
 
@@ -100,10 +107,22 @@ export function TablesList({
         ) : null}
         <span className="text-sm text-ink-muted">{tables.length} աղյուսակ</span>
         {canDesign && selected.size > 0 ? (
-          <Button variant="secondary" className="ml-auto" disabled={pending} onClick={() => remove([...selected])}>
-            <Trash2 className="h-4 w-4" />
-            Ջնջել ընտրվածները ({selected.size})
-          </Button>
+          <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
+            {current(selected).length > 0 ? (
+              <Button variant="secondary" disabled={pending} onClick={() => setReshaping(current(selected))}>
+                <CalendarRange className="h-4 w-4" />
+                Բաժանել / միավորել ({current(selected).length})
+              </Button>
+            ) : null}
+            <a href={tablesDownloadHref([...selected])} download className={buttonClasses("secondary")}>
+              <Download className="h-4 w-4" />
+              Excel ({selected.size})
+            </a>
+            <Button variant="secondary" disabled={pending} onClick={() => remove([...selected])}>
+              <Trash2 className="h-4 w-4" />
+              Ջնջել ({selected.size})
+            </Button>
+          </div>
         ) : null}
         {failed ? <span className="text-sm text-danger">Չհաջողվեց ջնջել։</span> : null}
       </div>
@@ -230,6 +249,15 @@ export function TablesList({
           ) : null}
         </tbody>
       </TableWrap>
+      {reshaping ? (
+        <ReshapeDialog
+          open
+          onClose={() => setReshaping(null)}
+          section={section}
+          tables={tables.filter((t) => !t.archivedAt)}
+          initialIds={reshaping}
+        />
+      ) : null}
     </div>
   );
 }

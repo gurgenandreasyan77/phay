@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\Admin\EmployeeController as AdminEmployeeControl
 use App\Http\Controllers\Api\V1\Admin\EmployeeGroupController as AdminEmployeeGroupController;
 use App\Http\Controllers\Api\V1\Admin\ExpenseCategoryController as AdminExpenseCategoryController;
 use App\Http\Controllers\Api\V1\Admin\ExpenseStatisticsController as AdminExpenseStatisticsController;
+use App\Http\Controllers\Api\V1\Admin\ExportController as AdminExportController;
 use App\Http\Controllers\Api\V1\Admin\FeatureFlagController as AdminFeatureFlagController;
 use App\Http\Controllers\Api\V1\Admin\FeedbackController as AdminFeedbackController;
 use App\Http\Controllers\Api\V1\Admin\FinanceController as AdminFinanceController;
@@ -53,6 +54,7 @@ use App\Http\Controllers\Api\V1\Admin\SocialController as AdminSocialController;
 use App\Http\Controllers\Api\V1\Admin\SubscriptionController as AdminSubscriptionController;
 use App\Http\Controllers\Api\V1\Admin\SupportController as AdminSupportController;
 use App\Http\Controllers\Api\V1\Admin\TableAnalyticsController as AdminTableAnalyticsController;
+use App\Http\Controllers\Api\V1\Admin\TableReshapeController as AdminTableReshapeController;
 use App\Http\Controllers\Api\V1\Admin\TaskPageController as AdminTaskPageController;
 use App\Http\Controllers\Api\V1\Admin\TenantAgentController as AdminTenantAgentController;
 use App\Http\Controllers\Api\V1\Admin\TenantController as AdminTenantController;
@@ -291,6 +293,11 @@ Route::prefix('v1')->group(function () {
                 // with orders reads them and keeps their rows; the controllers
                 // check the table's module.
                 Route::get('/data-tables', [AdminDataTableController::class, 'index']);
+                // Downloading tables as XLSX or CSV: owner and admin (several tables: one workbook).
+                Route::middleware(['business.can:catalog', 'throttle:30,1'])->group(function () {
+                    Route::get('/data-tables/export', [AdminExportController::class, 'tables']);
+                    Route::get('/data-tables/{dataTable}/export', [AdminExportController::class, 'table']);
+                });
                 Route::get('/data-tables/{dataTable}', [AdminDataTableController::class, 'show']);
                 Route::scopeBindings()->group(function () {
                     Route::get('/data-tables/{dataTable}/rows', [AdminDataTableRowController::class, 'index']);
@@ -364,6 +371,9 @@ Route::prefix('v1')->group(function () {
                 Route::get('/expenses/statistics', AdminExpenseStatisticsController::class);
                 // Revenue − cost of goods − expenses, per day, week, month, quarter or year.
                 Route::get('/analytics/finance', AdminFinanceController::class)->middleware('business.can:insights');
+                // The same reports as XLSX or CSV files.
+                Route::get('/expenses/statistics/export', [AdminExportController::class, 'expenses'])->middleware('throttle:30,1');
+                Route::get('/analytics/finance/export', [AdminExportController::class, 'finance'])->middleware(['business.can:insights', 'throttle:30,1']);
             });
 
             Route::middleware('business.can:settings')->group(function () {
@@ -401,6 +411,13 @@ Route::prefix('v1')->group(function () {
                 // What the columns without a role probably mean, by their names and values.
                 Route::get('/data-tables/{dataTable}/role-suggestions', [AdminDataTableController::class, 'roleSuggestions']);
                 Route::delete('/data-tables/{dataTable}', [AdminDataTableController::class, 'destroy']);
+                // Splitting tables into periods and putting them together: a preview, then the
+                // reshape (or one an AI agent planned), undone while the new tables are untouched.
+                Route::post('/table-reshapes/preview', [AdminTableReshapeController::class, 'preview'])->middleware('throttle:60,1');
+                Route::post('/table-reshapes', [AdminTableReshapeController::class, 'store'])->middleware('throttle:20,1');
+                Route::get('/table-reshapes/{tableReshape}', [AdminTableReshapeController::class, 'show']);
+                Route::post('/table-reshapes/{tableReshape}/apply', [AdminTableReshapeController::class, 'apply'])->middleware('throttle:20,1');
+                Route::post('/table-reshapes/{tableReshape}/undo', [AdminTableReshapeController::class, 'undo'])->middleware('throttle:20,1');
 
                 Route::get('/products', [AdminProductController::class, 'index']);
                 Route::post('/products', [AdminProductController::class, 'store']);

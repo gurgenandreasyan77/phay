@@ -37,7 +37,7 @@ class AgentPrompt
         ]));
 
         if ($agent->usesFigures()) {
-            return $assistant->systemPrompt($intro);
+            return $assistant->systemPrompt($intro, $agent);
         }
 
         $basics = json_encode($assistant->basics(), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
@@ -48,6 +48,7 @@ class AgentPrompt
 
         Looking things up: {$lookups} Use as few look-ups as the work needs and don't name the tools to the owner. Never invent the business's figures.
         {$assistant->socialGuide()}
+        {$assistant->tableActionsGuide($agent)}
 
         Reply in the language of the owner's latest message (Armenian, Russian or English); write Armenian as a native speaker would. Keep chat replies short and warm; a finished piece (a post, a script, a plan, a prompt) may use numbered lists and short bold labels so it is easy to copy. No tables unless asked. Amounts are in {$tenant->currency}; write Armenian dram as "դր.".
 
