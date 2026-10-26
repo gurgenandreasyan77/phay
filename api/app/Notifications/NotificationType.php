@@ -18,4 +18,7 @@ enum NotificationType: string
 
     /** The orders of today on the calendar. */
     case TodayOrders = 'today_orders';
+
+    /** The connected Instagram / Facebook access ends soon, or stopped working. */
+    case Social = 'social';
 }

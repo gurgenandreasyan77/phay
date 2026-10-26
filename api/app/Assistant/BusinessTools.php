@@ -13,6 +13,7 @@ use App\Expenses\Finance;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
 use App\Models\Lead;
+use App\Social\SocialTools;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -28,7 +29,9 @@ use InvalidArgumentException;
  *
  * Everything runs inside the current business (tenant-scoped models), and
  * columns about buyers (names, phones, addresses) never leave: they are
- * neither returned nor searched.
+ * neither returned nor searched. With the social module on, the business's
+ * Instagram and Facebook and its competitors' public figures too
+ * (SocialTools).
  */
 class BusinessTools
 {
@@ -43,6 +46,7 @@ class BusinessTools
         private readonly TenantContext $tenants,
         private readonly Finance $finance,
         private readonly ExpenseStatistics $expenses,
+        private readonly SocialTools $social,
     ) {}
 
     /**
@@ -59,6 +63,16 @@ class BusinessTools
         ];
         $date = fn (string $what) => ['type' => 'string', 'description' => "{$what}, YYYY-MM-DD, in the business's time zone."];
 
+        return [
+            ...$this->ownDefinitions($section, $date),
+            // Only for a business with the social module on.
+            ...($this->social->available() ? $this->social->definitions() : []),
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function ownDefinitions(array $section, callable $date): array
+    {
         return [
             [
                 'name' => 'list_tables',
@@ -158,6 +172,7 @@ class BusinessTools
             'finance_report' => $this->financeReport($input),
             'expenses_report' => $this->expensesReport($input),
             'site_orders' => $this->siteOrders($input),
+            'social_profile', 'social_posts', 'social_competitors' => $this->social->run($name, $input),
             default => throw new InvalidArgumentException("Unknown tool [{$name}]."),
         };
     }

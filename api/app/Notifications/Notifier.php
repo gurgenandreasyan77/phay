@@ -106,6 +106,25 @@ class Notifier
         });
     }
 
+    /**
+     * About the business's connected Instagram / Facebook (the access ends
+     * soon, or Meta stopped accepting it): for the owner and admins, once
+     * per $dedupeKey.
+     */
+    public function social(Tenant $tenant, string $title, string $body, string $dedupeKey): void
+    {
+        $this->safely(fn () => $this->send(
+            $this->businessPeople($tenant, BusinessRole::SETTINGS),
+            $tenant,
+            NotificationScope::Business,
+            NotificationType::Social,
+            $title,
+            $body,
+            '/admin/social',
+            Str::limit($dedupeKey, 120, ''),
+        ));
+    }
+
     /** The reader opened the chat: its message notifications are read too. */
     public function supportRead(Tenant $tenant, bool $readerIsPlatform): void
     {
