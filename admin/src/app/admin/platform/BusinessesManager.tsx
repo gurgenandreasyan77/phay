@@ -3,26 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import type { ContactChannelType } from "@/lib/api";
 import type { AdminTenantDto } from "@/lib/adminApi";
 import { BusinessLogo } from "../_components/BusinessLogo";
+import { CONTACT_LABELS } from "./contacts";
 import { TenantLoginsPanel } from "./TenantLoginsPanel";
 import { TenantModulesPanel } from "./TenantModulesPanel";
 import { Badge, Button, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr, buttonClasses } from "@/ui";
 
 const LOCALE_LABELS: Record<string, string> = { hy: "Հայերեն", ru: "Русский", en: "English" };
 
-const CONTACT_LABELS: Record<ContactChannelType, string> = {
-  phone: "Հեռ.",
-  whatsapp: "WhatsApp",
-  telegram: "Telegram",
-  instagram: "Instagram",
-  facebook: "Facebook",
-  tiktok: "TikTok",
-  viber: "Viber",
-  email: "Email",
-  other: "Այլ",
-};
 
 /** The address in the admin's language first, else whichever the business filled in. */
 function addressOf(tenant: AdminTenantDto): string | null {
@@ -59,41 +48,21 @@ function SearchBox({ initial }: { initial: string }) {
 export function BusinessesManager({
   tenants,
   search,
-  currentTenantId,
   isSuperAdmin,
 }: {
   tenants: AdminTenantDto[];
   /** The current search (?q=); the list is already filtered by it. */
   search: string;
-  currentTenantId: number | null;
   /** Modules and platform staff accounts are the super admin's; a platform moderator onboards only. */
   isSuperAdmin: boolean;
 }) {
   const router = useRouter();
-  const [switchingId, setSwitchingId] = useState<number | null>(null);
   // One panel under the table at a time: a business's logins or its modules.
   const [panel, setPanel] = useState<{ tenantId: number; kind: "logins" | "modules" } | null>(null);
   const panelTenant = tenants.find((tenant) => tenant.id === panel?.tenantId) ?? null;
 
   function togglePanel(tenantId: number, kind: "logins" | "modules") {
     setPanel((open) => (open?.tenantId === tenantId && open.kind === kind ? null : { tenantId, kind }));
-  }
-
-  async function switchTo(tenant: AdminTenantDto, then: string) {
-    setSwitchingId(tenant.id);
-    try {
-      const response = await fetch("/api/admin/switch-tenant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenant_id: tenant.id }),
-      });
-      if (response.ok) {
-        router.push(then);
-        router.refresh();
-      }
-    } finally {
-      setSwitchingId(null);
-    }
   }
 
   return (
@@ -112,17 +81,16 @@ export function BusinessesManager({
         </Thead>
         <tbody>
           {tenants.map((tenant) => {
-            const isCurrent = tenant.id === currentTenantId;
+            const page = `/admin/platform/businesses/${tenant.id}`;
             return (
               <Tr key={tenant.id}>
                 <Td className="font-medium text-ink">
                   <span className="flex items-center gap-3">
                     <BusinessLogo name={tenant.name} logo={tenant.logo} />
                     <span className="min-w-0">
-                      <span className="flex items-center gap-2">
+                      <Link href={page} className="hover:text-primary hover:underline">
                         {tenant.name}
-                        {isCurrent ? <Badge tone="primary">Ընթացիկ</Badge> : null}
-                      </span>
+                      </Link>
                       {addressOf(tenant) ? (
                         <span className="block max-w-64 truncate text-xs font-normal text-ink-muted">
                           {addressOf(tenant)}
@@ -187,14 +155,11 @@ export function BusinessesManager({
                         Մոդուլներ
                       </Button>
                     ) : null}
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={switchingId !== null}
-                      onClick={() => (isCurrent ? router.push("/admin") : switchTo(tenant, "/admin"))}
-                    >
+                    {/* The business's page on the platform level: its activity and
+                        subscription, never its orders or money. */}
+                    <Link href={page} className={buttonClasses("primary", "sm")}>
                       Մտնել
-                    </Button>
+                    </Link>
                   </span>
                 </Td>
               </Tr>

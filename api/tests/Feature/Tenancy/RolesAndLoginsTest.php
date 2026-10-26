@@ -129,7 +129,7 @@ class RolesAndLoginsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.platformRole', 'moderator')
             ->assertJsonPath('data.isSuperAdmin', false)
-            ->assertJsonPath('data.businessRole', 'owner');
+            ->assertJsonPath('data.businessRole', null);
 
         $this->getJson('/api/v1/admin/tenants')->assertOk();
         $this->postJson('/api/v1/admin/tenants', ['name' => 'New Shop'])->assertCreated();
@@ -137,7 +137,9 @@ class RolesAndLoginsTest extends TestCase
         $this->postJson("/api/v1/admin/tenants/{$shop->id}/users", [
             'name' => 'Owner', 'email' => 'owner@shop.am',
         ])->assertCreated()->assertJsonPath('data.role', 'owner');
-        $this->postJson('/api/v1/admin/switch-tenant', ['tenant_id' => $shop->id])->assertOk();
+        // Looks at the business from the platform level, never inside it.
+        $this->getJson("/api/v1/admin/tenants/{$shop->id}/overview")->assertOk();
+        $this->postJson('/api/v1/admin/switch-tenant', ['tenant_id' => $shop->id])->assertForbidden();
 
         $this->patchJson("/api/v1/admin/tenants/{$shop->id}/features/market", ['active' => true])->assertForbidden();
         $this->getJson('/api/v1/admin/platform-users')->assertForbidden();

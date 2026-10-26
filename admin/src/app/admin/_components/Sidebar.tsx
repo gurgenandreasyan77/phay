@@ -6,7 +6,7 @@ import type { FeatureFlags } from "@/lib/api";
 import type { AdminUserDto } from "@/lib/adminApi";
 import { isPlatformStaff } from "@/lib/roles";
 import { ArrowLeft } from "lucide-react";
-import { PLATFORM_HOME, isActiveHref, isPlatformPath, visibleNavGroups } from "./nav";
+import { PLATFORM_HOME, isActiveHref, showsPlatformLevel, visibleNavGroups } from "./nav";
 import { cn } from "@/ui";
 import { useSupportUnread } from "./chat/unread";
 import { BusinessLogo } from "./BusinessLogo";
@@ -31,7 +31,7 @@ export function Sidebar({
   const pathname = usePathname();
   const staff = isPlatformStaff(me);
   const navGroups = visibleNavGroups(features, me, pathname);
-  const onPlatform = staff && isPlatformPath(pathname);
+  const onPlatform = showsPlatformLevel(me, pathname);
   const unread = useSupportUnread(me !== null);
 
   return (

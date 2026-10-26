@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { adminApiFetch, getAdminToken, getFeatureFlagsAdmin, withMeDefaults, type AdminUserDto, type BusinessPermission } from "./adminApi";
 import { API_UNREACHABLE, ApiRequestError } from "./apiError";
 import { PATH_HEADER, safeNextPath } from "./adminSession";
-import { can, isPlatformStaff, isSuperAdmin } from "./roles";
+import { can, isOutsideBusiness, isPlatformStaff, isSuperAdmin } from "./roles";
 
 // Called at the top of every admin Server Component. Independent of the
 // cheap cookie-presence check in src/proxy.ts — this actually validates the
@@ -18,6 +18,8 @@ import { can, isPlatformStaff, isSuperAdmin } from "./roles";
 // - the account has no business or the business is suspended, a role or a
 //   module that doesn't open the section: /admin/forbidden, which says why;
 // - a platform page for a business's people: the business home;
+// - a business page for platform staff that isn't one of its people: the
+//   platform level (a business is looked at from /admin/platform/businesses/{id});
 // - the API under maintenance: /admin/maintenance; down or failing: the
 //   error page (error.tsx), with the reason in the server log.
 
@@ -25,6 +27,9 @@ import { can, isPlatformStaff, isSuperAdmin } from "./roles";
 async function currentPath(): Promise<string | null> {
   return safeNextPath((await headers()).get(PATH_HEADER));
 }
+
+/** What platform staff opens outside the platform level when the business isn't theirs. */
+const OPEN_OUTSIDE_BUSINESS = ["/admin/platform", "/admin/account", "/admin/forbidden", "/admin/setup-2fa", "/admin/maintenance"];
 
 function withNext(target: string, next: string | null): string {
   return next && next !== "/admin" ? `${target}?next=${encodeURIComponent(next)}` : target;
@@ -63,6 +68,12 @@ export async function requireAdmin(
   }
   if (admin.subscription?.locked && !options.allowLocked) {
     redirect("/admin/subscription");
+  }
+  if (isOutsideBusiness(admin)) {
+    const path = (await currentPath())?.split("?")[0];
+    if (path && !OPEN_OUTSIDE_BUSINESS.some((open) => path === open || path.startsWith(`${open}/`))) {
+      redirect("/admin/platform");
+    }
   }
 
   return admin;
