@@ -6,15 +6,18 @@ import { cn } from "@/ui";
 import { AgentAvatar, AssistantOrb, agentTintStyle } from "./AgentAvatar";
 import styles from "./agents.module.css";
 
+/** The pool keeps at least this much room for each swimmer, so they never cross. */
+const LANE = 132;
+
 /** Where each swimmer lives in the pool and how it moves, varied by its place. */
 function place(index: number, count: number): CSSProperties {
   const step = 100 / count;
   const x = step * index + step / 2;
   return {
     "--x": `calc(${x}% - 52px)`,
-    "--y": index % 2 === 0 ? "14%" : "34%",
-    "--dx": `${index % 2 === 0 ? 14 : -12}px`,
-    "--dy": `${6 + (index % 3) * 3}px`,
+    "--y": index % 2 === 0 ? "12%" : "20%",
+    "--dx": `${index % 2 === 0 ? 8 : -8}px`,
+    "--dy": `${4 + (index % 3) * 2}px`,
     "--t": `${13 + ((index * 5) % 7)}s`,
     "--d": `${-index * 2.3}s`,
   } as CSSProperties;
@@ -72,14 +75,45 @@ export function AgentPool({
               : "Թիմում դեռ միայն ընդհանուր օգնականն է։ Ավելացրեք AI աշխատակիցներ ներքևից։"}
           </p>
         </div>
-        <Link href="/admin/employees?tab=agents" className="shrink-0 text-xs font-medium text-primary hover:underline">
+        <Link
+          href="/admin/employees?tab=agents"
+          className="-my-3 inline-flex min-h-11 shrink-0 items-center text-xs font-medium text-primary hover:underline"
+        >
           Թիմը և ուսուցումը
         </Link>
       </div>
 
-      {/* On a phone the team is wider than the screen: it scrolls sideways. */}
-      <div className="overflow-x-auto overflow-y-hidden">
-        <div className="relative h-52 sm:h-56" style={{ minWidth: `${swimmers.length * 112}px` }}>
+      {/* Phones and tablets: a grid of tiles, each easy to tap; the avatars still breathe. */}
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-2 px-3 pt-3 pb-4 sm:px-5 xl:hidden">
+        {swimmers.map((agent, index) => {
+          const key = agent?.key ?? null;
+          const isSelected = selected === key;
+          return (
+            <li key={key ?? "assistant"}>
+              <Link
+                href={key ? `/admin/assistant?agent=${key}` : "/admin/assistant"}
+                className={cn(
+                  styles.tile,
+                  "flex h-full min-h-11 flex-col items-center gap-1 rounded-xl border px-2 pt-2 pb-2.5 text-center outline-none",
+                )}
+                data-selected={isSelected}
+                aria-current={isSelected ? "true" : undefined}
+                style={agentTintStyle(key ?? "analyst")}
+              >
+                {agent ? <AgentAvatar agentKey={agent.key} size={60} delay={-index * 0.7} /> : <AssistantOrb size={60} />}
+                <span className="text-sm leading-tight font-semibold text-ink">{agent ? agent.persona.hy : "Օգնական"}</span>
+                <span className="line-clamp-2 text-[11px] leading-snug text-ink-muted">
+                  {agent ? agent.role.hy : "Ընդհանուր հարցեր"}
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* Wide screens: the team swims in its pool, each in a lane of its own. */}
+      <div className="hidden overflow-x-auto overflow-y-hidden xl:block">
+        <div className="relative h-52" style={{ minWidth: `${swimmers.length * LANE}px` }}>
           {swimmers.map((agent, index) => {
             const key = agent?.key ?? null;
             const isSelected = selected === key;
@@ -117,12 +151,12 @@ export function AgentPool({
                 key={agent.key}
                 href={`/admin/assistant?agent=${agent.key}`}
                 className={cn(
-                  "group flex items-center gap-2 rounded-full border border-border bg-surface py-1 pl-1 pr-3 text-xs text-ink-muted transition-colors hover:border-border-strong hover:text-ink",
+                  "group flex min-h-11 items-center gap-2 rounded-full border border-border bg-surface py-1 pl-1 pr-3 text-xs text-ink-muted transition-colors hover:border-border-strong hover:text-ink",
                   selected === agent.key && "border-border-strong text-ink",
                 )}
                 title={agent.tagline}
               >
-                <AgentAvatar agentKey={agent.key} size={28} active={false} />
+                <AgentAvatar agentKey={agent.key} size={34} active={false} />
                 <span>
                   {agent.persona.hy} · {agent.role.hy}
                 </span>

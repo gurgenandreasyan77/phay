@@ -285,6 +285,37 @@
   color: var(--tint);
 }
 
+/* A team member's tile on phones and tablets: tap to talk to it. */
+.tile {
+  border-color: var(--color-border);
+  background: rgba(255, 255, 255, 0.72);
+  transition:
+    border-color 0.2s,
+    background-color 0.2s,
+    box-shadow 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tile:active {
+  background: var(--tint-bg);
+}
+
+.tile:focus-visible {
+  box-shadow: 0 0 0 3px var(--tint-soft);
+}
+
+.tile[data-selected="true"] {
+  border-color: var(--tint);
+  background: var(--tint-bg);
+  box-shadow:
+    0 0 0 3px var(--tint-soft),
+    0 8px 20px -14px var(--tint);
+}
+
+.tile[data-selected="true"] > span:nth-of-type(1) {
+  color: var(--tint);
+}
+
 /* The orb of the general assistant. */
 .orb {
   animation: orb 7s ease-in-out infinite;
