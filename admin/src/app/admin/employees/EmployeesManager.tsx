@@ -184,7 +184,7 @@ export function EmployeesList({ employees, groups }: { employees: AdminEmployeeD
                 )}
               </Td>
               <Td className="text-ink-muted">{employee.phone ?? "—"}</Td>
-              <Td className="text-right tabular-nums">
+              <Td className="whitespace-nowrap text-right tabular-nums">
                 <Link href={`/admin/employees/${employee.id}`} className="hover:text-primary">
                   {employee.ordersCount ?? 0}
                 </Link>
@@ -363,7 +363,7 @@ export function GroupsManager({ groups, employees }: { groups: AdminEmployeeGrou
                 <Tr key={group.id}>
                   <Td className="font-medium text-ink">{group.name}</Td>
                   <Td className="text-ink-muted">{group.manager?.name ?? "—"}</Td>
-                  <Td className="text-right tabular-nums">{group.employeesCount ?? 0}</Td>
+                  <Td className="whitespace-nowrap text-right tabular-nums">{group.employeesCount ?? 0}</Td>
                   <Td className="whitespace-nowrap text-right">
                     <Button variant="ghost" size="sm" aria-label="Խմբագրել" onClick={() => setEditing(group.id)}>
                       <Pencil className="h-4 w-4" />

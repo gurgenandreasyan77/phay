@@ -101,7 +101,7 @@ export function CategoriesManager({ categories }: { categories: ExpenseCategoryD
                   {category.inProfit ? "Այո" : <span className="text-ink-muted">Ոչ, միայն մնացորդում</span>}
                 </label>
               </Td>
-              <Td className="text-right">
+              <Td className="whitespace-nowrap text-right">
                 <div className="flex justify-end gap-1">
                   <Button
                     size="sm"

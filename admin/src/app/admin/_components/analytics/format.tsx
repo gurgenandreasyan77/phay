@@ -35,7 +35,7 @@ export function formatMetric(metric: TableMetricDto, value: number | null): stri
 
 export function PeriodTabs({ base, period }: { base: string; period: AnalyticsPeriod }) {
   return (
-    <div className="inline-flex rounded-md border border-border bg-surface p-1">
+    <div className="segmented inline-flex rounded-md border border-border bg-surface p-1">
       {PERIODS.map((p) => (
         <Link
           key={p.days}

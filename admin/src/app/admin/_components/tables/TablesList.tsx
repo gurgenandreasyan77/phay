@@ -173,7 +173,7 @@ export function TablesList({
                   <span className="text-ink-muted">{TABLE_PERIOD_LABELS.custom}</span>
                 )}
               </Td>
-              <Td className="text-right">{table.rowsCount ?? 0}</Td>
+              <Td className="whitespace-nowrap text-right">{table.rowsCount ?? 0}</Td>
               <Td className="whitespace-nowrap text-ink-muted">
                 {table.firstAt && table.lastAt
                   ? table.firstAt.slice(0, 10) === table.lastAt.slice(0, 10)

@@ -93,20 +93,27 @@ export function RowsGrid({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <form
-          className="flex gap-2"
+          className="flex w-full gap-2 sm:w-auto"
           onSubmit={(e) => {
             e.preventDefault();
             go({ search: search || null, page: null });
           }}
         >
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Փնտրել" className="w-64" />
+          <Input
+            type="search"
+            enterKeyHint="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Փնտրել"
+            className="min-w-0 flex-1 sm:w-64 sm:flex-none"
+          />
           <Button type="submit" variant="secondary">
             Փնտրել
           </Button>
         </form>
         {table.dateColumn ? <PeriodFilter table={table} go={go} /> : null}
         <span className="text-sm text-ink-muted">Ընդամենը՝ {meta.total} տող</span>
-        <Button className="ml-auto" onClick={() => setEditing("new")} disabled={editing === "new"}>
+        <Button className="w-full sm:ml-auto sm:w-auto" onClick={() => setEditing("new")} disabled={editing === "new"}>
           + Ավելացնել տող
         </Button>
       </div>
@@ -119,7 +126,8 @@ export function RowsGrid({
               {column.required || column.key === table.dateColumn ? <span className="text-danger"> *</span> : null}
             </Th>
           ))}
-          <Th className="w-24" />
+          {/* Edit and delete stay in view at the right edge while a wide table scrolls on a phone. */}
+          <Th className="sticky right-0 w-24 bg-surface-secondary" />
         </Thead>
         <tbody>
           {editing === "new" ? (
@@ -149,11 +157,14 @@ export function RowsGrid({
                     {formatCell(row.values[column.key], column)}
                   </Td>
                 ))}
-                <Td className="whitespace-nowrap text-right">
+                <Td className="sticky right-0 whitespace-nowrap bg-surface px-2 text-right shadow-[-8px_0_8px_-8px_rgba(32,38,35,0.18)] sm:static sm:px-4 sm:shadow-none">
+                  {/* Not on a phone: the sticky cell keeps only the two buttons. */}
                   {row.source === "import" ? (
-                    <Badge tone="info" className="mr-2">
-                      Ֆայլից
-                    </Badge>
+                    <span className="hidden sm:inline">
+                      <Badge tone="info" className="mr-2">
+                        Ֆայլից
+                      </Badge>
+                    </span>
                   ) : null}
                   <Button variant="ghost" size="sm" aria-label="Խմբագրել" onClick={() => setEditing(row.id)}>
                     <Pencil className="h-4 w-4" />
@@ -258,7 +269,7 @@ function RowEditor({
           ) : null}
         </td>
       ))}
-      <td className="whitespace-nowrap px-2 py-2 text-right">
+      <td className="sticky right-0 whitespace-nowrap bg-surface px-2 py-2 text-right shadow-[-8px_0_8px_-8px_rgba(32,38,35,0.18)] sm:static sm:bg-transparent sm:shadow-none">
         <div className="flex flex-col items-end gap-1.5">
           <Button size="sm" onClick={save} disabled={pending}>
             Պահպանել

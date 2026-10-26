@@ -48,7 +48,8 @@ function Delta({ current, previous }: { current: number | null; previous: number
   return (
     <p className={cn("mt-1 text-xs", change > 0 ? "text-success" : change < 0 ? "text-danger" : "text-ink-muted")}>
       {change > 0 ? "+" : ""}
-      {change}% նախորդ ժամանակահատվածի համեմատ
+      {change}% <span className="sm:hidden">նախորդի համեմատ</span>
+      <span className="hidden sm:inline">նախորդ ժամանակահատվածի համեմատ</span>
     </p>
   );
 }
@@ -71,7 +72,7 @@ function Kpi({
   return (
     <Card className={highlight ? "border-primary-light bg-primary-light" : undefined}>
       <p className={cn("text-sm", highlight ? "text-primary/80" : "text-ink-muted")}>{label}</p>
-      <p className={cn("mt-1 text-2xl font-semibold", highlight ? "text-primary" : "text-ink")}>{value}</p>
+      <p className={cn("mt-1 text-xl font-semibold tabular-nums sm:text-2xl", highlight ? "text-primary" : "text-ink")}>{value}</p>
       <Delta current={current} previous={previous} />
       {note ? <p className="mt-1 text-xs text-ink-faint">{note}</p> : null}
     </Card>
@@ -535,7 +536,7 @@ function SectionFigures({ summary, besideSite }: { summary: TableAnalyticsDto; b
                     </Link>
                     {!table.dateColumn ? <span className="block text-xs text-warning">Ամսաթվի սյունակ նշված չէ</span> : null}
                   </Td>
-                  <Td className="text-right">
+                  <Td className="whitespace-nowrap text-right">
                     {table.rows} <span className="text-ink-faint">/ {table.total}</span>
                   </Td>
                   {amount ? <Td className="whitespace-nowrap text-right">{money(table.amount)}</Td> : null}
@@ -597,11 +598,11 @@ function Units({ metrics, section }: { metrics: TableMetricDto[]; section: Table
           return (
             <Tr key={unit ?? "none"}>
               <Td className="font-medium">{unit ?? "Քանակ"}</Td>
-              <Td className="text-right">
+              <Td className="whitespace-nowrap text-right">
                 {formatMetric(quantity, quantity.value)}
                 <Delta current={quantity.value} previous={quantity.previous} />
               </Td>
-              <Td className="text-right">{average ? formatMetric(average, average.value) : "—"}</Td>
+              <Td className="whitespace-nowrap text-right">{average ? formatMetric(average, average.value) : "—"}</Td>
               {hasPrice ? <Td className="whitespace-nowrap text-right">{price ? money(price.value) : "—"}</Td> : null}
             </Tr>
           );
@@ -680,7 +681,7 @@ function Months({
                   {point.date === peaks.worst?.date ? <span className="ml-2 text-xs text-danger">ամենաթույլ</span> : null}
                   {index === 0 ? <span className="ml-2 text-xs text-ink-faint">ընթացիկ</span> : null}
                 </Td>
-                <Td className="text-right">{point.rows}</Td>
+                <Td className="whitespace-nowrap text-right">{point.rows}</Td>
                 {withAmount ? <Td className="whitespace-nowrap text-right">{money(point.amount)}</Td> : null}
                 <Td
                   className={cn(

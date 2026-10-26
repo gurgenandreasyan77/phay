@@ -106,3 +106,126 @@ textarea::placeholder {
   border-radius: 999px;
   border: 2px solid var(--color-background);
 }
+
+/*
+ * A grid cell may shrink below its content (a wide table, a long word):
+ * otherwise one wide child stretches a one-column grid past the screen.
+ * In the base layer, so a min-w-* utility on a cell still wins.
+ */
+@layer base {
+  .grid > * {
+    min-width: 0;
+  }
+}
+
+/* ------------------------------------------------------------- On a phone
+ * The platform layer that decides whether the admin feels like an app or a
+ * website in a browser (see .claude/skills/mobile-native).
+ */
+
+html {
+  /* No grey flash over whatever was tapped: buttons have their own :active. */
+  -webkit-tap-highlight-color: transparent;
+  /* iOS enlarges text after rotating to landscape otherwise. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* A tap fires at once, without the wait for a possible double-tap zoom. */
+a,
+button,
+summary,
+label,
+select,
+[role="button"],
+[tabindex] {
+  touch-action: manipulation;
+}
+
+/* Long-pressing a control doesn't select its label or open the link callout. */
+button,
+[role="button"],
+[role="tab"] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/*
+ * iOS Safari zooms the whole page into any field whose text is smaller than
+ * 16px and never zooms back out. Fields keep their compact 14px on desktop
+ * and get 16px wherever the screen is touched or narrow (phones, tablets,
+ * devtools device mode). Not via maximum-scale in the viewport: pinch zoom
+ * must keep working. Unlayered, so it wins over the text-xs/text-sm
+ * utilities on any field, including the cells of RowsGrid.
+ */
+@media (pointer: coarse), (max-width: 767px) {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Scrolling inside a menu, sheet or chat stops at its end instead of pulling the page behind. */
+.overscroll-contain {
+  overscroll-behavior: contain;
+}
+
+/*
+ * A table wider than the screen scrolls sideways; a soft shadow on the edge
+ * that has more says so. The covers move with the content (local), the
+ * shadows stay with the box (scroll), so a shadow only shows where hidden
+ * columns are.
+ */
+.scroll-shadow-x {
+  background:
+    linear-gradient(to right, var(--color-surface) 30%, transparent) left / 2rem 100% no-repeat local,
+    linear-gradient(to left, var(--color-surface) 30%, transparent) right / 2rem 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(32, 38, 35, 0.16), transparent) left / 0.75rem 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(32, 38, 35, 0.16), transparent) right / 0.75rem 100% no-repeat scroll,
+    var(--color-surface);
+  overscroll-behavior-x: contain;
+}
+
+
+/*
+ * Segmented switches (periods, tabs): on a phone one row across the whole
+ * width, each option an equal, finger-sized share; if they still don't fit,
+ * the row scrolls sideways instead of breaking onto a second line.
+ */
+@media (max-width: 639px) {
+  .segmented {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex-basis: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  .segmented::-webkit-scrollbar {
+    display: none;
+  }
+
+  .segmented > * {
+    display: flex;
+    flex: 1 0 auto;
+    min-height: 2.5rem;
+    padding-inline: 0.5rem;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+  }
+
+  /* Two or three options always fit: equal halves or thirds, a long label on two lines. */
+  .segmented:not(:has(> :nth-child(4))) > * {
+    flex: 1 1 0;
+    min-width: 0;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.25;
+  }
+}

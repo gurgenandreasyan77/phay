@@ -13,7 +13,7 @@ function Money({ value }: { value: number | null }) {
 function FiguresCells({ figures, stats }: { figures: EmployeeFiguresDto; stats: EmployeeStatsDto }) {
   return (
     <>
-      <Td className="text-right tabular-nums">{figures.orders}</Td>
+      <Td className="whitespace-nowrap text-right tabular-nums">{figures.orders}</Td>
       {stats.hasAmount ? (
         <Td className="whitespace-nowrap text-right tabular-nums">
           <Money value={figures.revenue} />

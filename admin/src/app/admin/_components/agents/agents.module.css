@@ -184,11 +184,17 @@
   transition: filter 0.2s;
 }
 
-.swimmer:hover,
 .swimmer:focus-visible,
 .swimmer[data-selected="true"] {
   animation-play-state: paused;
   z-index: 2;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .swimmer:hover {
+    animation-play-state: paused;
+    z-index: 2;
+  }
 }
 
 @keyframes swim {
@@ -213,9 +219,14 @@
   transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
-.swimmer:hover .swimBody,
 .swimmer:focus-visible .swimBody {
   transform: scale(1.08);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .swimmer:hover .swimBody {
+    transform: scale(1.08);
+  }
 }
 
 .swimmer[data-selected="true"] .swimBody {
@@ -233,9 +244,14 @@
   transition: opacity 0.3s;
 }
 
-.swimmer:hover .halo,
 .swimmer[data-selected="true"] .halo {
   opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .swimmer:hover .halo {
+    opacity: 1;
+  }
 }
 
 .swimmer[data-selected="true"] .halo {
@@ -297,10 +313,12 @@
   animation-delay: calc(var(--i, 0) * 70ms);
 }
 
-.card:hover {
-  transform: translateY(-2px);
-  border-color: var(--tint-soft);
-  box-shadow: 0 10px 30px -18px var(--tint);
+@media (hover: hover) and (pointer: fine) {
+  .card:hover {
+    transform: translateY(-2px);
+    border-color: var(--tint-soft);
+    box-shadow: 0 10px 30px -18px var(--tint);
+  }
 }
 
 .cardWash {

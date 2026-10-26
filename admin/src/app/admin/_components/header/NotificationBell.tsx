@@ -30,10 +30,10 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
     function handleKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
     }
-    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("pointerdown", handleClick);
     document.addEventListener("keydown", handleKey);
     return () => {
-      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("pointerdown", handleClick);
       document.removeEventListener("keydown", handleKey);
     };
   }, [open]);
@@ -56,7 +56,7 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
         onClick={toggle}
         aria-label={unread > 0 ? `Ծանուցումներ, ${unread} չկարդացված` : "Ծանուցումներ"}
         aria-expanded={open}
-        className="relative flex h-9 w-9 items-center justify-center rounded-md text-ink-muted hover:bg-surface-secondary hover:text-ink"
+        className="relative flex h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-surface-secondary hover:text-ink active:bg-surface-secondary sm:h-9 sm:w-9"
       >
         <Bell className="h-4.5 w-4.5" strokeWidth={1.75} />
         {unread > 0 ? (
@@ -67,7 +67,7 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
       </button>
 
       {open ? (
-        <div className="fixed inset-x-3 top-16 z-30 mt-1 rounded-lg border border-border bg-surface shadow-md sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:w-96">
+        <div className="fixed inset-x-3 top-[calc(3.5rem+env(safe-area-inset-top,0px))] z-30 mt-1 rounded-lg border border-border bg-surface shadow-md sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:w-96">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <p className="text-sm font-semibold text-ink">Ծանուցումներ</p>
             {unread > 0 ? (
@@ -85,7 +85,7 @@ export function NotificationBell({ enabled }: { enabled: boolean }) {
           {items.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm text-ink-muted">Ծանուցումներ դեռ չկան։</p>
           ) : (
-            <ul className="max-h-[min(70vh,28rem)] divide-y divide-border overflow-y-auto">
+            <ul className="overscroll-contain max-h-[min(70dvh,28rem)] divide-y divide-border overflow-y-auto">
               {items.map((notification) => {
                 const Icon = ICONS[notification.type as keyof typeof ICONS] ?? Bell;
                 return (

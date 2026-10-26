@@ -10,7 +10,7 @@ export function ExpensesTabs({ active }: { active: "list" | "statistics" }) {
   ] as const;
 
   return (
-    <nav className="flex flex-wrap gap-1 rounded-md border border-border bg-surface p-1" aria-label="Ծախսեր">
+    <nav className="segmented flex flex-wrap gap-1 rounded-md border border-border bg-surface p-1" aria-label="Ծախսեր">
       {tabs.map((tab) => (
         <Link
           key={tab.id}

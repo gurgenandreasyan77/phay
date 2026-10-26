@@ -191,14 +191,14 @@ export function RecurringManager({ expenses, categories }: { expenses: Recurring
                       "—"
                     )}
                   </Td>
-                  <Td className="text-right tabular-nums">{formatMoney(expense.amount)}</Td>
+                  <Td className="whitespace-nowrap text-right tabular-nums">{formatMoney(expense.amount)}</Td>
                   <Td>{FREQUENCY_LABELS[expense.frequency]}</Td>
                   <Td className="whitespace-nowrap text-ink-muted">
                     {formatMoment(expense.startsOn)}
                     {expense.endsOn ? ` – ${formatMoment(expense.endsOn)}` : " -ից"}
                   </Td>
-                  <Td className="text-right tabular-nums text-ink-muted">≈ {formatMoney(expense.monthly)}</Td>
-                  <Td className="text-right">
+                  <Td className="whitespace-nowrap text-right tabular-nums text-ink-muted">≈ {formatMoney(expense.monthly)}</Td>
+                  <Td className="whitespace-nowrap text-right">
                     <div className="flex justify-end gap-1">
                       <Button size="sm" variant="ghost" aria-label="Փոխել" onClick={() => setEditing(expense.id)}>
                         <Pencil className="h-4 w-4" />

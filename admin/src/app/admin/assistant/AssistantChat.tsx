@@ -361,8 +361,10 @@ export function AssistantChat({
         {error ? <p className="text-sm text-danger">{error}</p> : null}
         {limitReached ? <AssistantLimitReached usage={usage} plans={offer} canAsk={canAsk} /> : null}
 
+        {/* On a phone the question box stays at the bottom of the screen while the answer scrolls. */}
         <form
-          className="flex items-end gap-2"
+          className="sticky bottom-0 z-10 -mx-4 flex items-end gap-2 border-t border-border bg-background/95 px-4 pt-2 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+          style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
           onSubmit={(e) => {
             e.preventDefault();
             ask(draft);
@@ -379,10 +381,16 @@ export function AssistantChat({
             }}
             rows={2}
             maxLength={4000}
+            enterKeyHint="send"
             placeholder={limitReached ? ERRORS.limit_reached : agent ? `Գրեք ${agent.persona.hy}ին…` : "Գրեք ձեր հարցը…"}
             disabled={pending || limitReached}
           />
-          <Button type="submit" disabled={pending || limitReached || draft.trim() === ""} aria-label="Ուղարկել">
+          <Button
+            type="submit"
+            className="h-12 w-12 shrink-0 px-0 sm:h-10 sm:w-auto sm:px-4"
+            disabled={pending || limitReached || draft.trim() === ""}
+            aria-label="Ուղարկել"
+          >
             <Send className="h-4 w-4" />
           </Button>
         </form>
@@ -402,7 +410,7 @@ export function AssistantChat({
 /** Who the chat is with: the agent, moving, with its role. */
 function AgentHeader({ agent, talking }: { agent: AgentDto; talking: boolean }) {
   return (
-    <div className="-mx-5 -mt-5 mb-2 flex items-center gap-3 border-b border-border px-5 py-3" style={agentTintStyle(agent.key)}>
+    <div className="-mx-4 -mt-4 mb-2 flex items-center gap-3 border-b border-border px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5" style={agentTintStyle(agent.key)}>
       <AgentAvatar agentKey={agent.key} size={48} talking={talking} />
       <div className="min-w-0">
         <p className="text-sm font-semibold text-ink">

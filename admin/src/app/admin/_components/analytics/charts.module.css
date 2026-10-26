@@ -24,8 +24,27 @@
   background: linear-gradient(0deg, color-mix(in srgb, var(--bar) 62%, white), var(--bar));
 }
 
-:global(.group):hover .barUp,
-:global(.group):hover .barDown,
+/* A tapped bar keeps focus (and its card) until the next tap; a mouse lights it on hover. */
+@media (hover: hover) and (pointer: fine) {
+  :global(.group):hover .barUp,
+  :global(.group):hover .barDown {
+    opacity: 1;
+    filter: saturate(1.15) drop-shadow(0 4px 8px color-mix(in srgb, var(--bar) 35%, transparent));
+  }
+
+  .slice:hover {
+    stroke-width: 15;
+  }
+
+  .donut:hover .slice:not(:hover) {
+    opacity: 0.45;
+  }
+
+  .legendItem:hover {
+    background: var(--color-surface-secondary);
+  }
+}
+
 :global(.group):focus .barUp,
 :global(.group):focus .barDown {
   opacity: 1;
@@ -57,14 +76,6 @@
     stroke-width 0.2s ease,
     opacity 0.2s ease;
   cursor: default;
-}
-
-.slice:hover {
-  stroke-width: 15;
-}
-
-.donut:hover .slice:not(:hover) {
-  opacity: 0.45;
 }
 
 @keyframes draw {
@@ -111,10 +122,6 @@
 
 .legendItem {
   transition: background-color 0.2s ease;
-}
-
-.legendItem:hover {
-  background: var(--color-surface-secondary);
 }
 
 /* A sample chart: what the block will show once data arrives. */

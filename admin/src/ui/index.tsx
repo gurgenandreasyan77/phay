@@ -19,7 +19,7 @@ type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 type ButtonSize = "sm" | "md";
 
 const buttonBase =
-  "inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50";
 
 const buttonVariants: Record<ButtonVariant, string> = {
   primary: "bg-primary text-primary-foreground hover:bg-primary-hover",
@@ -32,8 +32,9 @@ const buttonVariants: Record<ButtonVariant, string> = {
 };
 
 const buttonSizes: Record<ButtonSize, string> = {
-  sm: "h-8 px-3 text-xs",
-  md: "h-10 px-4",
+  // Taller on a phone, where a finger needs ~44px; compact from sm up.
+  sm: "h-10 px-3 text-xs sm:h-8",
+  md: "h-11 px-4 sm:h-10",
 };
 
 export function buttonClasses(variant: ButtonVariant = "primary", size: ButtonSize = "md", className?: string): string {
@@ -91,11 +92,11 @@ const fieldBase =
   "w-full rounded-md border border-border bg-surface text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary-light disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-ink-faint";
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cn(fieldBase, "h-10 px-3", className)} {...props} />;
+  return <input className={cn(fieldBase, "h-11 px-3 sm:h-10", className)} {...props} />;
 }
 
 export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn(fieldBase, "h-10 px-3", className)} {...props} />;
+  return <select className={cn(fieldBase, "h-11 px-3 sm:h-10", className)} {...props} />;
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
@@ -112,7 +113,7 @@ export function FieldLabel({ children, className }: { children: ReactNode; class
 
 export function Card({ className, style, children }: { className?: string; style?: CSSProperties; children: ReactNode }) {
   return (
-    <div className={cn("rounded-lg border border-border bg-surface p-5", className)} style={style}>
+    <div className={cn("min-w-0 rounded-lg border border-border bg-surface p-4 sm:p-5", className)} style={style}>
       {children}
     </div>
   );
@@ -130,9 +131,9 @@ export function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-4">
+    <section className="min-w-0 space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-base font-semibold text-ink">{title}</h2>
           {description ? <p className="mt-1 max-w-2xl text-sm text-ink-muted">{description}</p> : null}
         </div>
@@ -155,12 +156,12 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-4">
-      <div>
+    <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
+      <div className="min-w-0">
         <h1 className="text-xl font-semibold text-ink">{title}</h1>
         {description ? <p className="mt-1 max-w-2xl text-sm text-ink-muted">{description}</p> : null}
       </div>
-      {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </div>
   );
 }
@@ -169,7 +170,9 @@ export function PageHeader({
 
 export function TableWrap({ className, children }: { className?: string; children: ReactNode }) {
   return (
-    <div className={cn("overflow-x-auto rounded-lg border border-border bg-surface", className)}>
+    // On a phone a wide table scrolls sideways inside its frame, with a
+    // shadow on the edge that has more columns.
+    <div className={cn("scroll-shadow-x min-w-0 overflow-x-auto rounded-lg border border-border bg-surface", className)}>
       <table className="w-full text-left text-sm">{children}</table>
     </div>
   );
@@ -207,7 +210,8 @@ export function EmptyRow({ colSpan, children }: { colSpan: number; children: Rea
   return (
     <tr>
       <td colSpan={colSpan} className="px-4 py-10 text-center text-sm text-ink-muted">
-        {children}
+        {/* Centred in what the frame shows, not in a table wider than the phone. */}
+        <div className="sticky left-4 max-w-[calc(100vw-4.5rem)] sm:static sm:max-w-none">{children}</div>
       </td>
     </tr>
   );

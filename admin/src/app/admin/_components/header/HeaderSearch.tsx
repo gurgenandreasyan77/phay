@@ -133,13 +133,13 @@ export function HeaderSearch({ features, me }: { features: FeatureFlags; me: Adm
         onClick={() => setOpen(true)}
         aria-label="Որոնում"
         title="Որոնում (Ctrl+K)"
-        className="flex h-9 w-9 items-center justify-center rounded-md text-ink-muted hover:bg-surface-secondary hover:text-ink"
+        className="flex h-11 w-11 items-center justify-center rounded-md text-ink-muted hover:bg-surface-secondary hover:text-ink active:bg-surface-secondary sm:h-9 sm:w-9"
       >
         <Search className="h-4.5 w-4.5" strokeWidth={1.75} />
       </button>
 
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-start justify-center px-3 pt-[10vh]" role="dialog" aria-modal="true" aria-label="Որոնում">
+        <div className="fixed inset-0 z-50 flex items-start justify-center px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-[10vh]" role="dialog" aria-modal="true" aria-label="Որոնում">
           <button type="button" aria-label="Փակել" className="absolute inset-0 bg-ink/30" onClick={close} />
           <div className="relative w-full max-w-xl overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
             <div className="flex items-center gap-2 border-b border-border px-4">
@@ -152,6 +152,7 @@ export function HeaderSearch({ features, me }: { features: FeatureFlags; me: Adm
                   setActive(0);
                 }}
                 onKeyDown={handleKeyDown}
+                enterKeyHint="search"
                 placeholder="Որոնել պատվերներ, հաճախորդներ, աշխատակիցներ, բաժիններ…"
                 className="h-12 w-full bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
                 style={{ outline: "none" }}
@@ -161,13 +162,13 @@ export function HeaderSearch({ features, me }: { features: FeatureFlags; me: Adm
                 type="button"
                 onClick={close}
                 aria-label="Փակել"
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-surface-secondary"
+                className="-mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-surface-secondary sm:mr-0 sm:h-7 sm:w-7"
               >
                 <X className="h-4 w-4" strokeWidth={1.75} />
               </button>
             </div>
 
-            <div className="max-h-[60vh] overflow-y-auto py-2">
+            <div className="overscroll-contain max-h-[60dvh] overflow-y-auto py-2">
               {trimmed.length < MIN_LENGTH ? (
                 <p className="px-4 py-6 text-center text-sm text-ink-muted">Գրեք առնվազն {MIN_LENGTH} տառ։</p>
               ) : groups.length === 0 ? (

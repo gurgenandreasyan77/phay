@@ -27,8 +27,8 @@ export function FinanceNav({ base, report, keep = {} }: { base: string; report: 
   const next = shiftPeriod(current.kind, current.start, 1).start;
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex flex-wrap gap-1 rounded-md border border-border bg-surface p-1">
+    <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
+      <div className="segmented flex flex-wrap gap-1 rounded-md border border-border bg-surface p-1">
         {PERIOD_KINDS.map((kind) => (
           <Link
             key={kind}
@@ -194,13 +194,13 @@ export function FinanceTable({ report }: { report: FinanceDto }) {
   const row = (p: Omit<FinancePeriodDto, "kind" | "key" | "start" | "end" | "label">, label: string, strong = false) => (
     <>
       <Td className={cn("whitespace-nowrap", strong && "font-semibold text-ink")}>{label}</Td>
-      <Td className="text-right tabular-nums">{formatMoney(p.revenue)}</Td>
-      {withCost ? <Td className="text-right tabular-nums">{formatMoney(p.cogs)}</Td> : null}
-      <Td className="text-right tabular-nums">{formatMoney(p.expenses)}</Td>
-      <Td className={cn("text-right font-medium tabular-nums", p.netProfit < 0 ? "text-danger" : "text-ink")}>{formatMoney(p.netProfit)}</Td>
-      <Td className="text-right tabular-nums text-ink-muted">{p.margin !== null ? `${String(p.margin).replace(".", ",")}%` : "—"}</Td>
-      {withExcluded ? <Td className="text-right tabular-nums text-ink-muted">{formatMoney(p.excluded)}</Td> : null}
-      <Td className="text-right tabular-nums">{formatMoney(p.cashLeft)}</Td>
+      <Td className="whitespace-nowrap text-right tabular-nums">{formatMoney(p.revenue)}</Td>
+      {withCost ? <Td className="whitespace-nowrap text-right tabular-nums">{formatMoney(p.cogs)}</Td> : null}
+      <Td className="whitespace-nowrap text-right tabular-nums">{formatMoney(p.expenses)}</Td>
+      <Td className={cn("whitespace-nowrap text-right font-medium tabular-nums", p.netProfit < 0 ? "text-danger" : "text-ink")}>{formatMoney(p.netProfit)}</Td>
+      <Td className="whitespace-nowrap text-right tabular-nums text-ink-muted">{p.margin !== null ? `${String(p.margin).replace(".", ",")}%` : "—"}</Td>
+      {withExcluded ? <Td className="whitespace-nowrap text-right tabular-nums text-ink-muted">{formatMoney(p.excluded)}</Td> : null}
+      <Td className="whitespace-nowrap text-right tabular-nums">{formatMoney(p.cashLeft)}</Td>
     </>
   );
 

@@ -144,7 +144,7 @@ export function TenantSubscriptionManager({ data }: { data: TenantSubscriptionDe
                 </Td>
                 <Td className="text-ink-muted">{payment.note ?? "—"}</Td>
                 <Td className="text-ink-muted">{payment.recordedBy ?? "—"}</Td>
-                <Td className="text-right">
+                <Td className="whitespace-nowrap text-right">
                   {/* Only the latest one: an entry made by mistake. */}
                   {index === 0 ? (
                     <Button

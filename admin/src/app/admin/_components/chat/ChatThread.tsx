@@ -117,8 +117,8 @@ export function ChatThread({
   const isMine = (message: SupportMessageDto) => message.fromPlatform === (side === "platform");
 
   return (
-    <div className={cn("flex h-[32rem] flex-col rounded-lg border border-border bg-surface", className)}>
-      <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-4">
+    <div className={cn("flex h-[max(20rem,calc(100dvh-14rem))] flex-col rounded-lg border border-border bg-surface sm:h-[32rem]", className)}>
+      <div ref={listRef} className="overscroll-contain flex-1 space-y-3 overflow-y-auto p-3 sm:p-4">
         {messages === null && error !== "load" ? (
           <p className="text-center text-sm text-ink-muted">Բեռնվում է…</p>
         ) : null}

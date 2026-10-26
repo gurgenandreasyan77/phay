@@ -22,8 +22,8 @@ export function TenantSwitcher({ current, tenants }: { current: AdminTenantDto; 
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("pointerdown", handleClick);
+    return () => document.removeEventListener("pointerdown", handleClick);
   }, [open]);
 
   async function switchTo(tenant: AdminTenantDto) {
@@ -55,7 +55,8 @@ export function TenantSwitcher({ current, tenants }: { current: AdminTenantDto; 
   const label = (
     <>
       <Building2 className="h-4 w-4 shrink-0 text-ink-muted" strokeWidth={1.75} />
-      <span className="max-w-40 truncate font-medium text-ink">{current.name}</span>
+      {/* A phone has room for the icon only; the list names the business. */}
+      <span className="hidden max-w-40 truncate font-medium text-ink sm:inline">{current.name}</span>
     </>
   );
 
@@ -72,16 +73,16 @@ export function TenantSwitcher({ current, tenants }: { current: AdminTenantDto; 
         aria-haspopup="listbox"
         aria-expanded={open}
         title="Փոխել բիզնեսը"
-        className="flex items-center gap-2 rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-surface-secondary disabled:opacity-50"
+        className="flex h-11 items-center gap-1 rounded-md px-2 text-sm hover:bg-surface-secondary active:bg-surface-secondary disabled:opacity-50 sm:h-auto sm:gap-2 sm:border sm:border-border sm:px-2.5 sm:py-1.5"
       >
         {label}
-        <ChevronDown className="h-3.5 w-3.5 text-ink-muted" strokeWidth={1.75} />
+        <ChevronDown className="hidden h-3.5 w-3.5 text-ink-muted sm:block" strokeWidth={1.75} />
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-full z-30 mt-1.5 w-64 rounded-lg border border-border bg-surface p-1.5 shadow-md">
+        <div className="absolute right-0 top-full z-30 mt-1.5 w-64 max-w-[calc(100vw-1rem)] rounded-lg border border-border bg-surface p-1.5 shadow-md">
           <p className="px-2.5 pb-1.5 pt-1 text-xs font-medium text-ink-muted">Բիզնես</p>
-          <ul role="listbox" aria-label="Բիզնես" className="max-h-72 overflow-y-auto">
+          <ul role="listbox" aria-label="Բիզնես" className="overscroll-contain max-h-72 overflow-y-auto">
             {tenants.map((tenant) => (
               <li key={tenant.id}>
                 <button
@@ -91,7 +92,7 @@ export function TenantSwitcher({ current, tenants }: { current: AdminTenantDto; 
                   onClick={() => switchTo(tenant)}
                   disabled={pending}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm hover:bg-surface-secondary",
+                    "flex min-h-11 w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm hover:bg-surface-secondary sm:min-h-0",
                     tenant.id === current.id ? "font-medium text-ink" : "text-ink-muted",
                   )}
                 >

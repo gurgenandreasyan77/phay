@@ -377,7 +377,7 @@ export function TableDesigner({
 
         {columns.map((column, index) => (
           <Card key={column.uid} className="space-y-3 p-4">
-            <div className="grid gap-3 sm:grid-cols-[220px_1fr_200px_auto] sm:items-end">
+            <div className="grid gap-3 sm:grid-cols-2 sm:items-end xl:grid-cols-[220px_1fr_200px_auto]">
               <label className="space-y-1.5">
                 <FieldLabel>Ինչ է այս սյունակը</FieldLabel>
                 <Select
@@ -410,7 +410,7 @@ export function TableDesigner({
                 </Select>
               </label>
               <div className="flex items-center gap-1">
-                <label className="mr-2 flex h-10 items-center gap-2 text-sm text-ink-muted">
+                <label className="mr-auto flex h-11 items-center gap-2 text-sm text-ink-muted sm:h-10 xl:mr-2">
                   <input
                     type="checkbox"
                     checked={column.required}

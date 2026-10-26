@@ -144,11 +144,11 @@ export function Competitors({
                   @{row.username}
                   {row.own ? <span className="ml-1.5 text-xs font-normal text-primary">(դուք)</span> : null}
                 </Td>
-                <Td className="text-right tabular-nums">{number(row.followers)}</Td>
-                <Td className="text-right tabular-nums">{number(row.postsPerWeek)}</Td>
-                <Td className="text-right tabular-nums">{row.hiddenLikes ? "թաքցված" : number(row.avgLikes)}</Td>
-                <Td className="text-right tabular-nums">{number(row.avgComments)}</Td>
-                <Td className="text-right tabular-nums">{row.engagementRate !== null ? `${formatNumber(row.engagementRate)}%` : "—"}</Td>
+                <Td className="whitespace-nowrap text-right tabular-nums">{number(row.followers)}</Td>
+                <Td className="whitespace-nowrap text-right tabular-nums">{number(row.postsPerWeek)}</Td>
+                <Td className="whitespace-nowrap text-right tabular-nums">{row.hiddenLikes ? "թաքցված" : number(row.avgLikes)}</Td>
+                <Td className="whitespace-nowrap text-right tabular-nums">{number(row.avgComments)}</Td>
+                <Td className="whitespace-nowrap text-right tabular-nums">{row.engagementRate !== null ? `${formatNumber(row.engagementRate)}%` : "—"}</Td>
                 <Td className="whitespace-nowrap text-ink-muted">{row.lastPostAt ? row.lastPostAt.slice(0, 10).split("-").reverse().join(".") : "—"}</Td>
               </Tr>
             ))}
