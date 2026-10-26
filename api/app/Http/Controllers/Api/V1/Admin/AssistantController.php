@@ -4,16 +4,20 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use Anthropic\Core\Exceptions\APIException;
 use Anthropic\Core\Exceptions\APIStatusException;
+use App\Agents\AgentCatalog;
+use App\Agents\Agents;
 use App\Assistant\AssistantFailure;
 use App\Assistant\BusinessAssistant;
 use App\Http\Controllers\Controller;
 use App\Models\AssistantConversation;
 use App\Models\AssistantMessage;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 /**
  * The AI assistant's chat. A question is asked inside a conversation that
@@ -21,6 +25,10 @@ use Illuminate\Support\Facades\Log;
  * database, and the question and the answer are saved once answered, so
  * the person can read and continue it later. A failed question saves
  * nothing and costs no request.
+ *
+ * A conversation is with the assistant or with one of the business's AI
+ * agents (agent_key): its first question names the agent, the rest follow
+ * it. An agent the business doesn't have answers 403 agent_inactive.
  */
 class AssistantController extends Controller
 {
@@ -40,9 +48,11 @@ class AssistantController extends Controller
         ]]);
     }
 
-    public function store(Request $request, BusinessAssistant $assistant): JsonResponse
+    public function store(Request $request, BusinessAssistant $assistant, Agents $agents, TenantContext $tenants): JsonResponse
     {
         $validated = $request->validate([
+            // One of the business's AI agents, for a new conversation.
+            'agent' => ['nullable', 'string', Rule::in(AgentCatalog::keys())],
             // A question in a kept conversation (a new one without an id)…
             'question' => ['required_without:messages', 'string', 'max:4000'],
             'conversation_id' => ['nullable', 'integer'],
@@ -61,6 +71,16 @@ class AssistantController extends Controller
                 ? $conversation->messages()->get(['role', 'content'])->map(fn (AssistantMessage $m) => ['role' => $m->role, 'content' => $m->content])->all()
                 : [];
             $validated['messages'] = [...$earlier, ['role' => 'user', 'content' => $validated['question']]];
+        }
+
+        // A kept conversation stays with the agent it started with.
+        $agent = AgentCatalog::find($conversation ? $conversation->agent_key : ($validated['agent'] ?? null));
+        if ($agent && ! $agents->isActive($tenants->current(), $agent)) {
+            return response()->json([
+                'message' => 'This AI agent is not on your team yet.',
+                'code' => 'agent_inactive',
+                'agent' => $agent->key(),
+            ], 403);
         }
 
         if (! $assistant->isConfigured()) {
@@ -82,7 +102,7 @@ class AssistantController extends Controller
         }
 
         try {
-            $reply = $assistant->ask($messages);
+            $reply = $assistant->ask($messages, $agent, $request->user());
         } catch (APIException $e) {
             $failure = AssistantFailure::from($e);
             Log::warning('AI assistant request failed', [
@@ -90,6 +110,7 @@ class AssistantController extends Controller
                 'status' => $e instanceof APIStatusException ? $e->status : null,
                 'detail' => $failure->detail,
                 'model' => config('services.anthropic.model'),
+                'agent' => $agent?->key(),
             ]);
 
             // The API's own words, for whoever sets the assistant up.
@@ -101,9 +122,10 @@ class AssistantController extends Controller
         }
 
         if (isset($validated['question'])) {
-            $conversation = DB::transaction(function () use ($request, $conversation, $validated, $reply) {
+            $conversation = DB::transaction(function () use ($request, $conversation, $validated, $reply, $agent) {
                 $conversation ??= AssistantConversation::create([
                     'user_id' => $request->user()->id,
+                    'agent_key' => $agent?->key(),
                     'title' => AssistantConversation::titleFrom($validated['question']),
                 ]);
                 $conversation->messages()->create(['role' => 'user', 'content' => $validated['question']]);
@@ -122,11 +144,18 @@ class AssistantController extends Controller
         ]]);
     }
 
-    /** The person's conversations in this business, the latest first. */
+    /**
+     * The person's conversations in this business, the latest first: with
+     * the assistant, or with one agent (?agent=analyst).
+     */
     public function conversations(Request $request): JsonResponse
     {
+        $agent = AgentCatalog::find($request->query('agent') ?: null);
+        abort_if(filled($request->query('agent')) && ! $agent, 404);
+
         $conversations = AssistantConversation::query()
             ->of($request->user())
+            ->where(fn ($q) => $agent ? $q->where('agent_key', $agent->key()) : $q->whereNull('agent_key'))
             ->withCount('messages')
             ->latest('updated_at')
             ->latest('id')
@@ -183,6 +212,7 @@ class AssistantController extends Controller
         return [
             'id' => $conversation->id,
             'title' => $conversation->title,
+            'agent' => $conversation->agent_key,
             'messages' => (int) ($conversation->messages_count ?? 0),
             'createdAt' => $conversation->created_at?->toIso8601String(),
             'updatedAt' => $conversation->updated_at?->toIso8601String(),

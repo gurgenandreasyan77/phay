@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Agents\AgentCatalog;
 use App\Features\FeatureFlag;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\PlanResource;
@@ -65,7 +66,8 @@ class PlanController extends Controller
             // AI assistant requests a subscription month; null: no limit, 0: none.
             'assistant_requests' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100000'],
             'included_modules' => ['sometimes', 'array'],
-            'included_modules.*' => ['string', Rule::in(array_column(FeatureFlag::cases(), 'value'))],
+            // Modules and AI agents ("agent:analyst") whose price the plan includes.
+            'included_modules.*' => ['string', Rule::in([...array_column(FeatureFlag::cases(), 'value'), ...AgentCatalog::priceKeys()])],
             'is_default' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
             'sort_order' => ['sometimes', 'integer', 'min:0'],

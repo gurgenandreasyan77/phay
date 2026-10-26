@@ -36,7 +36,7 @@ class AnthropicAssistantClient implements AssistantClient
         return filled($this->apiKey);
     }
 
-    public function reply(string $system, array $messages, ?BusinessTools $tools = null): AssistantReply
+    public function reply(string $system, array $messages, ?ToolSet $tools = null): AssistantReply
     {
         $client = new Client(apiKey: $this->apiKey, requestOptions: ['timeout' => 60, 'maxRetries' => 1]);
         $started = microtime(true);
@@ -91,7 +91,7 @@ class AnthropicAssistantClient implements AssistantClient
      * model Anthropic recommends (server-side fallback); an account that
      * can't use that beta gets the plain request instead.
      */
-    private function create(Client $client, string $system, array $messages, ?BusinessTools $tools, bool $mayUseTools): mixed
+    private function create(Client $client, string $system, array $messages, ?ToolSet $tools, bool $mayUseTools): mixed
     {
         $params = [
             'model' => $this->model,
@@ -123,7 +123,7 @@ class AnthropicAssistantClient implements AssistantClient
     }
 
     /** @return array<string, mixed> a tool_result block */
-    private function runTool(BusinessTools $tools, string $id, string $name, array $input): array
+    private function runTool(ToolSet $tools, string $id, string $name, array $input): array
     {
         try {
             $content = json_encode($tools->run($name, $input), JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR);

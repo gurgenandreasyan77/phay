@@ -4,7 +4,7 @@ namespace Tests\Fakes;
 
 use App\Assistant\AssistantClient;
 use App\Assistant\AssistantReply;
-use App\Assistant\BusinessTools;
+use App\Assistant\ToolSet;
 
 /**
  * The model in tests: answers "Fake answer", and first runs the look-ups
@@ -34,7 +34,7 @@ class FakeAssistantClient implements AssistantClient
         return $this->configured;
     }
 
-    public function reply(string $system, array $messages, ?BusinessTools $tools = null): AssistantReply
+    public function reply(string $system, array $messages, ?ToolSet $tools = null): AssistantReply
     {
         $this->system = $system;
         $this->messages = $messages;

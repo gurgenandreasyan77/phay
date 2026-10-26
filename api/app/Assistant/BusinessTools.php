@@ -33,7 +33,7 @@ use InvalidArgumentException;
  * Instagram and Facebook and its competitors' public figures too
  * (SocialTools).
  */
-class BusinessTools
+class BusinessTools implements ToolSet
 {
     /** Rows read at most for one question: plenty for a small business. */
     private const MAX_ROWS = 20000;

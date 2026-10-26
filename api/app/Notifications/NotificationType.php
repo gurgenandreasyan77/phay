@@ -21,4 +21,7 @@ enum NotificationType: string
 
     /** The connected Instagram / Facebook access ends soon, or stopped working. */
     case Social = 'social';
+
+    /** An AI agent joined the business's team. */
+    case Agent = 'agent';
 }

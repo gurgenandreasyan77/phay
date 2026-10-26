@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\V1\AdditionalServiceController;
 use App\Http\Controllers\Api\V1\Admin\AccountLinkController as AdminAccountLinkController;
 use App\Http\Controllers\Api\V1\Admin\AdditionalServiceController as AdminAdditionalServiceController;
+use App\Http\Controllers\Api\V1\Admin\AgentController as AdminAgentController;
 use App\Http\Controllers\Api\V1\Admin\AnalyticsController as AdminAnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\AssistantController as AdminAssistantController;
 use App\Http\Controllers\Api\V1\Admin\AudienceController as AdminAudienceController;
@@ -51,6 +52,7 @@ use App\Http\Controllers\Api\V1\Admin\SubscriptionController as AdminSubscriptio
 use App\Http\Controllers\Api\V1\Admin\SupportController as AdminSupportController;
 use App\Http\Controllers\Api\V1\Admin\TableAnalyticsController as AdminTableAnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\TaskPageController as AdminTaskPageController;
+use App\Http\Controllers\Api\V1\Admin\TenantAgentController as AdminTenantAgentController;
 use App\Http\Controllers\Api\V1\Admin\TenantController as AdminTenantController;
 use App\Http\Controllers\Api\V1\Admin\TenantFeatureController as AdminTenantFeatureController;
 use App\Http\Controllers\Api\V1\Admin\TenantUserController as AdminTenantUserController;
@@ -205,6 +207,9 @@ Route::prefix('v1')->group(function () {
             // Platform-wide switches and the platform team: super admin only.
             Route::middleware('super.admin')->group(function () {
                 Route::patch('/tenants/{tenant}/features/{key}', [AdminTenantFeatureController::class, 'update']);
+                // The business's AI agents, turned on like modules.
+                Route::get('/tenants/{tenant}/agents', [AdminTenantAgentController::class, 'index']);
+                Route::patch('/tenants/{tenant}/agents/{agent}', [AdminTenantAgentController::class, 'update']);
                 Route::patch('/feature-flags/{key}', [AdminFeatureFlagController::class, 'update']);
                 Route::get('/platform-users', [AdminPlatformUserController::class, 'index']);
                 Route::post('/platform-users', [AdminPlatformUserController::class, 'store']);
@@ -238,6 +243,11 @@ Route::prefix('v1')->group(function () {
 
             // The business admin, by role (App\Enums\BusinessRole).
             Route::get('/feature-flags', [AdminFeatureFlagController::class, 'index']);
+
+            // The AI team: the owner (insights) or the admin (settings), checked in the controller.
+            Route::get('/agents', [AdminAgentController::class, 'index']);
+            Route::put('/agents/profile', [AdminAgentController::class, 'updateProfile'])->middleware('throttle:30,1');
+            Route::put('/agents/{agent}/notes', [AdminAgentController::class, 'updateNotes'])->middleware('throttle:30,1');
 
             Route::middleware('business.can:orders')->group(function () {
                 Route::get('/dashboard', AdminDashboardController::class);

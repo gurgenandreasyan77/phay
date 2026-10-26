@@ -10,6 +10,7 @@ type RequestBody =
   | { kind: "premium" }
   | { kind: "assistant" }
   | { kind: "module"; module: string }
+  | { kind: "agent"; agent: string }
   | { kind: "plan"; plan_id: number };
 
 /**
