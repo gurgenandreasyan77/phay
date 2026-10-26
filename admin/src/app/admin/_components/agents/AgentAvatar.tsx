@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactElement } from "react";
+import { useId, type CSSProperties, type ReactElement } from "react";
 import { cn } from "@/ui";
 import styles from "./agents.module.css";
 
@@ -268,10 +268,12 @@ export function AgentAvatar({
 
 /** The general AI assistant: a calm green orb with a spark, next to the agents. */
 export function AssistantOrb({ size = 72, className }: { size?: number; className?: string }) {
+  // Its own gradient id: a page may draw several orbs, some of them hidden.
+  const gradient = `phay-orb-${useId().replace(/:/g, "")}`;
   return (
     <svg viewBox="0 0 120 120" width={size} height={size} className={cn(styles.avatar, className)} aria-hidden="true">
       <defs>
-        <radialGradient id="phay-orb" cx="38%" cy="32%" r="70%">
+        <radialGradient id={gradient} cx="38%" cy="32%" r="70%">
           <stop offset="0%" stopColor="#8fb5a8" />
           <stop offset="55%" stopColor="#3f6f62" />
           <stop offset="100%" stopColor="#2b4f45" />
@@ -279,7 +281,7 @@ export function AssistantOrb({ size = 72, className }: { size?: number; classNam
       </defs>
       <ellipse className={styles.shadow} cx="60" cy="112" rx="24" ry="3.5" fill="#202623" />
       <g className={styles.bob}>
-        <circle cx="60" cy="58" r="34" fill="url(#phay-orb)" />
+        <circle cx="60" cy="58" r="34" fill={`url(#${gradient})`} />
         <ellipse cx="48" cy="42" rx="11" ry="6" fill="#fff" fillOpacity="0.28" transform="rotate(-25 48 42)" />
         <g className={styles.orb} style={{ transformOrigin: "60px 58px" }}>
           <path d="M60 40q3 13 16 18-13 4-16 18-3-14-16-18 13-5 16-18z" fill="#fff" fillOpacity="0.95" />
