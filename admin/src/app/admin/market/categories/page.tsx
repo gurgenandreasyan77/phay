@@ -1,4 +1,4 @@
-import { requirePermission } from "@/lib/adminAuth";
+import { requireModule } from "@/lib/adminAuth";
 import { getProductCategoriesAdmin } from "@/lib/adminApi";
 import { CategoriesManager } from "./CategoriesManager";
 import { PageHeader } from "@/ui";
@@ -6,7 +6,7 @@ import { PageHeader } from "@/ui";
 export const dynamic = "force-dynamic";
 
 export default async function AdminProductCategoriesPage() {
-  await requirePermission("catalog");
+  await requireModule("market", "catalog");
   const items = await getProductCategoriesAdmin();
 
   return (

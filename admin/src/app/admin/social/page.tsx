@@ -1,8 +1,7 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { Sparkles } from "lucide-react";
-import { requirePermission } from "@/lib/adminAuth";
-import { getFeatureFlagsAdmin, getSocialState } from "@/lib/adminApi";
+import { requireModule } from "@/lib/adminAuth";
+import { getSocialState } from "@/lib/adminApi";
 import { can } from "@/lib/roles";
 import { buttonClasses, EmptyCard, PageHeader } from "@/ui";
 import { AccountInsights } from "./AccountInsights";
@@ -18,9 +17,7 @@ export const dynamic = "force-dynamic";
  * turned the module on for.
  */
 export default async function AdminSocialPage(props: PageProps<"/admin/social">) {
-  const me = await requirePermission("insights");
-  const flags = await getFeatureFlagsAdmin();
-  if (!flags.find((f) => f.key === "social")?.active) notFound();
+  const me = await requireModule("social", "insights");
 
   const { meta } = await props.searchParams;
   const state = await getSocialState();

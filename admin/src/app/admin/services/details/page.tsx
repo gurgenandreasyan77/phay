@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { requirePermission } from "@/lib/adminAuth";
-import { getFeatureFlagsAdmin, getServiceCategoriesAdmin, getServicesAdmin } from "@/lib/adminApi";
+import { requireModule } from "@/lib/adminAuth";
+import { getServiceCategoriesAdmin, getServicesAdmin } from "@/lib/adminApi";
 import { ServicesManager } from "./ServicesManager";
 import { PageHeader, SectionCard, buttonClasses } from "@/ui";
 
@@ -12,9 +11,7 @@ export const dynamic = "force-dynamic";
  * the steps, FAQ, car types and materials, prices by car type, SEO.
  */
 export default async function AdminServiceDetailsPage() {
-  await requirePermission("catalog");
-  const flags = await getFeatureFlagsAdmin();
-  if (!flags.find((f) => f.key === "services")?.active) notFound();
+  await requireModule("services", "catalog");
 
   const [services, categories] = await Promise.all([getServicesAdmin(), getServiceCategoriesAdmin()]);
 

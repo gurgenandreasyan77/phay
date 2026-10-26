@@ -100,6 +100,7 @@ export default async function SubscriptionPage() {
       ) : null}
 
       {modules.length > 0 ? (
+        <div id="modules" className="scroll-mt-20">
         <SectionCard title="Մոդուլներ" description="Միացրեք ձեզ անհրաժեշտ մոդուլները. դրանց գինը կավելանա ամսական վճարին։">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {modules.map((module, index) => (
@@ -107,6 +108,7 @@ export default async function SubscriptionPage() {
             ))}
           </div>
         </SectionCard>
+        </div>
       ) : null}
 
       {plans.length > 1 ? (

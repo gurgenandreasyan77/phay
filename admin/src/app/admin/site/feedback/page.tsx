@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { requirePermission } from "@/lib/adminAuth";
-import { getFeatureFlagsAdmin, getFeedbackMessages } from "@/lib/adminApi";
+import { requireModule } from "@/lib/adminAuth";
+import { getFeedbackMessages } from "@/lib/adminApi";
 import { EmptyCard, PageHeader, buttonClasses } from "@/ui";
 import { FeedbackList } from "./FeedbackList";
 
@@ -9,9 +8,7 @@ export const dynamic = "force-dynamic";
 
 /** What visitors wrote through the feedback form of the business's site. */
 export default async function AdminFeedbackPage(props: { searchParams: Promise<{ page?: string }> }) {
-  await requirePermission("orders");
-  const flags = await getFeatureFlagsAdmin();
-  if (!flags.find((f) => f.key === "site")?.active) notFound();
+  await requireModule("site", "orders");
 
   const page = Math.max(1, Number((await props.searchParams).page) || 1);
   const feedback = await getFeedbackMessages(page);

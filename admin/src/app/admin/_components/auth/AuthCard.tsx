@@ -18,7 +18,7 @@ export function AuthCard({
       <div className={wide ? "w-full max-w-lg space-y-6" : "w-full max-w-sm space-y-6"}>
         <div className="flex flex-col items-center gap-3 text-center">
           <span className="flex h-11 w-11 items-center justify-center rounded-md bg-primary text-base font-semibold text-primary-foreground">
-            S
+            P
           </span>
           <div>
             <h1 className="text-xl font-semibold text-ink">{title}</h1>

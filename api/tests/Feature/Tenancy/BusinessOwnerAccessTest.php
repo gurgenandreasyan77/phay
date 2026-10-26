@@ -125,7 +125,10 @@ class BusinessOwnerAccessTest extends TestCase
         $shop->update(['status' => Tenant::STATUS_SUSPENDED]);
 
         Sanctum::actingAs($owner);
-        $this->getJson('/api/v1/admin/me')->assertForbidden();
+        $this->getJson('/api/v1/admin/me')
+            ->assertForbidden()
+            ->assertJsonPath('code', 'business_suspended')
+            ->assertJsonPath('message', 'This business is suspended.');
 
         $admin = User::factory()->forTenant($shop)->superAdmin()->create();
         Sanctum::actingAs($admin);

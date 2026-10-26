@@ -1,9 +1,7 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { requirePermission } from "@/lib/adminAuth";
+import { requireModule } from "@/lib/adminAuth";
 import { can } from "@/lib/roles";
 import {
-  getFeatureFlagsAdmin,
   getFeedbackMessages,
   getPostsAdmin,
   getServiceGalleryItemsAdmin,
@@ -26,9 +24,7 @@ export const dynamic = "force-dynamic";
  * the results, the blog and what visitors wrote through the feedback form.
  */
 export default async function AdminSitePage() {
-  const me = await requirePermission("catalog");
-  const flags = await getFeatureFlagsAdmin();
-  if (!flags.find((f) => f.key === "site")?.active) notFound();
+  const me = await requireModule("site", "catalog");
 
   const profile = can(me, "settings");
   const [settings, videos, gallery, services, posts, feedback] = await Promise.all([

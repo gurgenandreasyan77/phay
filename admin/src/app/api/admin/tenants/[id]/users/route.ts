@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { bffResponse } from "@/lib/bff";
 import { adminApiFetch } from "@/lib/adminApi";
 import { proxy } from "@/lib/adminProxy";
 
@@ -10,7 +10,7 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function GET(_request: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
   const result = await adminApiFetch(`/admin/tenants/${id}/users`);
-  return NextResponse.json({ data: result.data }, { status: result.ok ? 200 : result.status });
+  return bffResponse(result);
 }
 
 // The whole body comes back: the new login and its invitation link.

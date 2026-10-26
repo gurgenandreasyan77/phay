@@ -1,16 +1,12 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { requirePermission } from "@/lib/adminAuth";
-import { getFeatureFlagsAdmin } from "@/lib/adminApi";
+import { requireModule } from "@/lib/adminAuth";
 import { PageHeader, buttonClasses } from "@/ui";
 import { PostEditor } from "../PostEditor";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewPostPage() {
-  await requirePermission("catalog");
-  const flags = await getFeatureFlagsAdmin();
-  if (!flags.find((f) => f.key === "site")?.active) notFound();
+  await requireModule("site", "catalog");
 
   return (
     <div className="space-y-6">

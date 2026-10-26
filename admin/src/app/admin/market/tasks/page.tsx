@@ -1,4 +1,4 @@
-import { requirePermission } from "@/lib/adminAuth";
+import { requireModule } from "@/lib/adminAuth";
 import { getTaskPagesAdmin, getProductsAdmin } from "@/lib/adminApi";
 import { getServices } from "@/lib/api";
 import { TaskPagesManager } from "./TaskPagesManager";
@@ -7,7 +7,7 @@ import { PageHeader } from "@/ui";
 export const dynamic = "force-dynamic";
 
 export default async function AdminTaskPagesPage() {
-  await requirePermission("catalog");
+  await requireModule("market", "catalog");
 
   const [items, products, services] = await Promise.all([
     getTaskPagesAdmin(),

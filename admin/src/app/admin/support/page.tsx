@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { requirePermission } from "@/lib/adminAuth";
 import { isPlatformStaff } from "@/lib/roles";
 import { BusinessSupportChat } from "./BusinessSupportChat";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminSupportPage() {
   const admin = await requirePermission("settings", { allowLocked: true });
   // Platform staff answer businesses from the platform level.
-  if (isPlatformStaff(admin)) notFound();
+  if (isPlatformStaff(admin)) redirect("/admin/platform/support");
 
   return (
     <div className="space-y-6">
