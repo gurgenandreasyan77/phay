@@ -27,7 +27,7 @@ PROD_DB_NAME  = $(call env_get,POSTGRES_DB,$(PROD_ENV),phay)
 	prod-check prod-init prod-key prod-config prod-build prod-up prod-down prod-restart \
 	prod-logs prod-logs-app prod-ps prod-migrate prod-migrate-status prod-bootstrap \
 	prod-site-keys prod-artisan prod-shell prod-deploy prod-backup prod-backup-prune \
-	prod-restore prod-restore-storage
+	prod-restore prod-restore-storage prod-restore-private
 
 help: ## This list
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
@@ -198,7 +198,8 @@ prod-backup: prod-check ## Database + uploaded files to backups/ (gzip)
 	chmod 700 backups
 	set -o pipefail; $(PROD) exec -T postgres pg_dump --no-owner --no-acl -U $(PROD_DB_USER) $(PROD_DB_NAME) | gzip > backups/phay-db-$(TS).sql.gz
 	$(PROD) exec -T api tar -C /var/www/html/public/storage -czf - . > backups/phay-storage-$(TS).tar.gz
-	@ls -lh backups | tail -n 4
+	$(PROD) exec -T backend tar -C /var/www/html/storage/app/private -czf - . > backups/phay-private-$(TS).tar.gz
+	@ls -lh backups | tail -n 5
 
 prod-backup-prune: ## Delete backups older than 14 days (days=30 to change)
 	find backups -name 'phay-*' -type f -mtime +$(or $(days),14) -print -delete
@@ -216,3 +217,7 @@ prod-restore: prod-check ## Replace the DB with a dump: make prod-restore file=b
 prod-restore-storage: prod-check ## Unpack uploaded files: make prod-restore-storage file=backups/phay-storage-X.tar.gz
 	@[ -n "$(file)" ] || (echo "Usage: make prod-restore-storage file=backups/phay-storage-XXXX.tar.gz" && exit 1)
 	$(PROD) exec -T -u www-data backend tar -C /var/www/html/storage/app/public -xzf - < $(file)
+
+prod-restore-private: prod-check ## Unpack private files (AI chat, brand): make prod-restore-private file=backups/phay-private-X.tar.gz
+	@[ -n "$(file)" ] || (echo "Usage: make prod-restore-private file=backups/phay-private-XXXX.tar.gz" && exit 1)
+	$(PROD) exec -T -u www-data backend tar -C /var/www/html/storage/app/private -xzf - < $(file)

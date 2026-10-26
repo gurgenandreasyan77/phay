@@ -1,9 +1,10 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
-import { Send, Sparkles } from "lucide-react";
+import { Paperclip, Send, Sparkles } from "lucide-react";
 import type {
   AgentDto,
+  AssistantAttachmentDto,
   AssistantConversationDetailDto,
   AssistantConversationDto,
   AssistantMessageDto,
@@ -15,15 +16,27 @@ import { AgentAvatar, agentTintStyle } from "../_components/agents/AgentAvatar";
 import agentStyles from "../_components/agents/agents.module.css";
 import { AssistantHistory } from "./AssistantHistory";
 import { AssistantLimitReached, AssistantQuotaBar } from "./AssistantQuota";
+import {
+  ACCEPT,
+  checkFile,
+  FILE_ERRORS,
+  MAX_FILES,
+  MessageFiles,
+  PendingFiles,
+  shownFromAttachment,
+  type ShownFile,
+} from "./Attachments";
 import { SUGGESTIONS } from "./suggestions";
 
-type Message = { role: "user" | "assistant"; content: string };
+type Message = { role: "user" | "assistant"; content: string; files?: ShownFile[] };
 
 const REFUSED = "Այս հարցին չեմ կարող պատասխանել։ Փորձեք ձևակերպել այլ կերպ։";
 
 /** A kept question or answer as the chat shows it. */
-function toMessage(message: Pick<AssistantMessageDto, "role" | "content" | "refused">): Message {
-  if (message.role === "user") return { role: "user", content: message.content };
+function toMessage(message: Pick<AssistantMessageDto, "role" | "content" | "refused" | "attachments">): Message {
+  if (message.role === "user") {
+    return { role: "user", content: message.content, files: (message.attachments ?? []).map(shownFromAttachment) };
+  }
   return {
     role: "assistant",
     content: message.refused ? REFUSED : message.content || "Պատասխանը դատարկ է։ Փորձեք կրկին։",
@@ -136,7 +149,11 @@ export function AssistantChat({
   const [error, setError] = useState<string | null>(null);
   const [usage, setUsage] = useState(initialUsage);
   const [offer, setOffer] = useState(plans);
+  // Files in the question box: uploaded as soon as they are picked, sent by id.
+  const [files, setFiles] = useState<ShownFile[]>([]);
+  const [dragging, setDragging] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const pickerRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -155,6 +172,64 @@ export function AssistantChat({
   }
 
   const limitReached = usage.remaining !== null && usage.remaining <= 0;
+  const uploading = files.some((f) => f.status === "uploading");
+  const readyFiles = files.filter((f) => f.status === "ready" && f.attachment);
+
+  function patchFile(key: string, patch: Partial<ShownFile>) {
+    setFiles((list) => list.map((f) => (f.key === key ? { ...f, ...patch } : f)));
+  }
+
+  async function upload(key: string, file: File) {
+    const body = new FormData();
+    body.append("file", file);
+    try {
+      const response = await fetch("/api/admin/assistant/attachments", { method: "POST", body });
+      const json = await response.json().catch(() => null);
+      if (!response.ok) {
+        if (json?.code === "limit_reached" && json.usage) setUsage(json.usage);
+        const message = json?.errors?.file?.[0] ?? ERRORS[json?.code] ?? FILE_ERRORS.upload;
+        patchFile(key, { status: "error", error: message });
+        return;
+      }
+      const attachment = json.data as AssistantAttachmentDto;
+      patchFile(key, { status: "ready", attachment });
+    } catch {
+      patchFile(key, { status: "error", error: FILE_ERRORS.upload });
+    }
+  }
+
+  /** Picked, dropped or pasted files: checked here, then uploaded one by one. */
+  function addFiles(picked: File[]) {
+    if (picked.length === 0 || pending || limitReached) return;
+    setError(null);
+    const room = MAX_FILES - files.length;
+    if (picked.length > room) setError(FILE_ERRORS.tooMany);
+    for (const file of picked.slice(0, Math.max(0, room))) {
+      const key = `local-${crypto.randomUUID()}`;
+      const checked = checkFile(file);
+      const shown: ShownFile = {
+        key,
+        name: file.name || "file",
+        kind: "kind" in checked ? checked.kind : "text",
+        size: file.size,
+        src: "kind" in checked && checked.kind === "image" ? URL.createObjectURL(file) : null,
+        attachment: null,
+        status: "error" in checked ? "error" : "uploading",
+        error: "error" in checked ? checked.error : undefined,
+      };
+      setFiles((list) => [...list, shown]);
+      if (!("error" in checked)) upload(key, file);
+    }
+  }
+
+  function removeFile(key: string) {
+    const file = files.find((f) => f.key === key);
+    if (!file) return;
+    setFiles((list) => list.filter((f) => f.key !== key));
+    if (file.src?.startsWith("blob:")) URL.revokeObjectURL(file.src);
+    // Not sent yet: the API forgets it too (else it goes after a day).
+    if (file.attachment) fetch(`/api/admin/assistant/attachments/${file.attachment.id}`, { method: "DELETE" }).catch(() => null);
+  }
 
   function startNew() {
     setMessages([]);
@@ -188,11 +263,14 @@ export function AssistantChat({
 
   async function ask(question: string) {
     const text = question.trim();
-    if (!text || pending || limitReached) return;
+    const sending = readyFiles;
+    if ((!text && sending.length === 0) || pending || limitReached || uploading) return;
 
-    const next: Message[] = [...messages, { role: "user", content: text }];
+    const next: Message[] = [...messages, { role: "user", content: text, files: sending }];
+    const kept = files;
     setMessages(next);
     setDraft("");
+    setFiles([]);
     setError(null);
     setPending(true);
 
@@ -205,14 +283,16 @@ export function AssistantChat({
           question: text,
           conversation_id: conversationId,
           agent: agent?.key ?? null,
+          attachments: sending.map((f) => f.attachment!.id),
         }),
       });
       const json = await response.json().catch(() => null);
 
       if (!response.ok) {
-        // Give the question back so it can be sent again.
+        // Give the question (and its files) back so it can be sent again.
         setMessages(messages);
         setDraft(text);
+        setFiles(kept);
         if (json?.code === "limit_reached") {
           if (json.usage) setUsage(json.usage);
           if (json.offer?.plans) setOffer(json.offer.plans);
@@ -223,12 +303,16 @@ export function AssistantChat({
         return;
       }
 
-      const { reply, refused, conversation, ...nextUsage } = json.data as {
+      const { reply, refused, conversation, attachments, ...nextUsage } = json.data as {
         reply: string;
         refused: boolean;
         conversation: AssistantConversationDto | null;
+        attachments?: AssistantAttachmentDto[];
       } & AssistantUsageDto;
-      setMessages([...next, toMessage({ role: "assistant", content: reply, refused })]);
+      // The question shows its kept files (served by the API, no local blobs).
+      const asked: Message = { role: "user", content: text, files: (attachments ?? []).map(shownFromAttachment) };
+      for (const f of sending) if (f.src?.startsWith("blob:")) URL.revokeObjectURL(f.src);
+      setMessages([...messages, asked, toMessage({ role: "assistant", content: reply, refused })]);
       setUsage(nextUsage);
       if (conversation) {
         // The asked chat goes to the top of the history.
@@ -241,6 +325,7 @@ export function AssistantChat({
     } catch {
       setMessages(messages);
       setDraft(text);
+      setFiles(kept);
       setError("Կապի սխալ։ Ստուգեք ինտերնետը և փորձեք կրկին։");
     } finally {
       setPending(false);
@@ -332,7 +417,10 @@ export function AssistantChat({
                     )}
                   >
                     {message.role === "user" ? (
-                      <p className="whitespace-pre-line">{message.content}</p>
+                      <div className="space-y-2">
+                        <MessageFiles files={message.files ?? []} canSaveToBrand={agent !== null} />
+                        {message.content ? <p className="whitespace-pre-line">{message.content}</p> : null}
+                      </div>
                     ) : (
                       <Formatted text={message.content} />
                     )}
@@ -363,36 +451,92 @@ export function AssistantChat({
 
         {/* On a phone the question box stays at the bottom of the screen while the answer scrolls. */}
         <form
-          className="sticky bottom-0 z-10 -mx-4 flex items-end gap-2 border-t border-border bg-background/95 px-4 pt-2 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+          className={cn(
+            "sticky bottom-0 z-10 -mx-4 space-y-2 border-t border-border bg-background/95 px-4 pt-2 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none",
+            dragging && "rounded-md outline-2 outline-offset-4 outline-primary outline-dashed",
+          )}
           style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
           onSubmit={(e) => {
             e.preventDefault();
             ask(draft);
           }}
+          // Files dropped on the question box are attached.
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes("Files")) return;
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            if (e.dataTransfer.files.length === 0) return;
+            e.preventDefault();
+            setDragging(false);
+            addFiles(Array.from(e.dataTransfer.files));
+          }}
         >
-          <Textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+          <PendingFiles files={files} onRemove={removeFile} />
+          <div className="flex items-end gap-2">
+            <input
+              ref={pickerRef}
+              type="file"
+              accept={ACCEPT}
+              multiple
+              hidden
+              onChange={(e) => {
+                addFiles(Array.from(e.target.files ?? []));
+                e.target.value = "";
+              }}
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-12 w-12 shrink-0 px-0! sm:h-10 sm:w-10"
+              disabled={pending || limitReached || files.length >= MAX_FILES}
+              onClick={() => pickerRef.current?.click()}
+              aria-label="Կցել ֆայլ"
+              title="Կցել նկար, PDF կամ տեքստային ֆայլ (մինչև 4)"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+            <Textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  ask(draft);
+                }
+              }}
+              // A screenshot or picture pasted into the box is attached.
+              onPaste={(e) => {
+                const pasted = Array.from(e.clipboardData.files);
+                if (pasted.length === 0) return;
                 e.preventDefault();
-                ask(draft);
+                addFiles(pasted);
+              }}
+              rows={2}
+              maxLength={4000}
+              enterKeyHint="send"
+              placeholder={
+                limitReached
+                  ? ERRORS.limit_reached
+                  : files.length > 0
+                    ? "Ի՞նչ անել այս ֆայլերի հետ…"
+                    : agent
+                      ? `Գրեք ${agent.persona.hy}ին…`
+                      : "Գրեք ձեր հարցը…"
               }
-            }}
-            rows={2}
-            maxLength={4000}
-            enterKeyHint="send"
-            placeholder={limitReached ? ERRORS.limit_reached : agent ? `Գրեք ${agent.persona.hy}ին…` : "Գրեք ձեր հարցը…"}
-            disabled={pending || limitReached}
-          />
-          <Button
-            type="submit"
-            className="h-12 w-12 shrink-0 px-0 sm:h-10 sm:w-auto sm:px-4"
-            disabled={pending || limitReached || draft.trim() === ""}
-            aria-label="Ուղարկել"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
+              disabled={pending || limitReached}
+            />
+            <Button
+              type="submit"
+              className="h-12 w-12 shrink-0 px-0 sm:h-10 sm:w-auto sm:px-4"
+              disabled={pending || limitReached || uploading || (draft.trim() === "" && readyFiles.length === 0)}
+              aria-label="Ուղարկել"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
         </form>
 
         <div className="flex items-center justify-end text-xs text-ink-faint">

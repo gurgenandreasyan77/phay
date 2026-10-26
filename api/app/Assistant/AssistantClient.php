@@ -13,7 +13,7 @@ interface AssistantClient
      * Answers the conversation. With tools, the model may look things up
      * in the business's data (a ToolSet) before it answers.
      *
-     * @param  list<array{role: 'user'|'assistant', content: string}>  $messages
+     * @param  list<array{role: 'user'|'assistant', content: string|list<array<string, mixed>>}>  $messages  content blocks for a question with files (Attachments::forModel)
      */
     public function reply(string $system, array $messages, ?ToolSet $tools = null): AssistantReply;
 }

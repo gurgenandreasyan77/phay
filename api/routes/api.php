@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\Admin\AccountLinkController as AdminAccountLinkC
 use App\Http\Controllers\Api\V1\Admin\AdditionalServiceController as AdminAdditionalServiceController;
 use App\Http\Controllers\Api\V1\Admin\AgentController as AdminAgentController;
 use App\Http\Controllers\Api\V1\Admin\AnalyticsController as AdminAnalyticsController;
+use App\Http\Controllers\Api\V1\Admin\AssistantAttachmentController as AdminAssistantAttachmentController;
 use App\Http\Controllers\Api\V1\Admin\AssistantController as AdminAssistantController;
 use App\Http\Controllers\Api\V1\Admin\AudienceController as AdminAudienceController;
 use App\Http\Controllers\Api\V1\Admin\AuthController as AdminAuthController;
@@ -252,6 +253,10 @@ Route::prefix('v1')->group(function () {
             Route::get('/agents', [AdminAgentController::class, 'index']);
             Route::put('/agents/profile', [AdminAgentController::class, 'updateProfile'])->middleware('throttle:30,1');
             Route::put('/agents/{agent}/notes', [AdminAgentController::class, 'updateNotes'])->middleware('throttle:30,1');
+            // The brand's pictures the agents look at (logo, examples).
+            Route::post('/agents/brand-assets', [AdminAgentController::class, 'storeAsset'])->middleware('throttle:30,1');
+            Route::get('/agents/brand-assets/{brandAsset}/file', [AdminAgentController::class, 'assetFile']);
+            Route::delete('/agents/brand-assets/{brandAsset}', [AdminAgentController::class, 'destroyAsset']);
 
             Route::middleware('business.can:orders')->group(function () {
                 Route::get('/dashboard', AdminDashboardController::class);
@@ -318,6 +323,10 @@ Route::prefix('v1')->group(function () {
                 Route::post('/assistant', [AdminAssistantController::class, 'store'])->middleware('throttle:assistant');
                 // Each person's kept conversations with the assistant.
                 Route::get('/assistant/conversations', [AdminAssistantController::class, 'conversations']);
+                // Files attached to a question: uploaded first, sent with it by id.
+                Route::post('/assistant/attachments', [AdminAssistantAttachmentController::class, 'store'])->middleware('throttle:assistant-uploads');
+                Route::get('/assistant/attachments/{assistantAttachment}/file', [AdminAssistantAttachmentController::class, 'file']);
+                Route::delete('/assistant/attachments/{assistantAttachment}', [AdminAssistantAttachmentController::class, 'destroy']);
 
                 // The social module: the business's Instagram and Facebook
                 // through Meta (read only) and the accounts it watches.

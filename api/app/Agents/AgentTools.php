@@ -2,11 +2,16 @@
 
 namespace App\Agents;
 
+use App\Assistant\Attachments;
 use App\Assistant\BusinessTools;
+use App\Assistant\ToolOutput;
 use App\Assistant\ToolSet;
+use App\Models\AssistantAttachment;
+use App\Models\BrandAsset;
 use App\Models\BrandProfile;
 use App\Models\User;
 use App\Tenancy\TenantContext;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 /**
@@ -14,13 +19,20 @@ use InvalidArgumentException;
  * allows, and of those only the ones the business has: social look-ups need
  * the social module), plus learning the business: saving what the owner
  * tells about the brand into the profile every agent reads, and keeping
- * its own notes. Everything stays inside the current business.
+ * its own notes. Pictures the owner attaches (a logo, examples of posts)
+ * can be kept for the whole team (save_brand_asset) and looked at again in
+ * later conversations (view_brand_assets). Everything stays inside the
+ * current business.
  */
 class AgentTools implements ToolSet
 {
     public const SAVE_PROFILE = 'save_brand_profile';
 
     public const REMEMBER = 'remember';
+
+    public const SAVE_ASSET = 'save_brand_asset';
+
+    public const VIEW_ASSETS = 'view_brand_assets';
 
     private ?Agent $agent = null;
 
@@ -30,6 +42,7 @@ class AgentTools implements ToolSet
         private readonly BusinessTools $tools,
         private readonly Agents $agents,
         private readonly TenantContext $tenants,
+        private readonly Attachments $attachments,
     ) {}
 
     /** The same tools for another agent, saving as the given person. */
@@ -90,12 +103,40 @@ class AgentTools implements ToolSet
                     'additionalProperties' => false,
                 ],
             ],
+            [
+                'name' => self::SAVE_ASSET,
+                'description' => 'Keeps a picture the owner attached in this chat (named "[file #N: …, image]") for the whole team: as the business\'s logo (replaces the old one) or as an example they like (a post, an ad, a photo; up to '.BrandAsset::MAX_EXAMPLES.'). Save when the owner says it is their logo or an example to follow, or agrees when you offer. Also write what you see (colours, style) into the brand profile with save_brand_profile.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'file' => ['type' => 'integer', 'description' => 'The N of [file #N].'],
+                        'kind' => ['type' => 'string', 'enum' => BrandAsset::KINDS],
+                        'note' => $text('A short line: what it shows, what to take from it.'),
+                    ],
+                    'required' => ['file', 'kind'],
+                    'additionalProperties' => false,
+                ],
+            ],
+            // Only once there is something to look at.
+            ...(BrandAsset::query()->exists() ? [[
+                'name' => self::VIEW_ASSETS,
+                'description' => 'Shows you the business\'s saved logo and example pictures. Look before you describe, design or write anything about how the brand looks.',
+                'inputSchema' => ['type' => 'object'],
+            ]] : []),
         ];
     }
 
-    public function run(string $name, array $input): array
+    public function run(string $name, array $input): array|ToolOutput
     {
         $tenant = $this->tenants->current();
+
+        if ($name === self::SAVE_ASSET) {
+            return $this->saveAsset($input);
+        }
+
+        if ($name === self::VIEW_ASSETS) {
+            return $this->viewAssets();
+        }
 
         if ($name === self::SAVE_PROFILE) {
             $data = array_intersect_key($input, array_flip([...BrandProfile::FIELDS, 'colors']));
@@ -122,6 +163,47 @@ class AgentTools implements ToolSet
         }
 
         return $this->tools->run($name, $input);
+    }
+
+    /** @param  array<string, mixed>  $input */
+    private function saveAsset(array $input): array
+    {
+        $kind = (string) ($input['kind'] ?? '');
+        if (! in_array($kind, BrandAsset::KINDS, true)) {
+            throw new InvalidArgumentException('kind must be logo or example.');
+        }
+        // Only a file the person in this chat attached, in this business.
+        $attachment = $this->user
+            ? AssistantAttachment::query()->of($this->user)->find((int) ($input['file'] ?? 0))
+            : null;
+        if (! $attachment) {
+            throw new InvalidArgumentException('No such file in this chat.');
+        }
+
+        try {
+            $asset = $this->attachments->toBrandAsset($attachment, $kind, isset($input['note']) ? (string) $input['note'] : null, $this->user);
+        } catch (ValidationException $e) {
+            throw new InvalidArgumentException(collect($e->errors())->flatten()->first() ?? 'Could not save it.');
+        }
+
+        return ['saved' => $asset->present(), 'examples' => BrandAsset::query()->where('kind', BrandAsset::EXAMPLE)->count()];
+    }
+
+    private function viewAssets(): ToolOutput
+    {
+        $assets = BrandAsset::query()->orderByRaw("case when kind = 'logo' then 0 else 1 end")->orderBy('id')->get();
+        if ($assets->isEmpty()) {
+            return new ToolOutput([['type' => 'text', 'text' => 'No pictures are saved yet.']]);
+        }
+
+        $blocks = [];
+        foreach ($assets as $asset) {
+            $label = $asset->kind === BrandAsset::LOGO ? 'The logo' : "Example #{$asset->id}";
+            $blocks[] = ['type' => 'text', 'text' => $label.($asset->note ? ": {$asset->note}" : '')];
+            $blocks[] = $this->attachments->block($asset);
+        }
+
+        return new ToolOutput($blocks);
     }
 
     private function agent(): Agent

@@ -18,10 +18,12 @@ interface ToolSet
     public function definitions(): array;
 
     /**
+     * JSON for the model, or ToolOutput when the answer holds images.
+     *
      * @param  array<string, mixed>  $input
-     * @return array<string, mixed>
+     * @return array<string, mixed>|ToolOutput
      *
      * @throws InvalidArgumentException on a bad tool or input
      */
-    public function run(string $name, array $input): array;
+    public function run(string $name, array $input): array|ToolOutput;
 }
