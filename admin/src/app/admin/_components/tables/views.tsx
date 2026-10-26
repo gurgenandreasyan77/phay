@@ -13,6 +13,7 @@ import {
   getDataTables,
   getEmployeeStats,
   getLeads,
+  getTableReshape,
   type DataTableSection,
   type PeriodKind,
 } from "@/lib/adminApi";
@@ -26,6 +27,9 @@ import { SECTIONS, tablePath, tablesPath } from "./shared";
 import { TABLE_PERIOD_LABELS } from "./periods";
 import { periodFromParams } from "./PeriodNav";
 import { PerformerStats } from "./PerformerStats";
+import { ReshapeBanner } from "./Reshape";
+import { ReshapeTableButton } from "./TableActions";
+import { DownloadLinks, tableDownloadHref } from "../downloads/downloads";
 
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -82,12 +86,15 @@ export async function TablesListView({
 }) {
   const me = await requirePermission(SECTIONS[section].permission);
   const current = periodFromParams(searchParams);
-  const [tables, site, performers] = await Promise.all([
+  // Just split or joined (?reshape=): what was made, and undo.
+  const reshapeId = Number(first(searchParams.reshape));
+  const [tables, site, performers, reshape] = await Promise.all([
     getDataTables(section),
     section === "orders" ? siteOrders() : null,
     can(me, "insights") && section !== "expenses"
       ? getEmployeeStats({ section, ...(current ? { period: current.kind, date: current.date } : {}) })
       : null,
+    Number.isInteger(reshapeId) && reshapeId > 0 ? getTableReshape(reshapeId) : null,
   ]);
   const canDesign = can(me, SECTIONS[section].design);
 
@@ -111,6 +118,7 @@ export async function TablesListView({
         }
       />
       {intro}
+      {reshape && reshape.section === section ? <ReshapeBanner key={reshape.id} reshape={reshape} /> : null}
       {site ? <SiteOrdersCard {...site} /> : null}
       {tables.length === 0 ? (
         <EmptyCard>
@@ -123,7 +131,7 @@ export async function TablesListView({
             : "Աղյուսակներ դեռ չկան։ Դրանք ստեղծում է բիզնեսի սեփականատերը կամ ադմինիստրատորը։"}
         </EmptyCard>
       ) : (
-        <TablesList section={section} tables={tables} canDesign={canDesign} />
+        <TablesList key={reshape?.id ?? "tables"} section={section} tables={tables} canDesign={canDesign} />
       )}
       {performers?.hasPerformerColumn ? <PerformerStats stats={performers} base={tablesPath(section)} current={current} /> : null}
       {children}
@@ -155,8 +163,11 @@ export async function TableView({
   const period = first(searchParams.period) as PeriodKind | undefined;
   const date = first(searchParams.date);
   const table = await loadTable(section, id);
-  const rows = await getDataTableRows(table.id, { search, page, period, date });
   const canDesign = can(me, SECTIONS[section].design);
+  const [rows, siblings] = await Promise.all([
+    getDataTableRows(table.id, { search, page, period, date }),
+    canDesign && !table.archivedAt ? getDataTables(section) : null,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -173,6 +184,10 @@ export async function TableView({
                 Սյունակներ և կարգավորումներ
               </Link>
             ) : null}
+            {siblings && table.source !== "google" ? (
+              <ReshapeTableButton section={section} table={table} tables={siblings.filter((t) => !t.archivedAt)} />
+            ) : null}
+            {canDesign ? <DownloadLinks href={(format) => tableDownloadHref(table.id, format)} label="Ներբեռնել աղյուսակը" size="md" /> : null}
           </>
         }
       />
@@ -180,7 +195,11 @@ export async function TableView({
       {table.archivedAt ? (
         <p className="rounded-md bg-warning-light px-3 py-2 text-sm text-warning">
           Սա աղյուսակի հին տարբերակն է՝ պահված, որպեսզի ոչինչ չկորչի։ Այն չի երևում օրացույցում և չի հաշվվում վերլուծության մեջ։{" "}
-          {table.replacedById ? (
+          {table.reshapeId ? (
+            <Link href={`${tablesPath(section)}?reshape=${table.reshapeId}`} className="font-medium underline">
+              Այն բաժանվել կամ միավորվել է․ տեսնել նոր աղյուսակները
+            </Link>
+          ) : table.replacedById ? (
             <Link href={tablePath(section, table.replacedById)} className="font-medium underline">
               Բացել նոր տարբերակը
             </Link>

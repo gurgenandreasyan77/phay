@@ -48,8 +48,11 @@ final class ExpenseStatistics
         private readonly TenantContext $tenants,
     ) {}
 
-    /** @return array<string, mixed> */
-    public function report(TablePeriod $kind, ?string $date = null): array
+    /**
+     * @param  ?int  $list  expenses listed at most (null: every one, for a download)
+     * @return array<string, mixed>
+     */
+    public function report(TablePeriod $kind, ?string $date = null, ?int $list = self::LIST): array
     {
         $today = CarbonImmutable::now($this->tenants->current()->timezone ?: config('app.timezone'))->startOfDay();
         $period = Period::of($kind, $date ?? $today->toDateString());
@@ -90,7 +93,7 @@ final class ExpenseStatistics
             'previousCategories' => collect($this->finance->byCategory($previous, $categories))->filter(fn (array $c) => $c['amount'] > 0)->mapWithKeys(fn (array $c) => [$c['name'] => $c['amount']])->all(),
             'breakdowns' => $this->breakdowns($current, $columns),
             'largest' => $current->sortByDesc('amount')->take(10)->map(fn (array $e) => $this->line($e, $tables, $columns))->values()->all(),
-            'rows' => $current->sortBy([['at', 'desc'], ['amount', 'desc']])->take(self::LIST)->map(fn (array $e) => $this->line($e, $tables, $columns))->values()->all(),
+            'rows' => $current->sortBy([['at', 'desc'], ['amount', 'desc']])->when($list !== null, fn ($rows) => $rows->take($list))->map(fn (array $e) => $this->line($e, $tables, $columns))->values()->all(),
             'count' => $current->count(),
             'has' => [
                 'tables' => $tables->isNotEmpty(),

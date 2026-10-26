@@ -12,10 +12,11 @@ class AssistantMessage extends Model
 {
     use BelongsToTenant;
 
-    protected $fillable = ['role', 'content', 'refused'];
+    protected $fillable = ['role', 'content', 'refused', 'actions'];
 
     protected $casts = [
         'refused' => 'boolean',
+        'actions' => 'array',
     ];
 
     public function conversation(): BelongsTo

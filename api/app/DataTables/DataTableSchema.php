@@ -127,7 +127,7 @@ final class DataTableSchema
         return [$data, $errors];
     }
 
-    private static function newKey(): string
+    public static function newKey(): string
     {
         return 'c_'.Str::lower(Str::random(8));
     }

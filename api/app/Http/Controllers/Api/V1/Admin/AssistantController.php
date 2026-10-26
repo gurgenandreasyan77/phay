@@ -9,6 +9,7 @@ use App\Agents\Agents;
 use App\Assistant\AssistantFailure;
 use App\Assistant\Attachments;
 use App\Assistant\BusinessAssistant;
+use App\Assistant\ReplyActions;
 use App\Http\Controllers\Controller;
 use App\Models\AssistantAttachment;
 use App\Models\AssistantConversation;
@@ -56,7 +57,7 @@ class AssistantController extends Controller
         ]]);
     }
 
-    public function store(Request $request, BusinessAssistant $assistant, Agents $agents, TenantContext $tenants, Attachments $attachments): JsonResponse
+    public function store(Request $request, BusinessAssistant $assistant, Agents $agents, TenantContext $tenants, Attachments $attachments, ReplyActions $actions): JsonResponse
     {
         $validated = $request->validate([
             // One of the business's AI agents, for a new conversation.
@@ -123,6 +124,7 @@ class AssistantController extends Controller
             return response()->json(['message' => 'The last message must be a question.'], 422);
         }
 
+        $actions->reset();
         try {
             $reply = $assistant->ask($attachments->forModel($messages), $agent, $request->user());
         } catch (APIException $e) {
@@ -144,7 +146,7 @@ class AssistantController extends Controller
         }
 
         if ($kept) {
-            $conversation = DB::transaction(function () use ($request, $conversation, $question, $files, $reply, $agent) {
+            $conversation = DB::transaction(function () use ($request, $conversation, $question, $files, $reply, $agent, $actions) {
                 $conversation ??= AssistantConversation::create([
                     'user_id' => $request->user()->id,
                     'agent_key' => $agent?->key(),
@@ -154,7 +156,12 @@ class AssistantController extends Controller
                 if ($files->isNotEmpty()) {
                     AssistantAttachment::query()->whereKey($files->modelKeys())->update(['assistant_message_id' => $asked->id]);
                 }
-                $conversation->messages()->create(['role' => 'assistant', 'content' => $reply->text, 'refused' => $reply->refused]);
+                $conversation->messages()->create([
+                    'role' => 'assistant',
+                    'content' => $reply->text,
+                    'refused' => $reply->refused,
+                    'actions' => $actions->all() ?: null,
+                ]);
                 $conversation->touch();
 
                 return $conversation;
@@ -164,6 +171,8 @@ class AssistantController extends Controller
         return response()->json(['data' => [
             'reply' => $reply->text,
             'refused' => $reply->refused,
+            // Cards under the answer: a reshape to apply, a file to download.
+            'actions' => $actions->all(),
             // The files as the question now holds them.
             'attachments' => $files->map(fn (AssistantAttachment $file) => $file->present())->values(),
             'conversation' => $conversation ? $this->summary($conversation->loadCount('messages')) : null,
@@ -204,6 +213,7 @@ class AssistantController extends Controller
                 'role' => $m->role,
                 'content' => $m->content,
                 'refused' => $m->refused,
+                'actions' => $m->actions ?? [],
                 'attachments' => $m->attachments->map(fn (AssistantAttachment $file) => $file->present())->values(),
                 'createdAt' => $m->created_at?->toIso8601String(),
             ])->values(),

@@ -6,6 +6,7 @@ import { Badge, Button, buttonClasses, Card, cn, EmptyCard, Input, PageHeader, S
 import { BarChart } from "../../_components/analytics/BarChart";
 import { DonutChart, HBars } from "../../_components/analytics/Charts";
 import { money } from "../../_components/analytics/format";
+import { DownloadLinks, reportDownloadHref } from "../../_components/downloads/downloads";
 import { FinanceCategories } from "../../_components/finance/Finance";
 import { formatMoment, tablePath } from "../../_components/tables/shared";
 import { PERIOD_KINDS, PERIOD_UNIT_LABELS, shiftPeriod, today } from "../../_components/tables/periods";
@@ -106,6 +107,7 @@ function Report({ report, chosen }: { report: ExpenseStatisticsDto; chosen: stri
             Ցույց տալ
           </Button>
         </form>
+        <DownloadLinks href={(format) => reportDownloadHref("expenses", report.by, period.start, format)} label="Ներբեռնել ծախսերը" />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

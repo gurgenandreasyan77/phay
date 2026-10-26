@@ -4,6 +4,7 @@ namespace App\Assistant;
 
 use App\DataTables\DataColumn;
 use App\DataTables\Decimal;
+use App\DataTables\PeriodTables;
 use App\DataTables\TableAnalytics;
 use App\Enums\ColumnRole;
 use App\Enums\DataTableSection;
@@ -47,6 +48,7 @@ class BusinessTools implements ToolSet
         private readonly Finance $finance,
         private readonly ExpenseStatistics $expenses,
         private readonly SocialTools $social,
+        private readonly TableActionTools $actions,
     ) {}
 
     /**
@@ -67,6 +69,8 @@ class BusinessTools implements ToolSet
             ...$this->ownDefinitions($section, $date),
             // Only for a business with the social module on.
             ...($this->social->available() ? $this->social->definitions() : []),
+            // Only for those who design the tables (owner, admin): cards the owner acts on.
+            ...($this->actions->available() ? $this->actions->definitions() : []),
         ];
     }
 
@@ -173,6 +177,7 @@ class BusinessTools implements ToolSet
             'expenses_report' => $this->expensesReport($input),
             'site_orders' => $this->siteOrders($input),
             'social_profile', 'social_posts', 'social_competitors' => $this->social->run($name, $input),
+            TableActionTools::RESHAPE, TableActionTools::DOWNLOAD => $this->actions->run($name, $input),
             default => throw new InvalidArgumentException("Unknown tool [{$name}]."),
         };
     }
@@ -180,7 +185,7 @@ class BusinessTools implements ToolSet
     /** @return array<string, mixed> */
     private function listTables(): array
     {
-        $tables = DataTable::query()->orderBy('section')->orderBy('sort_order')->orderBy('id')->get();
+        $tables = PeriodTables::infer(DataTable::query()->orderBy('section')->orderBy('sort_order')->orderBy('id')->get());
         $totals = DataTableRow::query()
             ->groupBy('data_table_id')
             ->selectRaw('data_table_id, COUNT(*) as total, MIN(occurred_at) as first_at, MAX(occurred_at) as last_at')
@@ -192,9 +197,12 @@ class BusinessTools implements ToolSet
         return [
             'meanings' => $used->reject(fn (ColumnRole $r) => $r->isPersonal())->mapWithKeys(fn (ColumnRole $r) => [$r->value => $r->meaning()])->all(),
             'tables' => $tables->take(80)->map(fn (DataTable $t) => array_filter([
+                'id' => $t->id,
                 'name' => $t->name,
                 'section' => $t->section->value,
                 'period' => $t->period?->value,
+                // The period it holds: "Հոկտեմբեր 2026", "2026" (also read from the name of an older table).
+                'periodLabel' => $t->period()?->label(),
                 'columns' => collect($t->columnDefinitions())
                     ->reject(fn (DataColumn $c) => TableAnalytics::isPersonalColumn($c))
                     ->map(fn (DataColumn $c) => array_filter(['label' => $c->label, 'type' => $c->type->value, 'meaning' => $c->role?->value]))

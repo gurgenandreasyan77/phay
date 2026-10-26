@@ -40,6 +40,7 @@ class BusinessAssistant
         private readonly SocialReport $social,
         private readonly AgentTools $agentTools,
         private readonly AgentPrompt $agentPrompt,
+        private readonly TableActionTools $tableActions,
     ) {}
 
     public function isConfigured(): bool
@@ -97,7 +98,7 @@ class BusinessAssistant
      * model is (an agent of the team, see AgentPrompt); the figures and how
      * to read them stay the same.
      */
-    public function systemPrompt(?string $intro = null): string
+    public function systemPrompt(?string $intro = null, ?Agent $agent = null): string
     {
         $tenant = $this->tenants->current();
         // Site orders only for a business that has any: no empty figures to talk about.
@@ -146,6 +147,8 @@ class BusinessAssistant
 
         Looking things up: the data below is a summary. When a question needs more (a given day, week or month, a product, service, performer, channel or category, the biggest or latest rows, profit of a past period, site orders of some dates), use the tools to get the exact figures from the business's own records instead of estimating: list_tables shows the tables and their column labels, find_rows finds rows by dates and words, group_rows sums rows by day, week, month, weekday, hour or a column, finance_report gives profit and expenses for any period, expenses_report what was spent in any day, week, month, quarter or year (by category, payee, payment method, who spent, object), site_orders the website's orders. Dates are YYYY-MM-DD; today is in "business.today". Use as few look-ups as the answer needs, and don't mention the tools by name to the user: say what you found.
 
+        {$this->tableActionsGuide($agent)}
+
         Files: the user may attach pictures, PDFs or text files to a message (named "[file #N: …]"), e.g. a price list, a receipt, a photo of a shelf or a competitor's post. Read them closely and answer about them; figures you read in a file are the file's, not the business's records.
 
         Reply in the language of the user's latest message (Armenian, Russian or English). Write natural, fluent text, as a native speaker would, with short paragraphs and simple lists. Do not use tables or headings unless asked.
@@ -181,6 +184,28 @@ class BusinessAssistant
             'columnMeanings' => $this->columnMeanings(),
             'social' => $this->social->snapshot(),
         ], fn ($value) => $value !== null && $value !== []);
+    }
+
+    /**
+     * Splitting and joining tables, downloads: only for those who design
+     * the tables, and only an agent that has these tools reads it.
+     */
+    public function tableActionsGuide(?Agent $agent = null): string
+    {
+        $tools = $agent ? array_intersect(TableActionTools::NAMES, $agent->tools()) : TableActionTools::NAMES;
+        if ($tools === [] || ! $this->tableActions->available()) {
+            return '';
+        }
+
+        $lines = ['Doing things with the tables: you never change the business\'s data yourself, you offer it as a card under your answer that the owner presses.'];
+        if (in_array(TableActionTools::RESHAPE, $tools, true)) {
+            $lines[] = '- Splitting or joining tables (reshape_tables): a year\'s table into months, months into a quarter or a year, weeks into a month, several tables into one. Find the tables with list_tables (their id, period and rows), check they are of one section, then prepare it; only periods that have rows get a table. Say in a sentence or two what it will make (how many tables, which periods, rows without a date) and that nothing changes until they press «Կիրառել» on the card; the old tables are archived and it can be undone. If the tool refuses, explain why in plain words.';
+        }
+        if (in_array(TableActionTools::DOWNLOAD, $tools, true)) {
+            $lines[] = '- Files (download_file): when the owner wants a table, several tables, the profit report or the expenses of a period as Excel (XLSX) or CSV, offer it; the button under your answer downloads it. Never write a link or a path.';
+        }
+
+        return implode("\n", $lines);
     }
 
     /** How to read the social data, only when the module is on (agents read it too). */
