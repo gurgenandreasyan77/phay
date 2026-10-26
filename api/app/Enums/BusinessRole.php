@@ -4,7 +4,8 @@ namespace App\Enums;
 
 /**
  * What a person does inside one business (tenant_user.role). Platform staff
- * (super admin, platform moderator) entering a business act as its owner.
+ * (super admin, platform moderator) has no role in a business it isn't a
+ * member of: it manages the business from the platform level only.
  *
  * - owner: everything, including money (analytics, expenses) and the AI assistant.
  * - admin: runs the business day to day: orders, services, modules,

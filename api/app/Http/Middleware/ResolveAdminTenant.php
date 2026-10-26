@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Exceptions\ApiException;
+use App\Platform\BusinessActivity;
 use App\Subscriptions\Subscriptions;
 use App\Tenancy\TenantContext;
 use Closure;
@@ -36,6 +37,7 @@ class ResolveAdminTenant
     public function __construct(
         private readonly TenantContext $context,
         private readonly Subscriptions $subscriptions,
+        private readonly BusinessActivity $activity,
     ) {}
 
     public function handle(Request $request, Closure $next): Response
@@ -47,8 +49,9 @@ class ResolveAdminTenant
             throw new ApiException(403, 'no_business', 'Your account is not linked to any business.');
         }
 
-        // A suspended business can't be worked on by its own people; the
-        // platform staff still can (e.g. to look into it).
+        // A suspended business can't be worked on by its own people; platform
+        // staff still signs in (its business data stays closed to them, see
+        // User::businessRole()).
         if (! $tenant->isActive() && ! $user->isPlatformStaff()) {
             throw new ApiException(403, 'business_suspended', 'This business is suspended.');
         }
@@ -65,6 +68,9 @@ class ResolveAdminTenant
                         'code' => 'subscription_expired',
                     ], 402);
                 }
+
+                // A day the business worked in Phay (the platform sees only that).
+                $this->activity->record($tenant);
             }
 
             return $next($request);

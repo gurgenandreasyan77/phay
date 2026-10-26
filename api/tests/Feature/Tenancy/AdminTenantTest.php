@@ -118,16 +118,18 @@ class AdminTenantTest extends TestCase
         $this->getJson('/api/v1/admin/leads')->assertForbidden();
     }
 
-    public function test_a_super_admin_without_a_business_works_on_the_default_one(): void
+    public function test_a_super_admin_without_a_business_signs_in_but_reads_no_business_data(): void
     {
         $user = User::factory()->withoutTenant()->withTwoFactor()->create();
         $user->forceFill(['is_super_admin' => true])->save();
         Sanctum::actingAs($user);
 
-        $this->getJson('/api/v1/admin/leads')
+        $this->getJson('/api/v1/admin/me')
             ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.name', 'Main client');
+            ->assertJsonPath('data.currentTenant.slug', 'phay')
+            ->assertJsonPath('data.businessRole', null)
+            ->assertJsonPath('data.permissions', []);
+        $this->getJson('/api/v1/admin/leads')->assertForbidden();
     }
 
     public function test_the_chosen_current_business_is_used_when_the_user_belongs_to_it(): void

@@ -26,14 +26,23 @@ export const PLATFORM_ROLE_LABELS: Record<PlatformRole, string> = {
 
 export const PLATFORM_ROLE_HINTS: Record<PlatformRole, string> = {
   super_admin: "Ամեն ինչ, ներառյալ մոդուլները և պլատֆորմի թիմը",
-  moderator: "Բիզնեսներ, կայքեր, մուտքեր, մուտք ցանկացած բիզնես (առանց մոդուլների և թիմի)",
+  moderator: "Բիզնեսներ, կայքեր, մուտքեր, բիզնեսների ակտիվությունը (առանց մոդուլների և թիմի)",
 };
 
-type Me = Pick<AdminUserDto, "platformRole" | "permissions"> | null | undefined;
+type Me = (Pick<AdminUserDto, "platformRole" | "permissions"> & Partial<Pick<AdminUserDto, "businessRole">>) | null | undefined;
 
 /** Platform staff: the super admin and platform moderators. */
 export function isPlatformStaff(me: Me): boolean {
   return Boolean(me?.platformRole);
+}
+
+/**
+ * Platform staff that isn't one of the current business's own people: it
+ * works on the platform level only and never sees a business's data (the
+ * API answers 403 to it there).
+ */
+export function isOutsideBusiness(me: Me): boolean {
+  return isPlatformStaff(me) && !me?.businessRole;
 }
 
 export function isSuperAdmin(me: Me): boolean {

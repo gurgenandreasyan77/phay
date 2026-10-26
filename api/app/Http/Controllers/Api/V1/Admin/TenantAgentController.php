@@ -20,7 +20,7 @@ class TenantAgentController extends Controller
 
     public function index(Tenant $tenant): JsonResponse
     {
-        return response()->json(['data' => $this->agents->overview($tenant)]);
+        return response()->json(['data' => array_map($this->withoutNotes(...), $this->agents->overview($tenant))]);
     }
 
     public function update(Request $request, Tenant $tenant, string $agent): JsonResponse
@@ -30,6 +30,20 @@ class TenantAgentController extends Controller
 
         $this->agents->setActive($tenant, $found, $validated['active'], $request->user());
 
-        return response()->json(['data' => collect($this->agents->overview($tenant))->firstWhere('key', $found->key())]);
+        return response()->json(['data' => $this->withoutNotes(collect($this->agents->overview($tenant))->firstWhere('key', $found->key()))]);
+    }
+
+    /**
+     * What an agent remembers is the business's own (its plans, clients,
+     * prices): the platform sees only whether the agent is on.
+     *
+     * @param  array<string, mixed>  $agent
+     * @return array<string, mixed>
+     */
+    private function withoutNotes(array $agent): array
+    {
+        unset($agent['notes']);
+
+        return $agent;
     }
 }

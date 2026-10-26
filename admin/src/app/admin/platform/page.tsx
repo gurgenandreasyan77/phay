@@ -16,12 +16,11 @@ export default async function AdminBusinessesPage({ searchParams }: { searchPara
     <div className="space-y-8">
       <PageHeader
         title="Բիզնեսներ"
-        description="Պլատֆորմի բոլոր բիզնեսները։ Յուրաքանչյուր բիզնես ունի իր ծառայությունները, պատվերները, կարգավորումները և կայքերը։"
+        description="Պլատֆորմի բոլոր բիզնեսները։ «Մտնել»-ը բացում է բիզնեսի ակտիվությունը, բաժանորդագրությունը և մոդուլները․ նրա պատվերներն ու եկամուտները փակ են։"
       />
       <BusinessesManager
         tenants={tenants}
         search={search}
-        currentTenantId={admin.currentTenant?.id ?? null}
         isSuperAdmin={isSuperAdmin(admin)}
       />
     </div>

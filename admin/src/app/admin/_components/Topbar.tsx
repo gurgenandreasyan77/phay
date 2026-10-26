@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { isPlatformStaff } from "@/lib/roles";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, KeyRound, LogOut, Menu } from "lucide-react";
 import type { FeatureFlags } from "@/lib/api";
 import type { AdminUserDto } from "@/lib/adminApi";
-import { findActiveNavItem, isPlatformPath } from "./nav";
+import { findActiveNavItem, showsPlatformLevel } from "./nav";
 import { TenantSwitcher } from "./TenantSwitcher";
 import { HeaderSearch } from "./header/HeaderSearch";
 import { NotificationBell } from "./header/NotificationBell";
@@ -20,6 +19,7 @@ const EXTRA_SEGMENT_LABELS: Record<string, string> = {
   settings: "Կարգավորումներ",
   import: "Ներմուծում",
   site: "Կայքից",
+  businesses: "Բիզնես",
 };
 
 function useBreadcrumbs(pathname: string) {
@@ -30,7 +30,7 @@ function useBreadcrumbs(pathname: string) {
   const rest = pathname.slice(activeItem.href.length).split("/").filter(Boolean);
   for (const [i, segment] of rest.entries()) {
     // A table's own id says nothing to the reader: "Աղյուսակ" already names it.
-    if (rest[i - 1] === "tables" && /^\d+$/.test(segment)) continue;
+    if ((rest[i - 1] === "tables" || rest[i - 1] === "businesses") && /^\d+$/.test(segment)) continue;
     const label = EXTRA_SEGMENT_LABELS[segment] ?? (/^\d+$/.test(segment) ? "Խմբագրում" : segment);
     crumbs.push({ label, href: "" });
   }
@@ -111,12 +111,12 @@ export function Topbar({
         </nav>
 
         <div className="ml-auto flex shrink-0 items-center sm:gap-1">
-          {/* On the platform level a business is entered from its row instead. */}
-          {me?.currentTenant && !(isPlatformStaff(me) && isPlatformPath(pathname)) ? (
+          {/* Only one's own businesses; on the platform level a business opens from its row. */}
+          {me?.currentTenant && !showsPlatformLevel(me, pathname) ? (
             <TenantSwitcher current={me.currentTenant} tenants={me.tenants} />
           ) : null}
           {/* An invitation for a business not on premium; not on the platform level. */}
-          {me?.subscription && me.subscription.premium === false && !isPlatformPath(pathname) ? <PremiumChip /> : null}
+          {me?.subscription && me.subscription.premium === false && !showsPlatformLevel(me, pathname) ? <PremiumChip /> : null}
           <HeaderSearch features={features} me={me} />
           <NotificationBell enabled={me !== null} />
 

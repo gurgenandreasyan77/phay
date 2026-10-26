@@ -176,12 +176,16 @@ class Agents
             return $row;
         }
 
-        // tenant_id isn't fillable: set it, not the current business's.
-        $row = new TenantAgent(['agent_key' => $agent->key(), 'active' => false]);
-        $row->tenant_id = $tenant->id;
-        $row->save();
+        // Another request may make it at the same moment: whichever comes first stands.
+        TenantAgent::withoutTenancy()->insertOrIgnore([
+            'tenant_id' => $tenant->id,
+            'agent_key' => $agent->key(),
+            'active' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
-        return $row;
+        return TenantAgent::withoutTenancy()->where('tenant_id', $tenant->id)->where('agent_key', $agent->key())->firstOrFail();
     }
 
     private static function text(mixed $value, int $max): ?string

@@ -92,8 +92,10 @@ class User extends Authenticatable
     /**
      * The business the admin panel works on: the one last chosen
      * (current_tenant_id) if the user may still access it, otherwise their
-     * first business. Platform staff may work on any business and falls back
-     * to the default one; anyone else without a business gets null.
+     * first business. Platform staff without a business of their own falls
+     * back to the default one (only for who they are and the platform
+     * level; its data stays closed, see businessRole()); anyone else
+     * without a business gets null.
      */
     public function resolveCurrentTenant(): ?Tenant
     {
@@ -109,8 +111,13 @@ class User extends Authenticatable
 
     public function canAccessTenant(Tenant $tenant): bool
     {
-        return $this->isPlatformStaff()
-            || $this->tenants()->whereKey($tenant->getKey())->exists();
+        return $this->isPlatformStaff() || $this->isMemberOf($tenant);
+    }
+
+    /** One of the business's own people (tenant_user), whatever else they are. */
+    public function isMemberOf(Tenant $tenant): bool
+    {
+        return $this->tenants()->whereKey($tenant->getKey())->exists();
     }
 
     /** Phay's own people: the super admin and platform moderators. */
@@ -129,13 +136,17 @@ class User extends Authenticatable
     }
 
     /**
-     * What this user may do in the business. Platform staff act as its owner;
-     * anyone else has the role of their membership, or none.
+     * What this user may do in the business: the role of their membership,
+     * or none. Platform staff never has one, not even in a business it is
+     * a member of: the platform level shows a business's subscription,
+     * activity and modules, never its orders, sales, income or expenses
+     * (App\Platform\BusinessOverview). To work inside a business, staff
+     * signs in with a separate login of that business.
      */
     public function businessRole(Tenant $tenant): ?BusinessRole
     {
         if ($this->isPlatformStaff()) {
-            return BusinessRole::Owner;
+            return null;
         }
 
         $role = $this->tenants()->whereKey($tenant->getKey())->first()?->pivot->role;

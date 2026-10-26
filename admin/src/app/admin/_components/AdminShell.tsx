@@ -6,7 +6,7 @@ import { X } from "lucide-react";
 import type { FeatureFlags } from "@/lib/api";
 import type { AdminUserDto } from "@/lib/adminApi";
 import { isPlatformStaff } from "@/lib/roles";
-import { isPlatformPath } from "./nav";
+import { showsPlatformLevel } from "./nav";
 import { Sidebar } from "./Sidebar";
 import { SubscriptionBanner } from "./subscription/SubscriptionBanner";
 import { Topbar } from "./Topbar";
@@ -98,7 +98,7 @@ export function AdminShell({
       ) : null}
 
       <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} me={me} features={features} />
-      {me?.subscription && (me.subscription.ending || me.subscription.locked) && !isPlatformStaff(me) && !isPlatformPath(pathname) ? (
+      {me?.subscription && (me.subscription.ending || me.subscription.locked) && !isPlatformStaff(me) && !showsPlatformLevel(me, pathname) ? (
         <SubscriptionBanner subscription={me.subscription} />
       ) : null}
       <main
