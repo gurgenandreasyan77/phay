@@ -3,26 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import type { ContactChannelType } from "@/lib/api";
 import type { AdminTenantDto } from "@/lib/adminApi";
 import { BusinessLogo } from "../_components/BusinessLogo";
+import { CONTACT_LABELS } from "./contacts";
 import { TenantLoginsPanel } from "./TenantLoginsPanel";
 import { TenantModulesPanel } from "./TenantModulesPanel";
 import { Badge, Button, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr, buttonClasses } from "@/ui";
 
 const LOCALE_LABELS: Record<string, string> = { hy: "Հայերեն", ru: "Русский", en: "English" };
 
-const CONTACT_LABELS: Record<ContactChannelType, string> = {
-  phone: "Հեռ.",
-  whatsapp: "WhatsApp",
-  telegram: "Telegram",
-  instagram: "Instagram",
-  facebook: "Facebook",
-  tiktok: "TikTok",
-  viber: "Viber",
-  email: "Email",
-  other: "Այլ",
-};
 
 /** The address in the admin's language first, else whichever the business filled in. */
 function addressOf(tenant: AdminTenantDto): string | null {

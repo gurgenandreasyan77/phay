@@ -137,13 +137,18 @@ class User extends Authenticatable
 
     /**
      * What this user may do in the business: the role of their membership,
-     * or none. Being platform staff gives no role in any business.
+     * or none. Platform staff never has one, not even in a business it is
+     * a member of: the platform level shows a business's subscription,
+     * activity and modules, never its orders, sales, income or expenses
+     * (App\Platform\BusinessOverview). To work inside a business, staff
+     * signs in with a separate login of that business.
      */
     public function businessRole(Tenant $tenant): ?BusinessRole
     {
-        // Platform staff has no role in a business that isn't theirs: from
-        // the platform level they see its subscription, modules and usage,
-        // never its orders, sales, money or chats (App\Platform\BusinessOverview).
+        if ($this->isPlatformStaff()) {
+            return null;
+        }
+
         $role = $this->tenants()->whereKey($tenant->getKey())->first()?->pivot->role;
 
         // An unknown legacy value gets the narrowest rights, not none.

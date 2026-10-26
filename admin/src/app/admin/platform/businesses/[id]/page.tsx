@@ -8,6 +8,7 @@ import { BUSINESS_ROLES, BUSINESS_ROLE_LABELS, isSuperAdmin } from "@/lib/roles"
 import { Badge, Card, PageHeader, buttonClasses, cn } from "@/ui";
 import { BusinessLogo } from "../../../_components/BusinessLogo";
 import { AgentAvatar } from "../../../_components/agents/AgentAvatar";
+import { CONTACT_LABELS } from "../../contacts";
 import { StatusBadge, amd, daysLeftLabel, formatDay, subscriptionLine } from "../../../_components/subscription/shared";
 
 export const dynamic = "force-dynamic";
@@ -49,8 +50,8 @@ export default async function PlatformBusinessPage({ params }: { params: Promise
       <div className="flex items-start gap-3 rounded-lg border border-border bg-surface-secondary px-4 py-3 text-sm text-ink-muted">
         <Lock className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
         <p>
-          Բիզնեսի պատվերները, վաճառքները, եկամուտները, ծախսերը և զրույցները փակ են պլատֆորմի համար։ Այստեղ միայն ակտիվությունն է,
-          բաժանորդագրությունը և մոդուլները։
+          Բիզնեսի պատվերները, վաճառքները, եկամուտները, ծախսերը և զրույցները փակ են պլատֆորմի համար։ Այստեղ միայն կոնտակտներն են,
+          ակտիվությունը, բաժանորդագրությունը և մոդուլները։
         </p>
       </div>
 
@@ -93,6 +94,22 @@ export default async function PlatformBusinessPage({ params }: { params: Promise
             {subscription.cancelAt ? <Row label="Անջատվում է" value={formatDay(subscription.cancelAt)} /> : null}
           </dl>
           {data.payments ? <Payments payments={data.payments} /> : null}
+        </Card>
+
+        <ContactsCard tenant={tenant} />
+
+        <Card className="space-y-4">
+          <CardTitle title="Կապ բիզնեսի հետ" />
+          <dl className="grid grid-cols-2 gap-3 text-sm">
+            <Row label="Չկարդացված" value={String(data.support.unread)} />
+            <Row label="Վերջին հաղորդագրություն" value={formatDay(data.support.lastMessageAt)} />
+          </dl>
+          <Link
+            href={`/admin/platform/support?tenant=${tenant.id}`}
+            className={buttonClasses("primary", "sm", "w-full sm:w-auto")}
+          >
+            Բացել զրույցը
+          </Link>
         </Card>
 
         <Card className="space-y-4">
@@ -139,22 +156,37 @@ export default async function PlatformBusinessPage({ params }: { params: Promise
           </dl>
           <p className="text-xs text-ink-muted">Միայն քանակներ՝ առանց անունների և տվյալների։</p>
         </Card>
-
-        <Card className="space-y-4">
-          <CardTitle title="Կապ բիզնեսի հետ" />
-          <dl className="grid grid-cols-2 gap-3 text-sm">
-            <Row label="Չկարդացված" value={String(data.support.unread)} />
-            <Row label="Վերջին հաղորդագրություն" value={formatDay(data.support.lastMessageAt)} />
-          </dl>
-          <Link
-            href={`/admin/platform/support?tenant=${tenant.id}`}
-            className={buttonClasses("primary", "sm", "w-full sm:w-auto")}
-          >
-            Բացել զրույցը
-          </Link>
-        </Card>
       </div>
     </div>
+  );
+}
+
+function ContactsCard({ tenant }: { tenant: BusinessOverviewDto["tenant"] }) {
+  const address = tenant.address?.hy || tenant.address?.ru || tenant.address?.en || null;
+  const contacts = tenant.contacts ?? [];
+
+  return (
+    <Card className="space-y-4">
+      <CardTitle title="Կոնտակտներ" />
+      {contacts.length === 0 && !address ? (
+        <p className="text-sm text-ink-muted">Բիզնեսը դեռ չի լրացրել կոնտակտները։</p>
+      ) : (
+        <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+          {contacts.map((contact, i) => (
+            <div key={`${contact.type}-${i}`} className="min-w-0">
+              <dt className="text-xs text-ink-muted">{contact.label || CONTACT_LABELS[contact.type] || contact.type}</dt>
+              <dd className="break-words font-medium text-ink">{contact.value}</dd>
+            </div>
+          ))}
+          {address ? (
+            <div className="min-w-0 sm:col-span-2">
+              <dt className="text-xs text-ink-muted">Հասցե</dt>
+              <dd className="break-words font-medium text-ink">{address}</dd>
+            </div>
+          ) : null}
+        </dl>
+      )}
+    </Card>
   );
 }
 

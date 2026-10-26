@@ -22,7 +22,7 @@ use Laravel\Pennant\Feature;
 
 /**
  * One business as the platform team sees it: how long and how actively it
- * uses Phay, its subscription, modules, AI agents and AI usage, how many
+ * uses Phay, its contacts, subscription, modules, AI agents and AI usage, how many
  * people it has, and the chat with it. Never its content: no orders, sales,
  * clients, tables, money figures, AI conversations, agents' notes or brand
  * profile. Payments and bonuses (the platform's money) only for the super
@@ -42,6 +42,7 @@ class BusinessOverview
     public function for(Tenant $tenant, User $viewer): array
     {
         $superAdmin = (bool) $viewer->is_super_admin;
+        $tenant->loadMissing(['siteSetting', 'contactChannels']);
         $subscription = $this->subscriptions->sync($tenant, $this->subscriptions->for($tenant)->refresh());
         $subscription->setRelation('tenant', $tenant);
         $assistant = $this->quota->status($tenant);
@@ -58,6 +59,14 @@ class BusinessOverview
                 'defaultLocale' => $tenant->default_locale,
                 'timezone' => $tenant->timezone,
                 'createdAt' => $tenant->created_at?->toIso8601String(),
+                // How to reach the business: what it shows on its settings page.
+                'address' => (object) ($tenant->siteSetting?->address ?? []),
+                'contacts' => $tenant->contactChannels
+                    ->where('is_active', true)
+                    ->sortBy([['is_primary', 'desc'], ['sort_order', 'asc']])
+                    ->map(fn ($channel) => ['type' => $channel->type->value, 'value' => $channel->value, 'label' => $channel->label])
+                    ->values()
+                    ->all(),
             ],
             'activity' => $this->activity->summary($tenant),
             'subscription' => (new SubscriptionResource($subscription))->resolve(),

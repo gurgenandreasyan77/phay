@@ -126,7 +126,7 @@ class SiteModuleTest extends TestCase
 
     public function test_videos_are_before_after_or_informational(): void
     {
-        Sanctum::actingAs(User::factory()->superAdmin()->create()); // works on the default business
+        Sanctum::actingAs(User::factory()->create()); // owner of the default business
 
         $this->postJson('/api/v1/admin/service-videos', ['video_path' => '/uploads/a.mp4', 'kind' => 'before_after', 'is_published' => true])
             ->assertCreated()->assertJsonPath('data.kind', 'before_after');

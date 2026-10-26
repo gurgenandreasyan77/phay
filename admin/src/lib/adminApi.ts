@@ -1944,6 +1944,8 @@ export type BusinessOverviewDto = {
     defaultLocale: string;
     timezone: string | null;
     createdAt: string | null;
+    address: Partial<Record<"hy" | "ru" | "en", string>>;
+    contacts: { type: ContactChannelType; value: string; label: string | null }[];
   };
   activity: {
     createdAt: string | null;

@@ -102,13 +102,38 @@ class PlatformBusinessPrivacyTest extends TestCase
         $this->assertSame(['businesses'], $groups->all());
     }
 
-    public function test_staff_who_is_one_of_the_business_people_keeps_its_role_there(): void
+    public function test_staff_that_is_also_a_member_of_the_business_still_sees_none_of_its_figures(): void
     {
+        // E.g. a super admin account that is also the owner of the default business.
         $user = User::factory()->withoutTenant()->superAdmin()->forTenant($this->shop, 'owner')->create();
         Sanctum::actingAs($user);
 
-        $this->getJson('/api/v1/admin/me')->assertJsonPath('data.businessRole', 'owner');
+        $this->getJson('/api/v1/admin/me')
+            ->assertJsonPath('data.businessRole', null)
+            ->assertJsonPath('data.permissions', []);
+        foreach (['/api/v1/admin/dashboard', '/api/v1/admin/leads', '/api/v1/admin/analytics',
+            '/api/v1/admin/analytics/finance', '/api/v1/admin/expenses/statistics', '/api/v1/admin/employees/stats'] as $uri) {
+            $this->getJson($uri)->assertForbidden();
+        }
+
+        // The business's own owner login works as before.
+        Sanctum::actingAs(User::factory()->forTenant($this->shop, 'owner')->create());
         $this->getJson('/api/v1/admin/leads')->assertOk()->assertJsonPath('data.0.name', 'Shop client');
+    }
+
+    public function test_the_business_page_has_no_revenue_or_expense_figures(): void
+    {
+        $this->staffInShop();
+
+        $data = $this->getJson("/api/v1/admin/tenants/{$this->shop->id}/overview")->assertOk()->json('data');
+
+        $this->assertSame(
+            ['tenant', 'activity', 'subscription', 'payments', 'modules', 'agents', 'assistant', 'people', 'support', 'sites'],
+            array_keys($data),
+        );
+        foreach (['revenue', 'profit', 'expenses', 'finance', 'sales', 'orders', 'leads', 'income'] as $word) {
+            $this->assertStringNotContainsStringIgnoringCase('"'.$word, json_encode($data));
+        }
     }
 
     public function test_the_business_page_on_the_platform_level_has_no_business_data(): void
