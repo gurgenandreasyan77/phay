@@ -7,17 +7,21 @@ use Anthropic\Core\Exceptions\APIStatusException;
 use App\Agents\AgentCatalog;
 use App\Agents\Agents;
 use App\Assistant\AssistantFailure;
+use App\Assistant\Attachments;
 use App\Assistant\BusinessAssistant;
 use App\Http\Controllers\Controller;
+use App\Models\AssistantAttachment;
 use App\Models\AssistantConversation;
 use App\Models\AssistantMessage;
 use App\Tenancy\TenantContext;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * The AI assistant's chat. A question is asked inside a conversation that
@@ -29,6 +33,10 @@ use Illuminate\Validation\Rule;
  * A conversation is with the assistant or with one of the business's AI
  * agents (agent_key): its first question names the agent, the rest follow
  * it. An agent the business doesn't have answers 403 agent_inactive.
+ *
+ * A question may carry files uploaded before it (AssistantAttachmentController,
+ * at most Attachments::MAX_PER_MESSAGE): they are tied to it once answered
+ * and sent to the model again with later questions (the newest few).
  */
 class AssistantController extends Controller
 {
@@ -48,29 +56,43 @@ class AssistantController extends Controller
         ]]);
     }
 
-    public function store(Request $request, BusinessAssistant $assistant, Agents $agents, TenantContext $tenants): JsonResponse
+    public function store(Request $request, BusinessAssistant $assistant, Agents $agents, TenantContext $tenants, Attachments $attachments): JsonResponse
     {
         $validated = $request->validate([
             // One of the business's AI agents, for a new conversation.
             'agent' => ['nullable', 'string', Rule::in(AgentCatalog::keys())],
-            // A question in a kept conversation (a new one without an id)…
-            'question' => ['required_without:messages', 'string', 'max:4000'],
+            // A question in a kept conversation (a new one without an id),
+            // with files or only files…
+            'question' => ['required_without_all:messages,attachments', 'nullable', 'string', 'max:4000'],
             'conversation_id' => ['nullable', 'integer'],
+            'attachments' => ['nullable', 'array', 'max:'.Attachments::MAX_PER_MESSAGE, 'prohibits:messages'],
+            'attachments.*' => ['integer', 'distinct'],
             // …or the whole chat sent by the client, kept nowhere.
-            'messages' => ['required_without:question', 'array', 'min:1', 'max:100'],
+            'messages' => ['required_without_all:question,attachments', 'array', 'min:1', 'max:100'],
             'messages.*.role' => ['required', 'in:user,assistant'],
             'messages.*.content' => ['required', 'string', 'max:4000'],
         ]);
 
+        $kept = ! isset($validated['messages']);
         $conversation = null;
-        if (isset($validated['question'])) {
+        $files = collect();
+        if ($kept) {
+            $question = trim((string) ($validated['question'] ?? ''));
+            $files = $this->pendingFiles($request, $validated['attachments'] ?? []);
+            if ($question === '' && $files->isEmpty()) {
+                throw ValidationException::withMessages(['question' => ['Գրեք հարցը կամ կցեք ֆայլ։']]);
+            }
             $conversation = filled($validated['conversation_id'] ?? null)
                 ? $this->own($request, AssistantConversation::query()->findOrFail($validated['conversation_id']))
                 : null;
             $earlier = $conversation
-                ? $conversation->messages()->get(['role', 'content'])->map(fn (AssistantMessage $m) => ['role' => $m->role, 'content' => $m->content])->all()
+                ? $conversation->messages()->with('attachments')->get()->map(fn (AssistantMessage $m) => [
+                    'role' => $m->role,
+                    'content' => $m->content,
+                    'files' => $m->attachments->all(),
+                ])->all()
                 : [];
-            $validated['messages'] = [...$earlier, ['role' => 'user', 'content' => $validated['question']]];
+            $validated['messages'] = [...$earlier, ['role' => 'user', 'content' => $question, 'files' => $files->all()]];
         }
 
         // A kept conversation stays with the agent it started with.
@@ -102,7 +124,7 @@ class AssistantController extends Controller
         }
 
         try {
-            $reply = $assistant->ask($messages, $agent, $request->user());
+            $reply = $assistant->ask($attachments->forModel($messages), $agent, $request->user());
         } catch (APIException $e) {
             $failure = AssistantFailure::from($e);
             Log::warning('AI assistant request failed', [
@@ -121,14 +143,17 @@ class AssistantController extends Controller
             ], $failure->status);
         }
 
-        if (isset($validated['question'])) {
-            $conversation = DB::transaction(function () use ($request, $conversation, $validated, $reply, $agent) {
+        if ($kept) {
+            $conversation = DB::transaction(function () use ($request, $conversation, $question, $files, $reply, $agent) {
                 $conversation ??= AssistantConversation::create([
                     'user_id' => $request->user()->id,
                     'agent_key' => $agent?->key(),
-                    'title' => AssistantConversation::titleFrom($validated['question']),
+                    'title' => AssistantConversation::titleFrom($question !== '' ? $question : $files->first()->name),
                 ]);
-                $conversation->messages()->create(['role' => 'user', 'content' => $validated['question']]);
+                $asked = $conversation->messages()->create(['role' => 'user', 'content' => $question]);
+                if ($files->isNotEmpty()) {
+                    AssistantAttachment::query()->whereKey($files->modelKeys())->update(['assistant_message_id' => $asked->id]);
+                }
                 $conversation->messages()->create(['role' => 'assistant', 'content' => $reply->text, 'refused' => $reply->refused]);
                 $conversation->touch();
 
@@ -139,6 +164,8 @@ class AssistantController extends Controller
         return response()->json(['data' => [
             'reply' => $reply->text,
             'refused' => $reply->refused,
+            // The files as the question now holds them.
+            'attachments' => $files->map(fn (AssistantAttachment $file) => $file->present())->values(),
             'conversation' => $conversation ? $this->summary($conversation->loadCount('messages')) : null,
             ...$assistant->usage(),
         ]]);
@@ -172,11 +199,12 @@ class AssistantController extends Controller
 
         return response()->json(['data' => [
             ...$this->summary($conversation),
-            'messages' => $conversation->messages()->get()->map(fn (AssistantMessage $m) => [
+            'messages' => $conversation->messages()->with('attachments')->get()->map(fn (AssistantMessage $m) => [
                 'id' => $m->id,
                 'role' => $m->role,
                 'content' => $m->content,
                 'refused' => $m->refused,
+                'attachments' => $m->attachments->map(fn (AssistantAttachment $file) => $file->present())->values(),
                 'createdAt' => $m->created_at?->toIso8601String(),
             ])->values(),
         ]]);
@@ -191,11 +219,41 @@ class AssistantController extends Controller
         return response()->json(['data' => $this->summary($conversation->loadCount('messages'))]);
     }
 
-    public function destroy(Request $request, AssistantConversation $assistantConversation): Response
+    public function destroy(Request $request, AssistantConversation $assistantConversation, Attachments $attachments): Response
     {
-        $this->own($request, $assistantConversation)->delete();
+        $conversation = $this->own($request, $assistantConversation);
+        // Its files go with it (the rows by the foreign keys, the files here).
+        $paths = AssistantAttachment::query()
+            ->whereIn('assistant_message_id', $conversation->messages()->select('id'))
+            ->pluck('path')
+            ->all();
+        $conversation->delete();
+        $attachments->delete($paths);
 
         return response()->noContent();
+    }
+
+    /**
+     * The person's uploaded files not sent yet, by the ids given (all of
+     * them, or the question is refused).
+     *
+     * @param  list<int>  $ids
+     * @return Collection<int, AssistantAttachment>
+     */
+    private function pendingFiles(Request $request, array $ids): Collection
+    {
+        $files = AssistantAttachment::query()
+            ->of($request->user())
+            ->whereNull('assistant_message_id')
+            ->whereKey($ids)
+            ->orderBy('id')
+            ->get();
+
+        if ($files->count() !== count($ids)) {
+            throw ValidationException::withMessages(['attachments' => ['Ֆայլը չի գտնվել։ Կցեք այն կրկին։']]);
+        }
+
+        return $files;
     }
 
     /** Another person's conversation behaves as if it doesn't exist. */
@@ -222,13 +280,13 @@ class AssistantController extends Controller
     /**
      * The last turns, starting with a question and ending with one.
      *
-     * @param  list<array{role: string, content: string}>  $messages
-     * @return list<array{role: 'user'|'assistant', content: string}>
+     * @param  list<array{role: string, content: string, files?: list<AssistantAttachment>}>  $messages
+     * @return list<array{role: 'user'|'assistant', content: string, files: list<AssistantAttachment>}>
      */
     private function trim(array $messages): array
     {
         $messages = array_values(array_map(
-            fn (array $m) => ['role' => $m['role'], 'content' => $m['content']],
+            fn (array $m) => ['role' => $m['role'], 'content' => $m['content'], 'files' => $m['files'] ?? []],
             array_slice($messages, -self::MAX_MESSAGES),
         ));
 

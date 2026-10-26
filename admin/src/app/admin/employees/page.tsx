@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/adminAuth";
 import { getAgents, getEmployeeGroups, getEmployees } from "@/lib/adminApi";
 import { EmptyCard, PageHeader, SectionCard, cn } from "@/ui";
 import { AgentCard } from "../_components/agents/AgentCard";
+import { BrandAssets } from "../_components/agents/BrandAssets";
 import { BrandProfileForm } from "../_components/agents/BrandProfileForm";
 import { EmployeesList, GroupsManager, NewEmployeeForm } from "./EmployeesManager";
 
@@ -128,7 +129,10 @@ async function AgentsTab() {
           title="Ուսուցում՝ ձեր բրենդը"
           description="Այն, ինչ AI թիմը գիտի ձեր բիզնեսի մասին։ Որքան մանրամասն, այնքան ավելի ճշգրիտ կլինեն տեքստերը, սցենարներն ու նկարների բրիֆները։ Տվյալները տեսանելի են միայն ձեր բիզնեսի թիմին։"
         >
-          <BrandProfileForm profile={team.profile} teacher={teacher} />
+          <div className="space-y-6">
+            <BrandAssets assets={team.assets ?? []} />
+            <BrandProfileForm profile={team.profile} teacher={teacher} />
+          </div>
         </SectionCard>
       </div>
 

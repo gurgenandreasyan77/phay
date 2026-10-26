@@ -13,6 +13,9 @@ volumes:
   postgres_data:
   # Uploaded files (logos, photos, videos): written by backend, served by api.
   public_storage:
+  # Private files (AI chat attachments, brand pictures, imports): read only
+  # through the API, never served by nginx; must survive rebuilds too.
+  private_storage:
   # storage/logs: laravel.log survives container rebuilds.
   app_logs:
 
@@ -35,6 +38,7 @@ x-backend: &backend
     DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env.prod}
   volumes:
     - public_storage:/var/www/html/storage/app/public
+    - private_storage:/var/www/html/storage/app/private
     - app_logs:/var/www/html/storage/logs
   depends_on:
     postgres:

@@ -126,7 +126,11 @@ class AnthropicAssistantClient implements AssistantClient
     private function runTool(ToolSet $tools, string $id, string $name, array $input): array
     {
         try {
-            $content = json_encode($tools->run($name, $input), JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR);
+            $result = $tools->run($name, $input);
+            if ($result instanceof ToolOutput) {
+                return ['type' => 'tool_result', 'tool_use_id' => $id, 'content' => $result->blocks];
+            }
+            $content = json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR);
 
             return ['type' => 'tool_result', 'tool_use_id' => $id, 'content' => $content ?: '{}'];
         } catch (InvalidArgumentException $e) {

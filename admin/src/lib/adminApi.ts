@@ -463,11 +463,24 @@ export type AssistantConversationDto = {
   updatedAt: string | null;
 };
 
+/** A file attached to a question in the AI chat; read through /api/admin/assistant/attachments/{id}/file. */
+export type AssistantAttachmentDto = {
+  id: number;
+  kind: "image" | "pdf" | "text";
+  name: string;
+  mime: string;
+  size: number;
+  width: number | null;
+  height: number | null;
+};
+
 export type AssistantMessageDto = {
   id: number;
   role: "user" | "assistant";
   content: string;
   refused: boolean;
+  /** Files of a question (none on answers). */
+  attachments?: AssistantAttachmentDto[];
   createdAt: string | null;
 };
 
@@ -520,9 +533,22 @@ export type BrandProfileDto = {
   updatedAt: string | null;
 };
 
+/** A picture of the business the agents look at; read through /api/admin/agents/brand-assets/{id}/file. */
+export type BrandAssetDto = {
+  id: number;
+  kind: "logo" | "example";
+  name: string;
+  mime: string;
+  size: number;
+  note: string | null;
+  createdAt: string | null;
+};
+
 export type AgentTeamDto = {
   agents: AgentDto[];
   profile: BrandProfileDto;
+  /** The logo first, then the examples. */
+  assets: BrandAssetDto[];
   /** May chat with the agents (the owner). */
   canChat: boolean;
   /** May ask the platform for an agent (in the chat with Phay). */

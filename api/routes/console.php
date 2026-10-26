@@ -17,3 +17,6 @@ Schedule::command('sanctum:prune-expired --hours=24')->daily();
 // Instagram and Facebook figures of businesses with the social module (Meta
 // updates insights about daily; each business is read at most every 5 hours).
 Schedule::command('platform:social:sync')->cron('20 */6 * * *')->withoutOverlapping(120);
+
+// Files attached in the AI chat but never sent (Attachments::PENDING_HOURS).
+Schedule::command('platform:assistant:prune')->hourly();

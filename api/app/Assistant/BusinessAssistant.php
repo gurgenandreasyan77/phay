@@ -78,7 +78,7 @@ class BusinessAssistant
      * look-ups, the brand profile and its notes). Either way it is one
      * request of the business's monthly AI requests.
      *
-     * @param  list<array{role: 'user'|'assistant', content: string}>  $messages
+     * @param  list<array{role: 'user'|'assistant', content: string|list<array<string, mixed>>}>  $messages
      */
     public function ask(array $messages, ?Agent $agent = null, ?User $user = null): AssistantReply
     {
@@ -145,6 +145,8 @@ class BusinessAssistant
         {$this->socialGuide()}
 
         Looking things up: the data below is a summary. When a question needs more (a given day, week or month, a product, service, performer, channel or category, the biggest or latest rows, profit of a past period, site orders of some dates), use the tools to get the exact figures from the business's own records instead of estimating: list_tables shows the tables and their column labels, find_rows finds rows by dates and words, group_rows sums rows by day, week, month, weekday, hour or a column, finance_report gives profit and expenses for any period, expenses_report what was spent in any day, week, month, quarter or year (by category, payee, payment method, who spent, object), site_orders the website's orders. Dates are YYYY-MM-DD; today is in "business.today". Use as few look-ups as the answer needs, and don't mention the tools by name to the user: say what you found.
+
+        Files: the user may attach pictures, PDFs or text files to a message (named "[file #N: …]"), e.g. a price list, a receipt, a photo of a shelf or a competitor's post. Read them closely and answer about them; figures you read in a file are the file's, not the business's records.
 
         Reply in the language of the user's latest message (Armenian, Russian or English). Write natural, fluent text, as a native speaker would, with short paragraphs and simple lists. Do not use tables or headings unless asked.
 

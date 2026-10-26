@@ -4,18 +4,25 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Agents\AgentCatalog;
 use App\Agents\Agents;
+use App\Assistant\Attachments;
 use App\Enums\BusinessRole;
 use App\Http\Controllers\Controller;
+use App\Models\AssistantAttachment;
+use App\Models\BrandAsset;
 use App\Models\BrandProfile;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * The business's AI team: every agent of the platform with whether the
  * business has it, the brand profile they share, and what each remembers.
  * The owner chats with them (insights, like the assistant); the owner and
- * the admin (settings) see the team on the employees page and teach it.
+ * the admin (settings) see the team on the employees page and teach it,
+ * with the brand's pictures (its logo and examples) the agents look at.
  */
 class AgentController extends Controller
 {
@@ -32,6 +39,7 @@ class AgentController extends Controller
         return response()->json(['data' => [
             'agents' => $this->agents->overview($tenant),
             'profile' => $this->agents->profile($tenant)->present(),
+            'assets' => self::assets(),
             'canChat' => $role->can(BusinessRole::INSIGHTS),
             // Asking the platform for an agent goes to the chat (as for modules).
             'canRequest' => $role->can(BusinessRole::SETTINGS) && ! $request->user()->isPlatformStaff(),
@@ -71,6 +79,60 @@ class AgentController extends Controller
         $row = $this->agents->setNotes($tenant, $found, $validated['notes']);
 
         return response()->json(['data' => ['key' => $found->key(), 'notes' => $row->notes]]);
+    }
+
+    /**
+     * Keeps a picture for the agents: uploaded here, or one the person
+     * attached in the chat (attachment_id). A logo replaces the old one.
+     */
+    public function storeAsset(Request $request, Attachments $attachments): JsonResponse
+    {
+        $this->allow($request);
+        $validated = $request->validate([
+            'kind' => ['required', Rule::in(BrandAsset::KINDS)],
+            'note' => ['nullable', 'string', 'max:300'],
+            'file' => ['required_without:attachment_id', 'file', 'max:'.intdiv(Attachments::MAX_IMAGE_BYTES, 1024)],
+            'attachment_id' => ['required_without:file', 'integer'],
+        ], ['file.max' => 'Նկարը պետք է լինի մինչև 5 ՄԲ։']);
+
+        $asset = isset($validated['attachment_id'])
+            ? $attachments->toBrandAsset(
+                AssistantAttachment::query()->of($request->user())->findOrFail($validated['attachment_id']),
+                $validated['kind'],
+                $validated['note'] ?? null,
+                $request->user(),
+            )
+            : $attachments->uploadBrandAsset($request->file('file'), $validated['kind'], $validated['note'] ?? null, $request->user());
+
+        return response()->json(['data' => ['asset' => $asset->present(), 'assets' => self::assets()]], 201);
+    }
+
+    public function assetFile(Request $request, BrandAsset $brandAsset): StreamedResponse
+    {
+        $this->allow($request);
+
+        return AssistantAttachmentController::serve($brandAsset->path, $brandAsset->name, $brandAsset->mime);
+    }
+
+    public function destroyAsset(Request $request, BrandAsset $brandAsset, Attachments $attachments): Response
+    {
+        $this->allow($request);
+        $brandAsset->delete();
+        $attachments->delete([$brandAsset->path]);
+
+        return response()->noContent();
+    }
+
+    /** @return list<array<string, mixed>> the logo first, then the examples */
+    private static function assets(): array
+    {
+        return BrandAsset::query()
+            ->orderByRaw("case when kind = 'logo' then 0 else 1 end")
+            ->orderBy('id')
+            ->get()
+            ->map(fn (BrandAsset $asset) => $asset->present())
+            ->values()
+            ->all();
     }
 
     /** The owner (chats with the team) or the admin (manages employees). */

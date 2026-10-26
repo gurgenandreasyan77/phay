@@ -136,6 +136,11 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by('user:'.$request->user()?->id);
         });
 
+        // Files for the AI chat: a handful per question, a few questions a minute.
+        RateLimiter::for('assistant-uploads', function (Request $request) {
+            return Limit::perMinute(30)->by('user:'.$request->user()?->id);
+        });
+
         // Reading a big spreadsheet is heavy: a few uploads a minute is plenty.
         // Each sync reads Google; a few a minute is plenty.
         RateLimiter::for('google-sync', function (Request $request) {

@@ -3,6 +3,7 @@
 namespace App\Agents;
 
 use App\Assistant\BusinessAssistant;
+use App\Models\BrandAsset;
 use App\Models\BrandProfile;
 use App\Tenancy\TenantContext;
 
@@ -83,6 +84,8 @@ class AgentPrompt
             ? 'The brand profile is empty: nobody has told the team about the business yet.'
             : "The business's brand profile, shared by the whole team (the owner's own words):\n<brand_profile>\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)."\n</brand_profile>";
 
+        $known .= "\n".$this->pictures();
+
         if ($profile->isComplete()) {
             return $known."\nUse it in everything you make. When the owner corrects or adds something about the business, save it with save_brand_profile.";
         }
@@ -96,6 +99,19 @@ class AgentPrompt
         return $known."\n".<<<TEXT
         It is not complete yet (missing: {$missing}), and your work depends on it. In your first replies, get to know the business like a new employee would: ask two or three short questions at a time, warmly, with examples or options the owner can just pick (for colours, ask for hex codes or for their logo's colours, or propose a palette to confirm; for style, offer two or three styles to choose from). Save every answer with save_brand_profile right away, then ask the next questions. Once you know what the business is, for whom, and how it speaks or looks, stop asking and do the work. If the owner wants something right now, do it with what you know and ask the rest afterwards.
         TEXT;
+    }
+
+    /** The logo and examples the business keeps, and files attached in the chat. */
+    private function pictures(): string
+    {
+        $logo = BrandAsset::query()->where('kind', BrandAsset::LOGO)->exists();
+        $examples = BrandAsset::query()->where('kind', BrandAsset::EXAMPLE)->count();
+
+        $saved = $logo || $examples > 0
+            ? 'Saved pictures: '.implode(' and ', array_filter([$logo ? 'the logo' : null, $examples > 0 ? "{$examples} example(s)" : null])).'; look at them with view_brand_assets before you work on how the brand looks.'
+            : 'No logo or example pictures are saved yet.';
+
+        return $saved.' The owner may attach files to a message (pictures, PDFs, text files, named "[file #N: …]"): look at them closely. When a picture is their logo or an example to follow, keep it for the team with save_brand_asset (ask if unsure) and save what you see in it (colours, style) with save_brand_profile.';
     }
 
     /** What the agent's look-ups are for, in a sentence each. */
@@ -114,7 +130,7 @@ class AgentPrompt
         ];
 
         $lines = array_values(array_filter(array_map(fn (string $tool) => $what[$tool] ?? null, $agent->tools())));
-        $lines[] = 'save_brand_profile keeps what you learn about the brand for the whole team, remember keeps a note for yourself';
+        $lines[] = 'save_brand_profile keeps what you learn about the brand for the whole team, save_brand_asset keeps an attached logo or example picture, view_brand_assets shows the saved ones, remember keeps a note for yourself';
 
         return ucfirst(implode('; ', $lines)).'. Look-ups of a module the business doesn\'t have are not available.';
     }
