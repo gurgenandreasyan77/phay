@@ -8,6 +8,7 @@ use App\Models\DataTable;
 use App\Models\DataTableRow;
 use App\Models\Employee;
 use App\Models\ExpenseCategory;
+use App\Tenancy\TenantContext;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -75,6 +76,9 @@ final class ExpenseCategories
         // can find them missing at once: whichever writes first wins and the
         // others keep its row instead of failing on the unique (tenant, key).
         $order = array_flip(array_keys(self::DEFAULTS));
+        $tenantId = app(TenantContext::class)->id();
+        $now = now();
+        $new = [];
         foreach ($missing as $key) {
             [$name, $inProfit] = self::DEFAULTS[$key];
             // A business's own category of the same name becomes the ready-made one.
@@ -82,8 +86,12 @@ final class ExpenseCategories
             if ($own) {
                 self::unlessTaken(fn () => ExpenseCategory::query()->whereKey($own->id)->whereNull('key')->update(['key' => $key]));
             } else {
-                ExpenseCategory::query()->createOrFirst(['key' => $key], ['name' => $name, 'in_profit' => $inProfit, 'sort_order' => $order[$key]]);
+                $new[] = ['tenant_id' => $tenantId, 'key' => $key, 'name' => $name, 'in_profit' => $inProfit, 'sort_order' => $order[$key], 'created_at' => $now, 'updated_at' => $now];
             }
+        }
+        // ON CONFLICT DO NOTHING: a row another request made stands, and a caller's transaction stays usable.
+        if ($new !== []) {
+            ExpenseCategory::query()->insertOrIgnore($new);
         }
 
         return ExpenseCategory::query()->orderBy('sort_order')->orderBy('id')->get();

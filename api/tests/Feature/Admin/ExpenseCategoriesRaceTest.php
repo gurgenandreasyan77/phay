@@ -32,18 +32,18 @@ class ExpenseCategoriesRaceTest extends TestCase
     }
 
     /** Another request writes the row between this one's read and its insert. */
-    private function anotherRequestMakesFirst(string $key, ?string $name = null): void
+    private function anotherRequestMakesFirst(string $key, string $name): void
     {
         $done = false;
-        ExpenseCategory::creating(function (ExpenseCategory $category) use ($key, $name, &$done) {
-            if ($done || $category->key !== $key) {
+        DB::beforeExecuting(function (string $query) use ($key, $name, &$done) {
+            if ($done || ! str_starts_with(strtolower(ltrim($query)), 'insert') || ! str_contains($query, 'expense_categories')) {
                 return;
             }
             $done = true;
             DB::table('expense_categories')->insert([
                 'tenant_id' => $this->shop->id,
                 'key' => $key,
-                'name' => $name ?? $category->name,
+                'name' => $name,
                 'in_profit' => true,
                 'sort_order' => 0,
                 'created_at' => now(),
@@ -65,7 +65,7 @@ class ExpenseCategoriesRaceTest extends TestCase
 
     public function test_it_works_inside_a_transaction_too(): void
     {
-        $this->anotherRequestMakesFirst('rent');
+        $this->anotherRequestMakesFirst('rent', 'Վարձակալություն');
 
         $count = DB::transaction(function () {
             ExpenseCategories::all();
