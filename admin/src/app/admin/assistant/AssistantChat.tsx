@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Send, Sparkles } from "lucide-react";
 import type {
+  AgentDto,
   AssistantConversationDetailDto,
   AssistantConversationDto,
   AssistantMessageDto,
@@ -10,6 +11,8 @@ import type {
   AssistantUsageDto,
 } from "@/lib/adminApi";
 import { Button, Card, cn, Textarea } from "@/ui";
+import { AgentAvatar, agentTintStyle } from "../_components/agents/AgentAvatar";
+import agentStyles from "../_components/agents/agents.module.css";
 import { AssistantHistory } from "./AssistantHistory";
 import { AssistantLimitReached, AssistantQuotaBar } from "./AssistantQuota";
 import { SUGGESTIONS } from "./suggestions";
@@ -35,8 +38,12 @@ function rememberInUrl(id: number | null) {
   window.history.replaceState(window.history.state, "", url);
 }
 
+/** The first question of an agent that still has to learn the business. */
+const GET_ACQUAINTED = "Եկեք ծանոթանանք. ուզում եմ պատմել իմ բիզնեսի մասին";
+
 const ERRORS: Record<string, string> = {
   not_configured: "AI օգնականը դեռ միացված չէ։",
+  agent_inactive: "Այս AI աշխատակիցը դեռ ձեր թիմում չէ։",
   limit_reached: "Այս ամսվա հարցերը սպառվել են։",
   unavailable: "AI օգնականը հիմա հասանելի չէ։ Փորձեք մեկ րոպեից։",
   // Set-up problems: the platform fixes them, the detail says what to fix.
@@ -100,6 +107,8 @@ export function AssistantChat({
   showDetails = false,
   initialConversations = [],
   initialConversation = null,
+  agent = null,
+  brandComplete = true,
 }: {
   suggestions?: string[];
   configured: boolean;
@@ -113,6 +122,10 @@ export function AssistantChat({
   initialConversations?: AssistantConversationDto[];
   /** The chat opened by ?c= in the address. */
   initialConversation?: AssistantConversationDetailDto | null;
+  /** The AI agent this chat is with; null: the general assistant. */
+  agent?: AgentDto | null;
+  /** The brand profile has what the agents need. */
+  brandComplete?: boolean;
 }) {
   const [messages, setMessages] = useState<Message[]>(() => initialConversation?.messages.map(toMessage) ?? []);
   const [conversationId, setConversationId] = useState<number | null>(initialConversation?.id ?? null);
@@ -134,8 +147,8 @@ export function AssistantChat({
       <Card className="max-w-2xl">
         <p className="font-medium text-ink">AI օգնականը դեռ միացված չէ</p>
         <p className="mt-1 text-sm text-ink-muted">
-          Պլատֆորմի ադմինիստրատորը պետք է ավելացնի AI ծառայության բանալին։ Մինչ այդ ձեր թվերը կարող եք տեսնել
-          «Վերլուծություն» բաժնում։
+          Պլատֆորմի ադմինիստրատորը պետք է ավելացնի AI ծառայության բանալին։ Մինչ այդ ձեր թվերը կարող եք տեսնել «Վերլուծություն»
+          բաժնում։
         </p>
       </Card>
     );
@@ -191,6 +204,7 @@ export function AssistantChat({
         body: JSON.stringify({
           question: text,
           conversation_id: conversationId,
+          agent: agent?.key ?? null,
         }),
       });
       const json = await response.json().catch(() => null);
@@ -250,47 +264,97 @@ export function AssistantChat({
       <div className="flex min-w-0 flex-col gap-4">
         <AssistantQuotaBar usage={usage} />
         <Card className="min-h-[24rem] space-y-4">
+          {agent ? <AgentHeader agent={agent} talking={pending} /> : null}
           {loading ? (
             <p className="text-sm text-ink-muted">Բացվում է…</p>
           ) : messages.length === 0 ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-ink-muted">
-                <Sparkles className="h-4 w-4 text-primary" />
-                <p className="text-sm">Սկսեք հարցով կամ ընտրեք օրինակներից մեկը։</p>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {suggestions.map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => ask(suggestion)}
-                    disabled={limitReached}
-                    className="rounded-md border border-border px-3 py-2 text-left text-sm text-ink hover:border-primary hover:bg-primary-light disabled:opacity-50"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            messages.map((message, i) => (
-              <div key={i} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
-                <div
-                  className={cn(
-                    "max-w-[85%] rounded-lg px-4 py-3 text-sm",
-                    message.role === "user" ? "bg-primary text-primary-foreground" : "bg-surface-secondary text-ink",
-                  )}
-                >
-                  {message.role === "user" ? (
-                    <p className="whitespace-pre-line">{message.content}</p>
-                  ) : (
-                    <Formatted text={message.content} />
-                  )}
+            agent ? (
+              <div className="space-y-4">
+                <AgentBubble agent={agent}>
+                  <p>{agent.greeting}</p>
+                </AgentBubble>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {(agent.needsBrand && !brandComplete
+                    ? [GET_ACQUAINTED, ...agent.suggestions.slice(0, 3)]
+                    : agent.suggestions
+                  ).map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => ask(suggestion)}
+                      disabled={limitReached}
+                      style={agentTintStyle(agent.key)}
+                      className={cn(
+                        "rounded-md border px-3 py-2 text-left text-sm text-ink transition-colors disabled:opacity-50",
+                        suggestion === GET_ACQUAINTED
+                          ? "border-[var(--tint)] bg-[var(--tint-bg)] font-medium"
+                          : "border-border hover:border-[var(--tint)] hover:bg-[var(--tint-bg)]",
+                      )}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
                 </div>
               </div>
-            ))
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-ink-muted">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <p className="text-sm">Սկսեք հարցով կամ ընտրեք օրինակներից մեկը։</p>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {suggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => ask(suggestion)}
+                      disabled={limitReached}
+                      className="rounded-md border border-border px-3 py-2 text-left text-sm text-ink hover:border-primary hover:bg-primary-light disabled:opacity-50"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          ) : (
+            messages.map((message, i) =>
+              message.role === "assistant" && agent ? (
+                <AgentBubble key={i} agent={agent}>
+                  <Formatted text={message.content} />
+                </AgentBubble>
+              ) : (
+                <div key={i} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
+                  <div
+                    className={cn(
+                      "max-w-[85%] rounded-lg px-4 py-3 text-sm",
+                      message.role === "user" ? "bg-primary text-primary-foreground" : "bg-surface-secondary text-ink",
+                    )}
+                  >
+                    {message.role === "user" ? (
+                      <p className="whitespace-pre-line">{message.content}</p>
+                    ) : (
+                      <Formatted text={message.content} />
+                    )}
+                  </div>
+                </div>
+              ),
+            )
           )}
-          {pending ? <p className="text-sm text-ink-muted">Օգնականը վերլուծում է ձեր տվյալները…</p> : null}
+          {pending ? (
+            agent ? (
+              <p className="flex items-center gap-2 text-sm text-ink-muted" style={agentTintStyle(agent.key)}>
+                <span className={cn(agentStyles.dots, "text-[var(--tint)]")} aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </span>
+                {agent.persona.hy} · պատրաստում է պատասխանը…
+              </p>
+            ) : (
+              <p className="text-sm text-ink-muted">Օգնականը վերլուծում է ձեր տվյալները…</p>
+            )
+          ) : null}
           <div ref={endRef} />
         </Card>
 
@@ -315,7 +379,7 @@ export function AssistantChat({
             }}
             rows={2}
             maxLength={4000}
-            placeholder={limitReached ? ERRORS.limit_reached : "Գրեք ձեր հարցը…"}
+            placeholder={limitReached ? ERRORS.limit_reached : agent ? `Գրեք ${agent.persona.hy}ին…` : "Գրեք ձեր հարցը…"}
             disabled={pending || limitReached}
           />
           <Button type="submit" disabled={pending || limitReached || draft.trim() === ""} aria-label="Ուղարկել">
@@ -330,6 +394,33 @@ export function AssistantChat({
             </button>
           ) : null}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Who the chat is with: the agent, moving, with its role. */
+function AgentHeader({ agent, talking }: { agent: AgentDto; talking: boolean }) {
+  return (
+    <div className="-mx-5 -mt-5 mb-2 flex items-center gap-3 border-b border-border px-5 py-3" style={agentTintStyle(agent.key)}>
+      <AgentAvatar agentKey={agent.key} size={48} talking={talking} />
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-ink">
+          {agent.persona.hy} <span className="font-normal text-[var(--tint)]">· {agent.role.hy}</span>
+        </p>
+        <p className="truncate text-xs text-ink-muted">{agent.tagline}</p>
+      </div>
+    </div>
+  );
+}
+
+/** An agent's words, with its face next to them. */
+function AgentBubble({ agent, children }: { agent: AgentDto; children: ReactNode }) {
+  return (
+    <div className="flex items-end gap-2" style={agentTintStyle(agent.key)}>
+      <AgentAvatar agentKey={agent.key} size={34} className="shrink-0" />
+      <div className="max-w-[85%] rounded-lg rounded-bl-sm border border-[var(--tint-soft)] bg-[var(--tint-bg)] px-4 py-3 text-sm text-ink">
+        {children}
       </div>
     </div>
   );

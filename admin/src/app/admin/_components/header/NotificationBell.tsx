@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { AtSign, BadgeCheck, Bell, CalendarDays, CheckCheck, ClipboardList, Inbox, MessageCircle } from "lucide-react";
+import { AtSign, BadgeCheck, Bell, Bot, CalendarDays, CheckCheck, ClipboardList, Inbox, MessageCircle } from "lucide-react";
 import { cn } from "@/ui";
 import { timeAgo, useNotifications, type AdminNotificationDto } from "./notifications";
 
@@ -13,6 +13,7 @@ const ICONS = {
   subscription: BadgeCheck,
   today_orders: CalendarDays,
   social: AtSign,
+  agent: Bot,
 } as const;
 
 export function NotificationBell({ enabled }: { enabled: boolean }) {

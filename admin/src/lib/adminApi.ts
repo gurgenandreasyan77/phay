@@ -455,6 +455,8 @@ export type AssistantStatusDto = AssistantUsageDto & {
 export type AssistantConversationDto = {
   id: number;
   title: string;
+  /** The AI agent it is with (AgentDto.key); null: the assistant. */
+  agent?: string | null;
   /** Questions and answers together. */
   messages: number;
   createdAt: string | null;
@@ -471,6 +473,60 @@ export type AssistantMessageDto = {
 
 export type AssistantConversationDetailDto = Omit<AssistantConversationDto, "messages"> & {
   messages: AssistantMessageDto[];
+};
+
+/** One AI agent of the platform, with what this business has of it. */
+export type AgentDto = {
+  key: string;
+  persona: { hy: string; ru: string; en: string };
+  role: { hy: string; ru: string; en: string };
+  /** «Անի · Հաշվապահ» */
+  label: string;
+  tagline: string;
+  description: string;
+  skills: string[];
+  /** What it can't do yet (e.g. doesn't make images itself). */
+  limitation: string | null;
+  greeting: string;
+  suggestions: string[];
+  /** It asks for the brand profile before its first piece of work. */
+  needsBrand: boolean;
+  /** On the business's team. */
+  active: boolean;
+  activatedAt: string | null;
+  /** AMD a month. */
+  price: number;
+  /** Its price is inside the business's plan. */
+  included: boolean;
+  /** What it was told to remember about the business. */
+  notes: string | null;
+};
+
+export type BrandColorDto = { hex: string; name: string | null };
+
+/** What every agent knows about the business. */
+export type BrandProfileDto = {
+  about: string | null;
+  offer: string | null;
+  audience: string | null;
+  tone: string | null;
+  visualStyle: string | null;
+  colors: BrandColorDto[];
+  examples: string | null;
+  avoid: string | null;
+  complete: boolean;
+  filled: number;
+  total: number;
+  updatedAt: string | null;
+};
+
+export type AgentTeamDto = {
+  agents: AgentDto[];
+  profile: BrandProfileDto;
+  /** May chat with the agents (the owner). */
+  canChat: boolean;
+  /** May ask the platform for an agent (in the chat with Phay). */
+  canRequest: boolean;
 };
 
 export type AssistantBonusDto = { id: number; amount: number; note: string | null; givenBy: string | null; createdAt: string | null };
@@ -667,7 +723,9 @@ export type SubscriptionSummaryDto = {
 };
 
 export type SubscriptionModulePriceDto = {
+  /** A module's key, or "agent:<key>" for an AI agent. */
   key: string;
+  kind?: "module" | "agent";
   label: string;
   /** What the module gives, one sentence. */
   description: string;
@@ -724,7 +782,7 @@ export type PlanDto = {
   subscriptionsCount?: number;
 };
 
-export type ModulePriceDto = { key: string; label: string; description: string; price: number };
+export type ModulePriceDto = { key: string; kind?: "module" | "agent"; label: string; description: string; price: number };
 
 /** The business's own subscription page. */
 export type BusinessSubscriptionDto = {
@@ -1148,9 +1206,17 @@ export async function getAssistantStatus(): Promise<AssistantStatusDto | null> {
 }
 
 /** The signed-in person's chats with the assistant in this business, the latest first. */
-export async function getAssistantConversations(): Promise<AssistantConversationDto[]> {
-  const result = await adminApiFetch<AssistantConversationDto[]>("/admin/assistant/conversations");
+/** The person's chats with the assistant, or with one AI agent. */
+export async function getAssistantConversations(agent?: string | null): Promise<AssistantConversationDto[]> {
+  const query = agent ? `?agent=${encodeURIComponent(agent)}` : "";
+  const result = await adminApiFetch<AssistantConversationDto[]>(`/admin/assistant/conversations${query}`);
   return result.data ?? [];
+}
+
+/** The business's AI team: every agent, the brand profile and what the person may do. */
+export async function getAgents(): Promise<AgentTeamDto | null> {
+  const result = await adminApiFetch<AgentTeamDto>("/admin/agents");
+  return result.data;
 }
 
 export async function getAssistantConversation(id: number): Promise<AssistantConversationDetailDto | null> {

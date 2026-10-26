@@ -3,7 +3,9 @@ import { getSubscription } from "@/lib/adminApi";
 import { can, isPlatformStaff } from "@/lib/roles";
 import type { CSSProperties } from "react";
 import { Badge, Card, EmptyCard, EmptyRow, PageHeader, SectionCard, TableWrap, Td, Th, Thead, Tr } from "@/ui";
+import Link from "next/link";
 import { PriceBreakdown, StatusBadge, amd, formatDay, subscriptionLine } from "../_components/subscription/shared";
+import { AgentAvatar } from "../_components/agents/AgentAvatar";
 import { DaysRing } from "./DaysRing";
 import { ModuleCard } from "./ModuleCard";
 import { PremiumTeaser } from "./PremiumTeaser";
@@ -38,7 +40,9 @@ export default async function SubscriptionPage() {
   // A real bigger plan replaces the premium preview once the platform adds one.
   const upgrades = plans.filter((plan) => plan.id !== subscription.plan?.id && plan.price > currentPrice);
   // Modules a business can have: on already, priced by the platform, or inside a plan.
-  const modules = subscription.pricing.modules.filter((m) => m.active || m.price > 0 || m.included);
+  const modules = subscription.pricing.modules.filter((m) => m.kind !== "agent" && (m.active || m.price > 0 || m.included));
+  // AI agents are billed like modules but shown as the team they are.
+  const agents = subscription.pricing.modules.filter((m) => m.kind === "agent");
 
   return (
     <div className="space-y-8">
@@ -73,7 +77,10 @@ export default async function SubscriptionPage() {
                   description:
                     "Հայտը կուղարկվի Phay-ի թիմին, որը չատում կգրի վճարման մանրամասները։ Վճարելուց հետո ժամկետը կերկարաձգվի ընթացիկ ավարտի օրից։",
                   details: [
-                    { label: "Ամսական վճար", value: amd(subscription.pricing.total) },
+                    {
+                      label: "Ամսական վճար",
+                      value: amd(subscription.pricing.total),
+                    },
                     {
                       label: subscription.status === "expired" ? "Ավարտվել է" : "Գործում է մինչև",
                       value: formatDay(subscription.endsAt),
@@ -101,13 +108,76 @@ export default async function SubscriptionPage() {
 
       {modules.length > 0 ? (
         <div id="modules" className="scroll-mt-20">
-        <SectionCard title="Մոդուլներ" description="Միացրեք ձեզ անհրաժեշտ մոդուլները. դրանց գինը կավելանա ամսական վճարին։">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {modules.map((module, index) => (
-              <ModuleCard key={module.key} module={module} monthly={subscription.pricing.total} canAsk={canAsk} index={index} />
-            ))}
-          </div>
-        </SectionCard>
+          <SectionCard title="Մոդուլներ" description="Միացրեք ձեզ անհրաժեշտ մոդուլները. դրանց գինը կավելանա ամսական վճարին։">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {modules.map((module, index) => (
+                <ModuleCard key={module.key} module={module} monthly={subscription.pricing.total} canAsk={canAsk} index={index} />
+              ))}
+            </div>
+          </SectionCard>
+        </div>
+      ) : null}
+
+      {agents.length > 0 ? (
+        <div id="agents" className="scroll-mt-20">
+          <SectionCard
+            title="AI աշխատակիցներ"
+            description="Վիրտուալ թիմ, որը սովորում է ձեր բիզնեսը. նրանց գինը կավելանա ամսական վճարին, եթե ներառված չեն փաթեթում։"
+            actions={
+              <Link href="/admin/employees?tab=agents" className="text-sm font-medium text-primary hover:underline">
+                Ծանոթանալ թիմին
+              </Link>
+            }
+          >
+            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {agents.map((agent) => {
+                const key = agent.key.replace(/^agent:/, "");
+                return (
+                  <li key={agent.key} className="flex items-center gap-3 rounded-lg border border-border p-3">
+                    <AgentAvatar agentKey={key} size={52} active={agent.active} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-ink">{agent.label.replace(/^AI · /, "")}</p>
+                      <p className="text-xs text-ink-muted">
+                        {agent.included ? "Ներառված է փաթեթում" : `${amd(agent.price)} / ամիս`}
+                      </p>
+                    </div>
+                    {agent.active ? (
+                      <Badge tone="success">Թիմում է</Badge>
+                    ) : canAsk ? (
+                      <RequestButton
+                        body={{ kind: "agent", agent: key }}
+                        label="Ավելացնել"
+                        confirm={{
+                          title: `Ավելացնե՞լ «${agent.label.replace(/^AI · /, "")}» AI աշխատակցին ձեր թիմին`,
+                          description: agent.included
+                            ? "Հայտը կուղարկվի Phay-ի թիմին։ Այս աշխատակիցը ներառված է ձեր փաթեթում, ամսական վճարը չի փոխվի։"
+                            : "Հայտը կուղարկվի Phay-ի թիմին։ Միացնելուց հետո նրա գինը կավելանա ամսական վճարին։",
+                          details: agent.included
+                            ? [
+                                {
+                                  label: "Ամսական վճար",
+                                  value: amd(subscription.pricing.total),
+                                },
+                              ]
+                            : [
+                                {
+                                  label: "Գինը",
+                                  value: `+ ${amd(agent.price)}/ամիս`,
+                                },
+                                {
+                                  label: "Նոր ամսական վճարը",
+                                  value: amd(subscription.pricing.total + agent.price),
+                                },
+                              ],
+                          confirmLabel: "Ուղարկել հայտը",
+                        }}
+                      />
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </SectionCard>
         </div>
       ) : null}
 
@@ -141,9 +211,17 @@ export default async function SubscriptionPage() {
                           description: "Հայտը կուղարկվի Phay-ի թիմին, որը չատում կհաստատի անցումը։",
                           details: [
                             ...(subscription.plan
-                              ? [{ label: `Հիմա՝ «${subscription.plan.name}»`, value: `${amd(subscription.plan.price)}/ամիս` }]
+                              ? [
+                                  {
+                                    label: `Հիմա՝ «${subscription.plan.name}»`,
+                                    value: `${amd(subscription.plan.price)}/ամիս`,
+                                  },
+                                ]
                               : []),
-                            { label: `Նոր փաթեթ՝ «${plan.name}»`, value: `${amd(plan.price)}/ամիս` },
+                            {
+                              label: `Նոր փաթեթ՝ «${plan.name}»`,
+                              value: `${amd(plan.price)}/ամիս`,
+                            },
                           ],
                           confirmLabel: "Այո, անցնել",
                         }}
