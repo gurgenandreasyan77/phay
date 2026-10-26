@@ -15,7 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\Response as FileResponse;
 
 /**
  * The business's AI team: every agent of the platform with whether the
@@ -107,7 +107,7 @@ class AgentController extends Controller
         return response()->json(['data' => ['asset' => $asset->present(), 'assets' => self::assets()]], 201);
     }
 
-    public function assetFile(Request $request, BrandAsset $brandAsset): StreamedResponse
+    public function assetFile(Request $request, BrandAsset $brandAsset): FileResponse
     {
         $this->allow($request);
 

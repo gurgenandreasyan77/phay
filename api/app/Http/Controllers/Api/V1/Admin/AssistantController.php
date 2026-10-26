@@ -12,9 +12,11 @@ use App\Assistant\BusinessAssistant;
 use App\Assistant\ReplyActions;
 use App\Http\Controllers\Controller;
 use App\Media\DesignStudio;
+use App\Media\VideoStudio;
 use App\Models\AssistantAttachment;
 use App\Models\AssistantConversation;
 use App\Models\AssistantMessage;
+use App\Models\VideoJob;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
@@ -41,7 +43,9 @@ use Illuminate\Validation\ValidationException;
  * and sent to the model again with later questions (the newest few).
  *
  * Pictures an agent makes while answering (DesignStudio) are kept as files
- * of the answer and come back with it ("designs").
+ * of the answer and come back with it ("designs"); videos it cuts
+ * (VideoStudio) render for a minute or two after the answer: they come
+ * back as "videos" and the chat asks about each (video) until it is ready.
  */
 class AssistantController extends Controller
 {
@@ -61,7 +65,7 @@ class AssistantController extends Controller
         ]]);
     }
 
-    public function store(Request $request, BusinessAssistant $assistant, Agents $agents, TenantContext $tenants, Attachments $attachments, ReplyActions $actions, DesignStudio $studio): JsonResponse
+    public function store(Request $request, BusinessAssistant $assistant, Agents $agents, TenantContext $tenants, Attachments $attachments, ReplyActions $actions, DesignStudio $studio, VideoStudio $videoStudio): JsonResponse
     {
         $validated = $request->validate([
             // One of the business's AI agents, for a new conversation.
@@ -91,10 +95,11 @@ class AssistantController extends Controller
                 ? $this->own($request, AssistantConversation::query()->findOrFail($validated['conversation_id']))
                 : null;
             $earlier = $conversation
-                ? $conversation->messages()->with('attachments')->get()->map(fn (AssistantMessage $m) => [
+                ? $conversation->messages()->with(['attachments', 'videoJobs'])->get()->map(fn (AssistantMessage $m) => [
                     'role' => $m->role,
                     'content' => $m->content,
                     'files' => $m->attachments->all(),
+                    'videos' => $m->videoJobs->all(),
                 ])->all()
                 : [];
             $validated['messages'] = [...$earlier, ['role' => 'user', 'content' => $question, 'files' => $files->all()]];
@@ -150,9 +155,10 @@ class AssistantController extends Controller
         }
 
         $designs = collect($studio->produced());
+        $videos = collect($videoStudio->started());
 
         if ($kept) {
-            $conversation = DB::transaction(function () use ($request, $conversation, $question, $files, $reply, $agent, $actions, $designs) {
+            $conversation = DB::transaction(function () use ($request, $conversation, $question, $files, $reply, $agent, $actions, $designs, $videos) {
                 $conversation ??= AssistantConversation::create([
                     'user_id' => $request->user()->id,
                     'agent_key' => $agent?->key(),
@@ -171,6 +177,12 @@ class AssistantController extends Controller
                 if ($designs->isNotEmpty()) {
                     AssistantAttachment::query()->whereKey($designs->pluck('id'))->update(['assistant_message_id' => $answer->id]);
                 }
+                if ($videos->isNotEmpty()) {
+                    VideoJob::query()->whereKey($videos->pluck('id'))->update(['assistant_message_id' => $answer->id]);
+                    // One collected already (a very short one) belongs to the answer too.
+                    AssistantAttachment::query()->whereIn('id', VideoJob::query()->whereKey($videos->pluck('id'))->whereNotNull('attachment_id')->select('attachment_id'))
+                        ->update(['assistant_message_id' => $answer->id]);
+                }
                 $conversation->touch();
 
                 return $conversation;
@@ -186,6 +198,8 @@ class AssistantController extends Controller
             'attachments' => $files->map(fn (AssistantAttachment $file) => $file->present())->values(),
             // The pictures the agent made in its answer.
             'designs' => $designs->map(fn (AssistantAttachment $file) => $file->present())->values(),
+            // The videos it started cutting (rendering: ask GET assistant/videos/{id}).
+            'videos' => $videos->map(fn (VideoJob $video) => $video->present())->values(),
             'conversation' => $conversation ? $this->summary($conversation->loadCount('messages')) : null,
             ...$assistant->usage(),
         ]]);
@@ -219,13 +233,15 @@ class AssistantController extends Controller
 
         return response()->json(['data' => [
             ...$this->summary($conversation),
-            'messages' => $conversation->messages()->with('attachments')->get()->map(fn (AssistantMessage $m) => [
+            'messages' => $conversation->messages()->with(['attachments', 'videoJobs.attachment'])->get()->map(fn (AssistantMessage $m) => [
                 'id' => $m->id,
                 'role' => $m->role,
                 'content' => $m->content,
                 'refused' => $m->refused,
                 'actions' => $m->actions ?? [],
-                'attachments' => $m->attachments->map(fn (AssistantAttachment $file) => $file->present())->values(),
+                // A video's file comes with its video.
+                'attachments' => $m->attachments->where('origin', '!=', AssistantAttachment::VIDEO)->map(fn (AssistantAttachment $file) => $file->present())->values(),
+                'videos' => $m->videoJobs->map(fn (VideoJob $video) => $video->present())->values(),
                 'createdAt' => $m->created_at?->toIso8601String(),
             ])->values(),
         ]]);
@@ -246,12 +262,29 @@ class AssistantController extends Controller
         // Its files go with it (the rows by the foreign keys, the files here).
         $paths = AssistantAttachment::query()
             ->whereIn('assistant_message_id', $conversation->messages()->select('id'))
-            ->pluck('path')
+            ->get(['id', 'path', 'meta'])
+            ->flatMap(fn (AssistantAttachment $a) => $a->paths())
             ->all();
         $conversation->delete();
         $attachments->delete($paths);
 
         return response()->noContent();
+    }
+
+    /**
+     * A video an agent is cutting, as the chat asks about it until it is
+     * ready (asking also collects it when it is).
+     */
+    public function video(Request $request, VideoJob $videoJob, VideoStudio $videoStudio): JsonResponse
+    {
+        abort_unless((int) $videoJob->user_id === (int) $request->user()->id, 404);
+
+        $video = $videoStudio->refresh($videoJob);
+
+        return response()->json(['data' => [
+            ...$video->loadMissing('attachment')->present(),
+            'progress' => $videoStudio->progress($video),
+        ]]);
     }
 
     /**
@@ -302,13 +335,13 @@ class AssistantController extends Controller
     /**
      * The last turns, starting with a question and ending with one.
      *
-     * @param  list<array{role: string, content: string, files?: list<AssistantAttachment>}>  $messages
-     * @return list<array{role: 'user'|'assistant', content: string, files: list<AssistantAttachment>}>
+     * @param  list<array{role: string, content: string, files?: list<AssistantAttachment>, videos?: list<VideoJob>}>  $messages
+     * @return list<array{role: 'user'|'assistant', content: string, files: list<AssistantAttachment>, videos: list<VideoJob>}>
      */
     private function trim(array $messages): array
     {
         $messages = array_values(array_map(
-            fn (array $m) => ['role' => $m['role'], 'content' => $m['content'], 'files' => $m['files'] ?? []],
+            fn (array $m) => ['role' => $m['role'], 'content' => $m['content'], 'files' => $m['files'] ?? [], 'videos' => $m['videos'] ?? []],
             array_slice($messages, -self::MAX_MESSAGES),
         ));
 

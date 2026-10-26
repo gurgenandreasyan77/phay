@@ -11,8 +11,11 @@ use App\Google\GoogleCalendarClient;
 use App\Google\HttpGoogleCalendarClient;
 use App\Media\DesignStudio;
 use App\Media\HttpRenderer;
+use App\Media\HttpVideoCutter;
 use App\Media\LinkReader;
 use App\Media\Renderer;
+use App\Media\VideoCutter;
+use App\Media\VideoStudio;
 use App\Models\User;
 use App\Security\Sms\LogSmsSender;
 use App\Security\Sms\SmsSender;
@@ -91,6 +94,11 @@ class AppServiceProvider extends ServiceProvider
         ));
         $this->app->scoped(DesignStudio::class);
         $this->app->scoped(LinkReader::class);
+        $this->app->bind(VideoCutter::class, fn () => new HttpVideoCutter(
+            url: config('services.media.url'),
+            token: config('services.media.token'),
+        ));
+        $this->app->scoped(VideoStudio::class);
     }
 
     /**

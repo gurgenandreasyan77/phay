@@ -10,7 +10,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response as FileResponse;
 
 /**
  * Files for the AI chat. Uploaded before the question is sent (so the
@@ -39,8 +41,8 @@ class AssistantAttachmentController extends Controller
 
         $request->validate([
             // The type is checked by content in Attachments::inspect; this is the upper bound.
-            'file' => ['required', 'file', 'max:'.intdiv(Attachments::MAX_PDF_BYTES, 1024)],
-        ], ['file.max' => 'Ֆայլը շատ մեծ է (առավելագույնը 10 ՄԲ)։', 'file.required' => 'Ընտրեք ֆայլ։']);
+            'file' => ['required', 'file', 'max:'.intdiv(Attachments::MAX_VIDEO_BYTES, 1024)],
+        ], ['file.max' => 'Ֆայլը շատ մեծ է (առավելագույնը 80 ՄԲ)։', 'file.required' => 'Ընտրեք ֆայլ։']);
 
         $attachment = $this->attachments->upload($request->file('file'), $request->user());
 
@@ -48,7 +50,7 @@ class AssistantAttachmentController extends Controller
     }
 
     /** The file itself, shown in the chat (inline, never run as a page); ?download=1 saves it. */
-    public function file(Request $request, AssistantAttachment $assistantAttachment): StreamedResponse
+    public function file(Request $request, AssistantAttachment $assistantAttachment): FileResponse
     {
         $file = $this->own($request, $assistantAttachment);
 
@@ -62,26 +64,35 @@ class AssistantAttachmentController extends Controller
         abort_if($file->assistant_message_id !== null, 409, 'This file was already sent.');
 
         $file->delete();
-        $this->attachments->delete([$file->path]);
+        $this->attachments->delete($file->paths());
 
         return response()->noContent();
     }
 
     /**
      * A private file as the browser should get it: its own type, shown
-     * inline, never sniffed into something else nor run as a page.
+     * inline, never sniffed into something else nor run as a page. A
+     * video is served in ranges, as players (Safari's above all) ask for it.
      */
-    public static function serve(string $path, string $name, string $type, bool $download = false): StreamedResponse
+    public static function serve(string $path, string $name, string $type, bool $download = false): FileResponse
     {
         $disk = Storage::disk(Attachments::DISK);
         abort_unless($disk->exists($path), 404);
 
-        return $disk->response($path, $name, [
+        $headers = [
             'Content-Type' => $type,
             'X-Content-Type-Options' => 'nosniff',
-            'Content-Security-Policy' => "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox",
+            'Content-Security-Policy' => "default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'unsafe-inline'; sandbox",
             'Cache-Control' => 'private, max-age=86400',
-        ], $download ? 'attachment' : 'inline');
+        ];
+        $disposition = $download ? 'attachment' : 'inline';
+
+        if (str_starts_with($type, 'video/')) {
+            return (new BinaryFileResponse($disk->path($path), 200, $headers, false))
+                ->setContentDisposition($disposition, $name, preg_replace('/[^\w. -]+/', '', Str::ascii($name)) ?: 'video.mp4');
+        }
+
+        return $disk->response($path, $name, $headers, $disposition);
     }
 
     /** Another person's file behaves as if it doesn't exist. */

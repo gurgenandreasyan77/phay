@@ -82,6 +82,15 @@ abstract class Agent
         return false;
     }
 
+    /**
+     * Whether it cuts the owner's clips into videos itself
+     * (App\Media\VideoStudio), when the media service is connected.
+     */
+    public function edits(): bool
+    {
+        return false;
+    }
+
     /** What it can't do yet, said plainly on its card (null: nothing to say). */
     public function limitation(): ?string
     {

@@ -85,8 +85,8 @@ services:
     healthcheck:
       disable: true
 
-  # Chromium that renders the AI agents' designs (HTML) to PNG: media/server.js.
-  # Only the backend reaches it, on the compose network; nothing published.
+  # Chromium that renders the AI agents' designs (HTML) to PNG and ffmpeg that
+  # cuts their videos: media/server.js, media/video.js. Only the backend reaches it, on the compose network; nothing published.
   media:
     build:
       context: ./media

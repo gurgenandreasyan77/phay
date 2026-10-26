@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, FileText, ImagePlus, Loader2, X } from "lucide-react";
+import { Check, FileText, Film, ImagePlus, Loader2, X } from "lucide-react";
 import type { AssistantAttachmentDto } from "@/lib/adminApi";
 import { cn } from "@/ui";
 
@@ -9,15 +9,18 @@ import { cn } from "@/ui";
 export const MAX_FILES = 4;
 
 /** What the file picker offers; the API checks the content again. */
-export const ACCEPT = "image/jpeg,image/png,image/webp,image/gif,application/pdf,text/plain,text/csv,text/markdown,.txt,.csv,.md";
+export const ACCEPT =
+  "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v,.mov,.m4v,application/pdf,text/plain,text/csv,text/markdown,.txt,.csv,.md";
 
 const MB = 1024 * 1024;
-const LIMITS = { image: 5 * MB, pdf: 10 * MB, text: 512 * 1024 } as const;
+const LIMITS = { image: 5 * MB, pdf: 10 * MB, text: 512 * 1024, video: 80 * MB } as const;
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const VIDEO_EXTENSIONS = ["mp4", "mov", "webm", "m4v"];
 
 export const FILE_ERRORS = {
-  type: "Կարելի է կցել նկար (JPG, PNG, WEBP, GIF), PDF կամ տեքստային ֆայլ (TXT, CSV, MD)։",
+  type: "Կարելի է կցել նկար (JPG, PNG, WEBP, GIF), տեսանյութ (MP4, MOV, WEBM), PDF կամ տեքստային ֆայլ (TXT, CSV, MD)։",
   image: "Նկարը պետք է լինի մինչև 5 ՄԲ։",
+  video: "Տեսանյութը պետք է լինի մինչև 80 ՄԲ։",
   pdf: "PDF-ը պետք է լինի մինչև 10 ՄԲ։",
   text: "Տեքստային ֆայլը պետք է լինի մինչև 512 ԿԲ։",
   tooMany: `Մեկ հարցին կարելի է կցել մինչև ${MAX_FILES} ֆայլ։`,
@@ -50,7 +53,9 @@ export function checkFile(file: File): { kind: FileKind } | { error: string } {
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
   const kind: FileKind | null = IMAGE_TYPES.includes(file.type)
     ? "image"
-    : file.type === "application/pdf" || extension === "pdf"
+    : file.type.startsWith("video/") || VIDEO_EXTENSIONS.includes(extension)
+      ? "video"
+      : file.type === "application/pdf" || extension === "pdf"
       ? "pdf"
       : ["txt", "csv", "md"].includes(extension)
         ? "text"
@@ -71,6 +76,12 @@ export function shownFromAttachment(attachment: AssistantAttachmentDto): ShownFi
     attachment,
     status: "ready",
   };
+}
+
+/** 0:07, 1:25 */
+export function formatDuration(seconds: number): string {
+  const total = Math.round(seconds);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
 function formatSize(bytes: number): string {
@@ -96,7 +107,15 @@ export function PendingFiles({ files, onRemove }: { files: ShownFile[]; onRemove
           <div className="min-w-0 text-xs">
             <p className="truncate font-medium text-ink">{file.name}</p>
             <p className={cn("truncate", file.status === "error" ? "text-danger" : "text-ink-muted")}>
-              {file.status === "uploading" ? "Վերբեռնվում է…" : file.status === "error" ? file.error : formatSize(file.size)}
+              {file.status === "uploading"
+                ? file.kind === "video"
+                  ? "Վերբեռնվում և դիտվում է…"
+                  : "Վերբեռնվում է…"
+                : file.status === "error"
+                  ? file.error
+                  : file.attachment?.duration
+                    ? `${formatDuration(file.attachment.duration)} · ${formatSize(file.size)}`
+                    : formatSize(file.size)}
             </p>
           </div>
           {/* The whole right edge is the button: an easy target for a finger. */}
@@ -119,6 +138,13 @@ function Thumb({ file, className }: { file: ShownFile; className?: string }) {
     return (
       <span className={cn("flex shrink-0 items-center justify-center rounded bg-surface-secondary", className)}>
         <Loader2 className="h-4 w-4 animate-spin text-ink-muted" aria-hidden="true" />
+      </span>
+    );
+  }
+  if (file.kind === "video") {
+    return (
+      <span className={cn("flex shrink-0 items-center justify-center rounded bg-ink text-white", className)}>
+        <Film className="h-5 w-5" aria-hidden="true" />
       </span>
     );
   }
@@ -149,7 +175,8 @@ export function MessageFiles({
 }) {
   if (files.length === 0) return null;
   const images = files.filter((f) => f.kind === "image");
-  const others = files.filter((f) => f.kind !== "image");
+  const videos = files.filter((f) => f.kind === "video" && f.attachment);
+  const others = files.filter((f) => f.kind !== "image" && f.kind !== "video");
 
   return (
     <div className="space-y-2">
@@ -168,6 +195,27 @@ export function MessageFiles({
                 <img src={file.src ?? ""} alt={file.name} className="max-h-56 w-full object-contain" loading="lazy" />
               </a>
               {canSaveToBrand && file.attachment ? <SaveToBrand attachmentId={file.attachment.id} onLight={onLight} /> : null}
+            </figure>
+          ))}
+        </div>
+      ) : null}
+      {videos.length > 0 ? (
+        <div className={cn("grid gap-2", videos.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
+          {videos.map((file) => (
+            <figure key={file.key} className="overflow-hidden rounded-md bg-black">
+              {/* Only the start is read until it is played (ranges through the BFF); #t shows a frame past the fade-in. */}
+              <video
+                src={`${attachmentUrl(file.attachment!.id)}#t=0.4`}
+                controls
+                playsInline
+                preload="metadata"
+                className="max-h-64 w-full"
+                aria-label={file.name}
+              />
+              <figcaption className="truncate bg-black/80 px-2 py-1 text-[11px] text-white/85">
+                {file.name}
+                {file.attachment?.duration ? ` · ${formatDuration(file.attachment.duration)}` : ""}
+              </figcaption>
             </figure>
           ))}
         </div>

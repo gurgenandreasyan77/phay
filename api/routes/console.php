@@ -20,3 +20,6 @@ Schedule::command('platform:social:sync')->cron('20 */6 * * *')->withoutOverlapp
 
 // Files attached in the AI chat but never sent (Attachments::PENDING_HOURS).
 Schedule::command('platform:assistant:prune')->hourly();
+
+// Videos the AI agents cut (App\Media\VideoStudio), collected once ready.
+Schedule::command('platform:videos:collect')->everyMinute()->withoutOverlapping(10);

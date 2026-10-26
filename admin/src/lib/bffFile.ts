@@ -14,21 +14,25 @@ const PASSED_HEADERS = [
   "cache-control",
   "x-content-type-options",
   "content-security-policy",
+  // A video plays in ranges.
+  "accept-ranges",
+  "content-range",
 ];
 
 function unauthenticated() {
   return NextResponse.json({ message: "Unauthenticated.", code: "unauthenticated", status: 401 }, { status: 401 });
 }
 
-/** GET of a file: streamed as the API answers it. */
-export async function proxyApiFile(path: string): Promise<Response> {
+/** GET of a file: streamed as the API answers it (a part of it, when the browser asks for a range). */
+export async function proxyApiFile(path: string, request?: NextRequest): Promise<Response> {
   const token = await getAdminToken();
   if (!token) return unauthenticated();
 
+  const range = request?.headers.get("range");
   let response: Response;
   try {
     response = await fetch(`${API_BASE}${path}`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: "*/*" },
+      headers: { Authorization: `Bearer ${token}`, Accept: "*/*", ...(range ? { Range: range } : {}) },
       cache: "no-store",
     });
   } catch {
@@ -44,7 +48,7 @@ export async function proxyApiFile(path: string): Promise<Response> {
     const value = response.headers.get(name);
     if (value) headers.set(name, value);
   }
-  return new Response(response.body, { status: 200, headers });
+  return new Response(response.body, { status: response.status === 206 ? 206 : 200, headers });
 }
 
 /** A multipart upload passed on as it is (fetch sets the boundary). */

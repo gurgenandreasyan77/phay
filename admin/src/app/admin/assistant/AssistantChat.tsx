@@ -11,6 +11,7 @@ import type {
   AssistantMessageDto,
   AssistantPlanOfferDto,
   AssistantUsageDto,
+  AssistantVideoDto,
 } from "@/lib/adminApi";
 import { Button, Card, cn, Textarea } from "@/ui";
 import { AgentAvatar, agentTintStyle } from "../_components/agents/AgentAvatar";
@@ -28,6 +29,7 @@ import {
   type ShownFile,
 } from "./Attachments";
 import { chooseMessage, DesignGallery } from "./Designs";
+import { VideoList } from "./Videos";
 import { SUGGESTIONS } from "./suggestions";
 import { AnswerActions } from "./AnswerActions";
 
@@ -38,21 +40,28 @@ type Message = {
   files?: ShownFile[];
   actions?: AssistantActionDto[];
   designs?: AssistantAttachmentDto[];
+  videos?: AssistantVideoDto[];
 };
 
 const REFUSED = "Այս հարցին չեմ կարող պատասխանել։ Փորձեք ձևակերպել այլ կերպ։";
 
 /** A kept question or answer as the chat shows it. */
-function toMessage(message: Pick<AssistantMessageDto, "role" | "content" | "refused" | "attachments" | "actions">): Message {
+function toMessage(
+  message: Pick<AssistantMessageDto, "role" | "content" | "refused" | "attachments" | "actions" | "videos">,
+): Message {
   if (message.role === "user") {
     return { role: "user", content: message.content, files: (message.attachments ?? []).map(shownFromAttachment) };
   }
   const designs = message.attachments ?? [];
+  const videos = message.videos ?? [];
   return {
     role: "assistant",
-    content: message.refused ? REFUSED : message.content || (designs.length > 0 ? "" : "Պատասխանը դատարկ է։ Փորձեք կրկին։"),
+    content: message.refused
+      ? REFUSED
+      : message.content || (designs.length + videos.length > 0 ? "" : "Պատասխանը դատարկ է։ Փորձեք կրկին։"),
     actions: message.actions ?? [],
     designs,
+    videos,
   };
 }
 
@@ -322,13 +331,14 @@ export function AssistantChat({
         return;
       }
 
-      const { reply, refused, conversation, attachments, actions, designs, ...nextUsage } = json.data as {
+      const { reply, refused, conversation, attachments, actions, designs, videos, ...nextUsage } = json.data as {
         reply: string;
         refused: boolean;
         actions?: AssistantActionDto[];
         conversation: AssistantConversationDto | null;
         attachments?: AssistantAttachmentDto[];
         designs?: AssistantAttachmentDto[];
+        videos?: AssistantVideoDto[];
       } & AssistantUsageDto;
       // The question shows its kept files (served by the API, no local blobs).
       const asked: Message = { role: "user", content: text, files: (attachments ?? []).map(shownFromAttachment) };
@@ -336,7 +346,7 @@ export function AssistantChat({
       setMessages([
         ...messages,
         asked,
-        toMessage({ role: "assistant", content: reply, refused, actions, attachments: designs ?? [] }),
+        toMessage({ role: "assistant", content: reply, refused, actions, attachments: designs ?? [], videos }),
       ]);
       setUsage(nextUsage);
       if (conversation) {
@@ -430,7 +440,7 @@ export function AssistantChat({
           ) : (
             messages.map((message, i) =>
               message.role === "assistant" && agent ? (
-                <AgentBubble key={i} agent={agent} wide={(message.designs?.length ?? 0) > 1}>
+                <AgentBubble key={i} agent={agent} wide={(message.designs?.length ?? 0) > 1 || (message.videos?.length ?? 0) > 1}>
                   {message.content ? <Formatted text={message.content} /> : null}
                   <DesignGallery
                     designs={message.designs ?? []}
@@ -442,6 +452,7 @@ export function AssistantChat({
                         : undefined
                     }
                   />
+                  <VideoList videos={message.videos ?? []} />
                   <AnswerActions actions={message.actions ?? []} />
                 </AgentBubble>
               ) : (

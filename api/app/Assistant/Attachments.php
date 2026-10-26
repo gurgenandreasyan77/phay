@@ -2,9 +2,12 @@
 
 namespace App\Assistant;
 
+use App\Media\RenderFailed;
+use App\Media\VideoCutter;
 use App\Models\AssistantAttachment;
 use App\Models\BrandAsset;
 use App\Models\User;
+use App\Models\VideoJob;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -15,7 +18,8 @@ use Illuminate\Validation\ValidationException;
  * Files in the AI chat: what may be attached (checked by content, not by
  * the name), where it is kept (the private disk, a folder per business)
  * and how the model receives it (image and document blocks of the
- * Messages API). The limits keep a question inside one request of the
+ * Messages API; a video as a few of its frames, App\Media\VideoStudio
+ * cuts it). The limits keep a question inside one request of the
  * business's monthly AI requests without making it a heavy one.
  */
 class Attachments
@@ -46,6 +50,12 @@ class Attachments
 
     public const MAX_TEXT_BYTES = 512 * 1024;
 
+    /** A clip, as php.ini lets it in (upload_max_filesize 80M). */
+    public const MAX_VIDEO_BYTES = 80 * 1024 * 1024;
+
+    /** Seconds of a clip: longer ones are filmed for something else than a reel. */
+    public const MAX_VIDEO_SECONDS = 180;
+
     /** Unsent uploads are removed after this many hours (platform:assistant:prune). */
     public const PENDING_HOURS = 24;
 
@@ -53,14 +63,19 @@ class Attachments
 
     private const TEXT_EXTENSIONS = ['txt', 'csv', 'md'];
 
-    public const UNSUPPORTED = 'Կարելի է կցել նկար (JPG, PNG, WEBP, GIF), PDF կամ տեքստային ֆայլ (TXT, CSV, MD)։';
+    private const VIDEO_TYPES = ['video/mp4' => 'mp4', 'video/quicktime' => 'mov', 'video/webm' => 'webm', 'video/x-m4v' => 'm4v'];
 
-    public function __construct(private readonly TenantContext $tenants) {}
+    public const UNSUPPORTED = 'Կարելի է կցել նկար (JPG, PNG, WEBP, GIF), տեսանյութ (MP4, MOV, WEBM), PDF կամ տեքստային ֆայլ (TXT, CSV, MD)։';
+
+    public function __construct(
+        private readonly TenantContext $tenants,
+        private readonly VideoCutter $cutter,
+    ) {}
 
     /** Accepted types, for the file picker and the validation rule. */
     public static function extensions(): array
     {
-        return ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', ...self::TEXT_EXTENSIONS];
+        return ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', ...self::TEXT_EXTENSIONS, ...array_values(self::VIDEO_TYPES)];
     }
 
     /**
@@ -103,6 +118,17 @@ class Attachments
             $fail('Ընտրեք նկար (JPG, PNG, WEBP կամ GIF)։');
         }
 
+        if (isset(self::VIDEO_TYPES[$mime])) {
+            if (! $this->cutter->isConfigured()) {
+                $fail('Տեսանյութեր դեռ չեն ընդունվում։ Կցեք մի քանի կադր որպես նկար։');
+            }
+            if ($size > self::MAX_VIDEO_BYTES) {
+                $fail('Տեսանյութը պետք է լինի մինչև 80 ՄԲ։');
+            }
+
+            return ['kind' => AttachmentKind::Video, 'mime' => $mime, 'extension' => self::VIDEO_TYPES[$mime], 'width' => null, 'height' => null];
+        }
+
         if ($mime === 'application/pdf') {
             if ($size > self::MAX_PDF_BYTES) {
                 $fail('PDF-ը պետք է լինի մինչև 10 ՄԲ։');
@@ -142,6 +168,10 @@ class Attachments
 
         $info = $this->inspect($file);
         $path = $this->store($file, 'assistant', $info['extension']);
+        $meta = null;
+        if ($info['kind'] === AttachmentKind::Video) {
+            [$meta, $info['width'], $info['height']] = $this->probe($path);
+        }
 
         return AssistantAttachment::create([
             'user_id' => $user->id,
@@ -152,7 +182,55 @@ class Attachments
             'path' => $path,
             'width' => $info['width'],
             'height' => $info['height'],
+            'meta' => $meta,
         ]);
+    }
+
+    /**
+     * A clip's length, size and sound, and a few frames kept next to it
+     * (what the model sees of it); a clip that can't be read is removed
+     * and refused.
+     *
+     * @return array{0: array<string, mixed>, 1: int, 2: int}
+     */
+    private function probe(string $path): array
+    {
+        $disk = Storage::disk(self::DISK);
+        $refuse = function (string $message) use ($disk, $path) {
+            $disk->delete($path);
+
+            throw ValidationException::withMessages(['file' => [$message]]);
+        };
+
+        try {
+            $info = $this->cutter->probe($this->cutter->upload($disk->path($path)));
+        } catch (RenderFailed $e) {
+            $refuse($e->getCode() === 422
+                ? 'Տեսանյութը չի բացվում։ Փորձեք այլ ֆայլ (MP4 կամ MOV)։'
+                : 'Տեսանյութերի ծառայությունը հիմա հասանելի չէ։ Փորձեք մի փոքր ուշ։');
+        }
+
+        $duration = (float) ($info['duration'] ?? 0);
+        if ($duration > self::MAX_VIDEO_SECONDS) {
+            $refuse('Տեսանյութը պետք է լինի մինչև '.intdiv(self::MAX_VIDEO_SECONDS, 60).' րոպե։ Կտրեք այն կամ ուղարկեք մասերով։');
+        }
+
+        $frames = [];
+        foreach (array_slice($info['frames'] ?? [], 0, 6) as $i => $frame) {
+            $jpg = base64_decode((string) ($frame['jpg'] ?? ''), true);
+            if ($jpg === false || $jpg === '' || @getimagesizefromstring($jpg) === false) {
+                continue;
+            }
+            $file = preg_replace('/\.\w+$/', '', $path)."-frame-{$i}.jpg";
+            $disk->put($file, $jpg);
+            $frames[] = ['t' => round((float) ($frame['t'] ?? 0), 1), 'path' => $file];
+        }
+
+        return [[
+            'duration' => round($duration, 2),
+            'audio' => (bool) ($info['audio'] ?? false),
+            'frames' => $frames,
+        ], (int) ($info['width'] ?? 0) ?: null, (int) ($info['height'] ?? 0) ?: null];
     }
 
     /** Keeps an uploaded picture for the business's AI agents. */
@@ -222,6 +300,10 @@ class Attachments
      */
     public function block(AssistantAttachment|BrandAsset $file): array
     {
+        if ($file instanceof AssistantAttachment && $file->kind === AttachmentKind::Video) {
+            throw new \LogicException('A video goes to the model as frames: use blocks().');
+        }
+
         $content = Storage::disk(self::DISK)->get($file->path) ?? '';
 
         if ($file instanceof BrandAsset || $file->kind === AttachmentKind::Image) {
@@ -236,13 +318,65 @@ class Attachments
     }
 
     /**
+     * What the model receives of a file: its block, or for a video its
+     * frames, each after the second it was taken at.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function blocks(AssistantAttachment $file): array
+    {
+        if ($file->kind !== AttachmentKind::Video) {
+            return [$this->block($file)];
+        }
+
+        $disk = Storage::disk(self::DISK);
+        $blocks = [];
+        foreach ($file->meta['frames'] ?? [] as $frame) {
+            if ($disk->exists($frame['path'])) {
+                $blocks[] = ['type' => 'text', 'text' => "[file #{$file->id}] at {$frame['t']} s:"];
+                $blocks[] = ['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => 'image/jpeg', 'data' => base64_encode((string) $disk->get($frame['path']))]];
+            }
+        }
+
+        return $blocks;
+    }
+
+    /** Bytes a file adds to the request (a video: its frames). */
+    private function weight(AssistantAttachment $file): int
+    {
+        if ($file->kind !== AttachmentKind::Video) {
+            return $file->size;
+        }
+        $disk = Storage::disk(self::DISK);
+
+        return array_sum(array_map(fn (array $f) => $disk->exists($f['path']) ? $disk->size($f['path']) : 0, $file->meta['frames'] ?? []));
+    }
+
+    /** How a file is named to the model: "[file #N: name, kind…]". */
+    private static function label(AssistantAttachment $file, bool $shown): string
+    {
+        $details = '';
+        if ($file->kind === AttachmentKind::Video) {
+            $meta = $file->meta ?? [];
+            $details = ', '.($meta['duration'] ?? '?').' s'
+                .($file->width && $file->height ? ", {$file->width}×{$file->height}" : '')
+                .(($meta['audio'] ?? false) ? ', with sound' : ', no sound');
+        }
+
+        return "[file #{$file->id}: {$file->name}, {$file->kind->value}{$details}".($shown ? '' : ', sent earlier, no longer shown').']';
+    }
+
+    /**
      * The conversation for the model: a question with files becomes
      * content blocks (the files, then the question naming them by number,
      * so an agent can save one to the brand). Only the newest
      * MAX_IN_CONTEXT files (within MAX_CONTEXT_BYTES) are sent again;
      * older ones are named, which keeps a long chat cheap.
      *
-     * @param  list<array{role: string, content: string, files?: list<AssistantAttachment>}>  $messages
+     * An answer names the pictures and videos its agent made, with a
+     * video's plan, so the agent can change it.
+     *
+     * @param  list<array{role: string, content: string, files?: list<AssistantAttachment>, videos?: list<VideoJob>}>  $messages
      * @return list<array{role: string, content: string|list<array<string, mixed>>}>
      */
     public function forModel(array $messages): array
@@ -256,25 +390,35 @@ class Attachments
                 continue;
             }
             foreach (array_reverse($messages[$i]['files'] ?? []) as $file) {
-                if ($count < self::MAX_IN_CONTEXT && $bytes + $file->size <= self::MAX_CONTEXT_BYTES && Storage::disk(self::DISK)->exists($file->path)) {
+                $weight = $this->weight($file);
+                if ($count < self::MAX_IN_CONTEXT && $bytes + $weight <= self::MAX_CONTEXT_BYTES && Storage::disk(self::DISK)->exists($file->path)) {
                     $send[$file->id] = true;
                     $count++;
-                    $bytes += $file->size;
+                    $bytes += $weight;
                 }
             }
         }
 
         return array_map(function (array $message) use ($send) {
             $files = $message['files'] ?? [];
-            if ($files === []) {
+            $videos = $message['videos'] ?? [];
+            if ($files === [] && $videos === []) {
                 return ['role' => $message['role'], 'content' => $message['content']];
             }
 
-            // The pictures an agent made in this answer, by number (get_design opens one).
+            // The pictures an agent made in this answer, by number (get_design opens one), and its videos with their plans.
             if ($message['role'] !== 'user') {
-                $names = array_map(fn (AssistantAttachment $f) => "[design #{$f->id}] «{$f->title}» ({$f->format})", $files);
+                $designs = array_filter($files, fn (AssistantAttachment $f) => $f->isDesign());
+                $made = [];
+                if ($designs !== []) {
+                    $made[] = '(Pictures made in this answer: '.implode(', ', array_map(fn (AssistantAttachment $f) => "[design #{$f->id}] «{$f->title}» ({$f->format})", $designs)).')';
+                }
+                foreach ($videos as $video) {
+                    $made[] = "(Video cut in this answer: [video #{$video->id}] «{$video->title}» ({$video->format}, {$video->duration} s, {$video->status}"
+                        .($video->error ? ": {$video->error}" : '').'), plan: '.json_encode($video->plan, JSON_UNESCAPED_UNICODE).')';
+                }
 
-                return ['role' => $message['role'], 'content' => trim($message['content'])."\n\n(Pictures made in this answer: ".implode(', ', $names).')'];
+                return ['role' => $message['role'], 'content' => trim(trim($message['content'])."\n\n".implode("\n", $made))];
             }
 
             $blocks = [];
@@ -282,9 +426,9 @@ class Attachments
             foreach ($files as $file) {
                 $shown = isset($send[$file->id]);
                 if ($shown) {
-                    $blocks[] = $this->block($file);
+                    array_push($blocks, ...$this->blocks($file));
                 }
-                $names[] = "[file #{$file->id}: {$file->name}, {$file->kind->value}".($shown ? '' : ', sent earlier, no longer shown').']';
+                $names[] = self::label($file, $shown);
             }
 
             $question = trim($message['content']);
@@ -310,10 +454,12 @@ class Attachments
         $old = AssistantAttachment::withoutTenancy()
             ->whereNull('assistant_message_id')
             ->where('created_at', '<', now()->subHours(self::PENDING_HOURS))
-            ->get(['id', 'path']);
+            ->get(['id', 'path', 'meta']);
 
-        $this->delete($old->pluck('path')->all());
+        $this->delete($old->flatMap(fn (AssistantAttachment $a) => $a->paths())->all());
         AssistantAttachment::withoutTenancy()->whereKey($old->modelKeys())->delete();
+        // Videos started for a question that failed.
+        VideoJob::withoutTenancy()->whereNull('assistant_message_id')->where('created_at', '<', now()->subHours(self::PENDING_HOURS))->delete();
 
         return $old->count();
     }

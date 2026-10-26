@@ -1,14 +1,18 @@
 // Phay media: renders the AI agents' designs (a full HTML page with inline
-// CSS) to PNG for the API (App\Media\HttpRenderer). Only the API calls it,
-// on the compose network, with MEDIA_TOKEN; no port is published.
+// CSS) to PNG for the API (App\Media\HttpRenderer), and cuts the owner's
+// clips into videos with ffmpeg (video.js, App\Media\HttpVideoCutter).
+// Only the API calls it, on the compose network, with MEDIA_TOKEN; no port
+// is published.
 //
 // The HTML comes from a language model that may have read a stranger's web
 // page, so it is treated as hostile: JavaScript is off, every request the
 // page makes is refused (pictures come inline as data: URIs, fonts are
 // installed in the image) and each render gets a fresh browser context.
 
+import fs from "node:fs";
 import http from "node:http";
 import puppeteer from "puppeteer-core";
+import { HttpError, probe, saveFile, startVideo, videoFile, videoStatus } from "./video.js";
 
 const PORT = Number(process.env.PORT || 3100);
 const TOKEN = process.env.MEDIA_TOKEN || "";
@@ -65,7 +69,7 @@ async function inTurn(work) {
   }
 }
 
-async function render(html, width, height) {
+async function render(html, width, height, transparent = false) {
   const context = await (await getBrowser()).createBrowserContext();
   try {
     const page = await context.newPage();
@@ -85,7 +89,8 @@ async function render(html, width, height) {
     await page.goto(ORIGIN, { waitUntil: "load", timeout: 20_000 });
     // Installed fonts load almost at once; still, wait for them.
     await page.evaluate(() => document.fonts.ready).catch(() => null);
-    return await page.screenshot({ type: "png", clip: { x: 0, y: 0, width, height } });
+    // A text overlay of a video: only what the HTML draws, the rest see-through.
+    return await page.screenshot({ type: "png", clip: { x: 0, y: 0, width, height }, omitBackground: transparent });
   } finally {
     await context.close().catch(() => null);
   }
@@ -98,7 +103,7 @@ function readBody(request) {
     request.on("data", (chunk) => {
       size += chunk.length;
       if (size > MAX_BODY) {
-        reject(Object.assign(new Error("The HTML is too big."), { status: 413 }));
+        reject(Object.assign(new Error("The body is too big."), { status: 413 }));
         request.destroy();
         return;
       }
@@ -114,6 +119,57 @@ function send(response, status, body) {
   response.end(JSON.stringify(body));
 }
 
+async function json(request) {
+  try {
+    return JSON.parse(await readBody(request));
+  } catch (error) {
+    throw error.status ? error : new HttpError(400, "The body must be JSON.");
+  }
+}
+
+async function handle(request, response) {
+  const url = new URL(request.url, "http://media");
+  const route = `${request.method} ${url.pathname}`;
+
+  if (route === "POST /render") {
+    const input = await json(request);
+    const width = Math.round(Number(input.width));
+    const height = Math.round(Number(input.height));
+    if (typeof input.html !== "string" || input.html.trim() === "") {
+      throw new HttpError(422, "html is required.");
+    }
+    if (![width, height].every((side) => side >= MIN_SIDE && side <= MAX_SIDE)) {
+      throw new HttpError(422, `width and height must be ${MIN_SIDE}-${MAX_SIDE}.`);
+    }
+    const started = Date.now();
+    const png = await inTurn(() => render(input.html, width, height, input.transparent === true));
+    response.writeHead(200, { "Content-Type": "image/png", "Content-Length": png.length, "X-Render-Ms": Date.now() - started });
+    return response.end(png);
+  }
+
+  if (route === "PUT /files") {
+    return send(response, 201, await saveFile(request));
+  }
+
+  if (route === "POST /probe") {
+    return send(response, 200, await probe((await json(request)).file));
+  }
+
+  if (route === "POST /video") {
+    return send(response, 202, await startVideo(await json(request)));
+  }
+
+  const video = /^\/video\/([a-f0-9-]{36})(\/file)?$/.exec(url.pathname);
+  if (request.method === "GET" && video) {
+    if (!video[2]) return send(response, 200, videoStatus(video[1]));
+    const file = videoFile(video[1]);
+    response.writeHead(200, { "Content-Type": "video/mp4", "Content-Length": fs.statSync(file).size });
+    return fs.createReadStream(file).pipe(response);
+  }
+
+  throw new HttpError(404, "Not found.");
+}
+
 const server = http.createServer(async (request, response) => {
   if (request.method === "GET" && request.url === "/health") {
     return send(response, 200, { ok: true });
@@ -121,29 +177,13 @@ const server = http.createServer(async (request, response) => {
   if (request.headers.authorization !== `Bearer ${TOKEN}`) {
     return send(response, 401, { message: "Unauthorized." });
   }
-  if (request.method !== "POST" || request.url !== "/render") {
-    return send(response, 404, { message: "Not found." });
-  }
 
   try {
-    const input = JSON.parse(await readBody(request));
-    const width = Math.round(Number(input.width));
-    const height = Math.round(Number(input.height));
-    if (typeof input.html !== "string" || input.html.trim() === "") {
-      return send(response, 422, { message: "html is required." });
-    }
-    if (![width, height].every((side) => side >= MIN_SIDE && side <= MAX_SIDE)) {
-      return send(response, 422, { message: `width and height must be ${MIN_SIDE}-${MAX_SIDE}.` });
-    }
-
-    const started = Date.now();
-    const png = await inTurn(() => render(input.html, width, height));
-    response.writeHead(200, { "Content-Type": "image/png", "Content-Length": png.length, "X-Render-Ms": Date.now() - started });
-    response.end(png);
+    await handle(request, response);
   } catch (error) {
-    const status = error.status ?? (error instanceof SyntaxError ? 400 : 500);
-    if (status === 500) console.error("render failed:", error.message);
-    send(response, status, { message: status === 500 ? "Render failed." : error.message });
+    const status = error.status ?? 500;
+    if (status === 500) console.error(`${request.method} ${request.url} failed:`, error.message);
+    if (!response.headersSent) send(response, status, { message: status === 500 ? "Failed." : error.message });
   }
 });
 

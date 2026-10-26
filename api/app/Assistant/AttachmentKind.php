@@ -13,4 +13,7 @@ enum AttachmentKind: string
 
     /** TXT, CSV or Markdown in UTF-8: the model reads it as text. */
     case Text = 'text';
+
+    /** MP4, MOV or WEBM: the model sees a few frames and its length; an agent can cut it. */
+    case Video = 'video';
 }

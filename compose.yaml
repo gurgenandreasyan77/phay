@@ -72,8 +72,8 @@ services:
     networks:
       - phay
 
-  # Chromium that renders the AI agents' designs (HTML) to PNG: media/server.js.
-  # Reached only by the backend on this network, nothing published.
+  # Chromium that renders the AI agents' designs (HTML) to PNG and ffmpeg that
+  # cuts their videos: media/server.js, media/video.js. Reached only by the backend on this network, nothing published.
   media:
     build:
       context: ./media
