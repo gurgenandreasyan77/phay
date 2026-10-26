@@ -10,13 +10,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * One person's chat with the AI assistant inside a business: its questions
- * and answers (AssistantMessage), named by its first question.
+ * and answers (AssistantMessage), named by its first question. agent_key:
+ * the AI agent it is with (App\Agents\AgentCatalog), null for the assistant.
  */
 class AssistantConversation extends Model
 {
     use BelongsToTenant;
 
-    protected $fillable = ['user_id', 'title'];
+    protected $fillable = ['user_id', 'agent_key', 'title'];
 
     public function user(): BelongsTo
     {

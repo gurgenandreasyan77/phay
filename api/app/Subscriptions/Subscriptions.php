@@ -2,12 +2,14 @@
 
 namespace App\Subscriptions;
 
+use App\Agents\AgentCatalog;
 use App\Features\FeatureFlag;
 use App\Models\ModulePrice;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\SubscriptionPayment;
 use App\Models\Tenant;
+use App\Models\TenantAgent;
 use App\Models\User;
 use App\Notifications\NotificationType;
 use App\Services\SupportChat;
@@ -87,10 +89,11 @@ class Subscriptions
     }
 
     /**
-     * What the business pays a month: its plan's price plus every module it
-     * has on that the plan doesn't include.
+     * What the business pays a month: its plan's price plus every module and
+     * AI agent it has on that the plan doesn't include. Agents are listed
+     * with the modules (kind "agent", key "agent:<key>").
      *
-     * @return array{plan: int, modules: list<array{key: string, label: string, description: string, price: int, active: bool, included: bool}>, total: int}
+     * @return array{plan: int, modules: list<array{key: string, kind: string, label: string, description: string, price: int, active: bool, included: bool}>, total: int}
      */
     public function pricing(Tenant $tenant, ?Subscription $subscription = null, ?array $prices = null): array
     {
@@ -112,8 +115,31 @@ class Subscriptions
 
             $modules[] = [
                 'key' => $flag->value,
+                'kind' => 'module',
                 'label' => $flag->label(),
                 'description' => $flag->description(),
+                'price' => $price,
+                'active' => $active,
+                'included' => $included,
+            ];
+        }
+
+        $agents = TenantAgent::withoutTenancy()->where('tenant_id', $tenant->id)->where('active', true)->pluck('agent_key')->all();
+
+        foreach (AgentCatalog::all() as $agent) {
+            $active = in_array($agent->key(), $agents, true);
+            $included = (bool) $plan?->includes($agent->priceKey());
+            $price = $prices[$agent->priceKey()] ?? $agent->defaultPrice();
+
+            if ($active && ! $included) {
+                $total += $price;
+            }
+
+            $modules[] = [
+                'key' => $agent->priceKey(),
+                'kind' => 'agent',
+                'label' => 'AI · '.$agent->label(),
+                'description' => $agent->description(),
                 'price' => $price,
                 'active' => $active,
                 'included' => $included,

@@ -4,7 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Assistant\AssistantClient;
 use App\Assistant\AssistantReply;
-use App\Assistant\BusinessTools;
+use App\Assistant\ToolSet;
 use App\Models\DataTableRow;
 use App\Models\Lead;
 use App\Models\Tenant;
@@ -295,7 +295,7 @@ class TableAnalyticsTest extends TestCase
                 return true;
             }
 
-            public function reply(string $system, array $messages, ?BusinessTools $tools = null): AssistantReply
+            public function reply(string $system, array $messages, ?ToolSet $tools = null): AssistantReply
             {
                 $this->system = $system;
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Agents\AgentCatalog;
 use App\Assistant\BusinessAssistant;
 use App\Features\FeatureFlag;
 use App\Http\Controllers\Controller;
@@ -55,7 +56,8 @@ class SubscriptionController extends Controller
     /**
      * Writes to the platform in the business's chat: renew, switch to a
      * plan, turn a module on (the platform does it and records payments),
-     * ask for more AI assistant requests, or ask about the premium plan.
+     * ask for more AI assistant requests, ask about the premium plan, or
+     * ask for an AI agent on the team.
      */
     public function request(Request $request, SupportChat $chat): JsonResponse
     {
@@ -63,9 +65,10 @@ class SubscriptionController extends Controller
         abort_if($user->isPlatformStaff(), 403, 'Platform staff answer from the platform level.');
 
         $validated = $request->validate([
-            'kind' => ['required', Rule::in(['renew', 'plan', 'module', 'premium', 'assistant'])],
+            'kind' => ['required', Rule::in(['renew', 'plan', 'module', 'premium', 'assistant', 'agent'])],
             'plan_id' => ['required_if:kind,plan', 'integer', Rule::exists('plans', 'id')->where('is_active', true)],
             'module' => ['required_if:kind,module', Rule::in(array_column(FeatureFlag::cases(), 'value'))],
+            'agent' => ['required_if:kind,agent', Rule::in(AgentCatalog::keys())],
         ]);
 
         $body = match ($validated['kind']) {
@@ -74,6 +77,7 @@ class SubscriptionController extends Controller
             'module' => sprintf('Ցանկանում եմ միացնել «%s» մոդուլը։', FeatureFlag::from($validated['module'])->label()),
             'premium' => 'Հետաքրքրում է Պրեմիում փաթեթը։ Խնդրում եմ տեղեկացնել, երբ այն հասանելի լինի։',
             'assistant' => 'AI օգնականի այս ամսվա հարցերը սպառվել են։ Ցանկանում եմ ավելացնել հարցեր։',
+            'agent' => sprintf('Ցանկանում եմ իմ թիմին ավելացնել «%s» AI աշխատակցին։', AgentCatalog::find($validated['agent'])->label()),
         };
 
         $chat->send($this->context->current(), $user, false, $body);

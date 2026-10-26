@@ -2,6 +2,9 @@
 
 namespace App\Assistant;
 
+use App\Agents\Agent;
+use App\Agents\AgentPrompt;
+use App\Agents\AgentTools;
 use App\Analytics\Dashboard;
 use App\DataTables\TableAnalytics;
 use App\Enums\ColumnRole;
@@ -12,6 +15,7 @@ use App\Features\FeatureFlag;
 use App\Models\DataTable;
 use App\Models\Lead;
 use App\Models\Service;
+use App\Models\User;
 use App\Services\BusinessAnalytics;
 use App\Social\SocialReport;
 use App\Tenancy\TenantContext;
@@ -34,6 +38,8 @@ class BusinessAssistant
         private readonly BusinessTools $tools,
         private readonly AssistantQuota $quota,
         private readonly SocialReport $social,
+        private readonly AgentTools $agentTools,
+        private readonly AgentPrompt $agentPrompt,
     ) {}
 
     public function isConfigured(): bool
@@ -68,11 +74,17 @@ class BusinessAssistant
     }
 
     /**
+     * Asks the assistant, or one of the business's AI agents (its role, its
+     * look-ups, the brand profile and its notes). Either way it is one
+     * request of the business's monthly AI requests.
+     *
      * @param  list<array{role: 'user'|'assistant', content: string}>  $messages
      */
-    public function ask(array $messages): AssistantReply
+    public function ask(array $messages, ?Agent $agent = null, ?User $user = null): AssistantReply
     {
-        $reply = $this->client->reply($this->systemPrompt(), $messages, $this->tools);
+        $reply = $agent
+            ? $this->client->reply($this->agentPrompt->build($agent, $this), $messages, $this->agentTools->for($agent, $user))
+            : $this->client->reply($this->systemPrompt(), $messages, $this->tools);
 
         // Only an answer counts: a failed call throws before this.
         $this->quota->record($this->tenants->current(), $reply->inputTokens, $reply->outputTokens);
@@ -80,7 +92,12 @@ class BusinessAssistant
         return $reply;
     }
 
-    public function systemPrompt(): string
+    /**
+     * The prompt with the business's figures. $intro replaces who the
+     * model is (an agent of the team, see AgentPrompt); the figures and how
+     * to read them stay the same.
+     */
+    public function systemPrompt(?string $intro = null): string
     {
         $tenant = $this->tenants->current();
         // Site orders only for a business that has any: no empty figures to talk about.
@@ -110,8 +127,10 @@ class BusinessAssistant
             'social' => $this->social->snapshot(),
         ], fn ($value) => $value !== null && $value !== []), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
+        $intro ??= "You are the business assistant inside the admin panel of \"{$tenant->name}\", a small business in Armenia. The person writing to you is its owner or manager. Your job is to help them understand their sales and decide what to do next to get more orders and more revenue.";
+
         return <<<PROMPT
-        You are the business assistant inside the admin panel of "{$tenant->name}", a small business in Armenia. The person writing to you is its owner or manager. Your job is to help them understand their sales and decide what to do next to get more orders and more revenue.
+        {$intro}
 
         Ground every claim in the data below. Quote the real numbers, compare periods, and point out what changed and the most likely reason. When the data cannot answer a question (for example, there are too few orders, or completed orders have no final price), say so plainly and tell them what to record so you can answer next time. Never invent figures.
 
@@ -135,8 +154,35 @@ class BusinessAssistant
         PROMPT;
     }
 
-    /** How to read the social data, only when the module is on. */
-    private function socialGuide(): string
+    /**
+     * The business in short, for the agents that don't need its figures:
+     * what it is and sells, its services, what its columns mean and its
+     * social accounts (when the module is on).
+     *
+     * @return array<string, mixed>
+     */
+    public function basics(): array
+    {
+        $tenant = $this->tenants->current();
+
+        return array_filter([
+            'business' => [
+                'name' => $tenant->name,
+                'currency' => $tenant->currency ?: 'AMD',
+                'today' => now($tenant->timezone ?: config('app.timezone'))->toDateString(),
+                'sells' => array_values(array_filter([
+                    Lead::query()->exists() || DataTable::query()->where('section', DataTableSection::Orders->value)->exists() ? 'services (orders)' : null,
+                    DataTable::query()->where('section', DataTableSection::Sales->value)->exists() ? 'goods (sales)' : null,
+                ])),
+            ],
+            'services' => $this->services(),
+            'columnMeanings' => $this->columnMeanings(),
+            'social' => $this->social->snapshot(),
+        ], fn ($value) => $value !== null && $value !== []);
+    }
+
+    /** How to read the social data, only when the module is on (agents read it too). */
+    public function socialGuide(): string
     {
         if (! $this->social->enabled()) {
             return '';
