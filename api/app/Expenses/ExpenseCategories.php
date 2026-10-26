@@ -8,7 +8,10 @@ use App\Models\DataTable;
 use App\Models\DataTableRow;
 use App\Models\Employee;
 use App\Models\ExpenseCategory;
+use App\Tenancy\TenantContext;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The kinds of a business's expenses. Every business starts with the
@@ -69,19 +72,39 @@ final class ExpenseCategories
             return $categories;
         }
 
+        // Several requests of one page (home, statistics, the assistant...)
+        // can find them missing at once: whichever writes first wins and the
+        // others keep its row instead of failing on the unique (tenant, key).
         $order = array_flip(array_keys(self::DEFAULTS));
+        $tenantId = app(TenantContext::class)->id();
+        $now = now();
+        $new = [];
         foreach ($missing as $key) {
             [$name, $inProfit] = self::DEFAULTS[$key];
             // A business's own category of the same name becomes the ready-made one.
             $own = $categories->first(fn (ExpenseCategory $c) => $c->key === null && Employee::normalize($c->name) === Employee::normalize($name));
             if ($own) {
-                $own->update(['key' => $key]);
+                self::unlessTaken(fn () => ExpenseCategory::query()->whereKey($own->id)->whereNull('key')->update(['key' => $key]));
             } else {
-                ExpenseCategory::create(['key' => $key, 'name' => $name, 'in_profit' => $inProfit, 'sort_order' => $order[$key]]);
+                $new[] = ['tenant_id' => $tenantId, 'key' => $key, 'name' => $name, 'in_profit' => $inProfit, 'sort_order' => $order[$key], 'created_at' => $now, 'updated_at' => $now];
             }
+        }
+        // ON CONFLICT DO NOTHING: a row another request made stands, and a caller's transaction stays usable.
+        if ($new !== []) {
+            ExpenseCategory::query()->insertOrIgnore($new);
         }
 
         return ExpenseCategory::query()->orderBy('sort_order')->orderBy('id')->get();
+    }
+
+    /** Runs a write that another request may have made first (the key is then taken): that one stands. */
+    private static function unlessTaken(callable $write): void
+    {
+        try {
+            // A savepoint inside a caller's transaction, so Postgres doesn't abort it.
+            DB::transaction($write);
+        } catch (UniqueConstraintViolationException) {
+        }
     }
 
     /**

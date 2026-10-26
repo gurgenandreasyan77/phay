@@ -82,10 +82,14 @@ class AssistantQuota
         $planLimit = $this->planLimit($subscription);
 
         DB::transaction(function () use ($tenant, $start, $planLimit, $inputTokens, $outputTokens) {
-            $usage = $this->usage($tenant, $start, lock: true) ?? AssistantUsage::withoutTenancy()->create([
+            // Two answers at once may both start the month's row: the second one is skipped, not an error.
+            AssistantUsage::withoutTenancy()->insertOrIgnore([
                 'tenant_id' => $tenant->id,
                 'period_start' => $start->toDateString(),
-            ])->refresh();
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $usage = $this->usage($tenant, $start, lock: true);
 
             $fromBonus = $planLimit !== null
                 && $usage->requests - $usage->bonus_used >= $planLimit
