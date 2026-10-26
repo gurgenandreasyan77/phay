@@ -3,6 +3,8 @@
 // component — the token must never reach the browser.
 import { cookies } from "next/headers";
 import { ADMIN_TOKEN_COOKIE } from "./adminSession";
+import type { ApiErrorInfo } from "./apiError";
+import { requestApi } from "./apiTransport";
 import type {
   AdditionalServiceCategory,
   CalculatorSettingsDto,
@@ -17,11 +19,6 @@ import type {
 } from "./api";
 
 export { ADMIN_TOKEN_COOKIE };
-
-const API_BASE =
-  process.env.NEXT_INTERNAL_API_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:8080/api/v1";
 
 export type LeadStatus =
   | "new"
@@ -1047,48 +1044,79 @@ export async function getAdminToken(): Promise<string | null> {
   return store.get(ADMIN_TOKEN_COOKIE)?.value ?? null;
 }
 
-type AdminApiResult<T> = { ok: boolean; status: number; data: T | null };
+/**
+ * `error` holds the API's real error (status, code, message, request id)
+ * when the call failed, and `body` the whole JSON, so a route handler can
+ * pass it on to the browser (see bffResponse in ./bff).
+ */
+export type AdminApiResult<T> = {
+  ok: boolean;
+  status: number;
+  data: T | null;
+  error: ApiErrorInfo | null;
+  body: unknown;
+  requestId: string;
+};
 
 export async function adminApiFetch<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<AdminApiResult<T>> {
   const token = await getAdminToken();
+  // Signed out (the sign-in pages render the admin's layout too): the API
+  // would only answer 401, so don't ask it.
+  if (!token) return signedOut();
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const answer = await requestApi(path, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      Authorization: `Bearer ${token}`,
       ...init.headers,
     },
-    cache: "no-store",
   });
 
-  const json = response.status === 204 ? null : await response.json().catch(() => null);
+  const json = answer.json as { data?: T } | null;
 
-  return { ok: response.ok, status: response.status, data: (json?.data as T | undefined) ?? null };
+  return {
+    ok: answer.ok,
+    status: answer.status,
+    data: json?.data ?? null,
+    error: answer.error,
+    body: answer.json,
+    requestId: answer.requestId,
+  };
+}
+
+function signedOut<T>(): AdminApiResult<T> {
+  const body = { message: "Unauthenticated.", code: "unauthenticated", status: 401 };
+  return {
+    ok: false,
+    status: 401,
+    data: null,
+    error: { status: 401, code: "unauthenticated", message: body.message, requestId: null },
+    body,
+    requestId: "",
+  };
 }
 
 /** Like adminApiFetch, but hands back the whole JSON body (errors included). */
 export async function adminApiFetchRaw(
   path: string,
   init: RequestInit = {},
-): Promise<{ status: number; json: unknown }> {
+): Promise<{ status: number; json: unknown; requestId: string }> {
   const token = await getAdminToken();
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const answer = await requestApi(path, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      Accept: "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init.headers,
     },
-    cache: "no-store",
   });
 
-  return { status: response.status, json: await response.json().catch(() => null) };
+  return { status: answer.status, json: answer.json, requestId: answer.requestId };
 }
 
 export async function getAnalytics(period: AnalyticsPeriod): Promise<AnalyticsDto | null> {
@@ -1259,15 +1287,10 @@ export async function getLeads(params: {
   if (params.search) query.set("search", params.search);
   if (params.page) query.set("page", String(params.page));
 
-  const token = await getAdminToken();
-  const response = await fetch(`${API_BASE}/admin/leads?${query.toString()}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    cache: "no-store",
-  });
+  const result = await adminApiFetchRaw(`/admin/leads?${query.toString()}`);
+  if (result.status !== 200) return empty;
 
-  if (!response.ok) return empty;
-
-  const json = (await response.json().catch(() => null)) as {
+  const json = result.json as {
     data: AdminLeadDto[];
     meta?: { current_page: number; last_page: number; total: number };
   } | null;

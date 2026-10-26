@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { bffResponse } from "@/lib/bff";
 import { adminApiFetch } from "@/lib/adminApi";
 
 export async function POST() {
   const result = await adminApiFetch("/admin/notifications/read-all", { method: "POST" });
-  return new NextResponse(null, { status: result.ok ? 204 : result.status });
+  return result.ok ? new NextResponse(null, { status: 204 }) : bffResponse(result);
 }

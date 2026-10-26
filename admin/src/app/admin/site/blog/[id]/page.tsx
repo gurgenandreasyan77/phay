@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requirePermission } from "@/lib/adminAuth";
+import { requireModule } from "@/lib/adminAuth";
 import { getPostAdmin } from "@/lib/adminApi";
 import { PageHeader, buttonClasses } from "@/ui";
 import { PostEditor } from "../PostEditor";
@@ -8,7 +8,7 @@ import { PostEditor } from "../PostEditor";
 export const dynamic = "force-dynamic";
 
 export default async function EditPostPage(props: { params: Promise<{ id: string }> }) {
-  await requirePermission("catalog");
+  await requireModule("site", "catalog");
   const { id } = await props.params;
   const post = Number.isInteger(Number(id)) ? await getPostAdmin(Number(id)) : null;
   if (!post) notFound();

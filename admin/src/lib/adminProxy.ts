@@ -4,11 +4,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { ADMIN_TOKEN_COOKIE } from "./adminSession";
-
-const API_BASE =
-  process.env.NEXT_INTERNAL_API_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:8080/api/v1";
+import { requestApi } from "./apiTransport";
 
 /** The admin's session lasts as long as the API token (sanctum.expiration). */
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
@@ -31,22 +27,20 @@ export async function callApi(
   request: NextRequest,
   path: string,
   init: { method?: string; body?: string; auth?: boolean } = {},
-): Promise<{ status: number; json: unknown }> {
+): Promise<{ status: number; json: unknown; requestId?: string }> {
   const token = init.auth === false ? undefined : (await cookies()).get(ADMIN_TOKEN_COOKIE)?.value;
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const answer = await requestApi(path, {
     method: init.method ?? request.method,
     body: init.body,
     headers: {
       "Content-Type": "application/json",
-      Accept: "application/json",
       ...clientHeaders(request),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    cache: "no-store",
   });
 
-  return { status: response.status, json: response.status === 204 ? null : await response.json().catch(() => null) };
+  return { status: answer.status, json: answer.json, requestId: answer.requestId };
 }
 
 /** Passes the request's method and body to `path` and the answer back unchanged. */
@@ -54,7 +48,11 @@ export async function proxy(request: NextRequest, path: string, options: { auth?
   const body = ["GET", "HEAD"].includes(request.method) ? undefined : await request.text();
   const result = await callApi(request, path, { body, auth: options.auth });
 
-  return result.status === 204 ? new NextResponse(null, { status: 204 }) : NextResponse.json(result.json, { status: result.status });
+  if (result.status === 204) return new NextResponse(null, { status: 204 });
+  return NextResponse.json(result.json, {
+    status: result.status,
+    headers: result.requestId ? { "X-Request-Id": result.requestId } : undefined,
+  });
 }
 
 /** Keeps the API token in the httpOnly cookie; the browser never sees it. */
@@ -75,7 +73,7 @@ type SignedIn = { data?: { token?: string; user?: Record<string, unknown> } };
  * An API answer that signs in (login, 2FA step, accepted invitation): the
  * token goes to the cookie, the rest to the browser.
  */
-export async function signInFrom(result: { status: number; json: unknown }): Promise<NextResponse> {
+export async function signInFrom(result: { status: number; json: unknown; requestId?: string }): Promise<NextResponse> {
   const json = result.json as SignedIn | null;
 
   if (result.status !== 200) {
@@ -84,7 +82,11 @@ export async function signInFrom(result: { status: number; json: unknown }): Pro
 
   const token = json?.data?.token;
   if (!token) {
-    return NextResponse.json({ message: "Unexpected response from API" }, { status: 502 });
+    console.error(`[api] sign-in answered 200 without a token (request ${result.requestId ?? "?"})`);
+    return NextResponse.json(
+      { message: "The API signed in without giving a token.", code: "bad_gateway", status: 502, request_id: result.requestId },
+      { status: 502 },
+    );
   }
 
   await setSessionCookie(token);

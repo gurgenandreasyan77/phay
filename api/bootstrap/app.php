@@ -1,6 +1,8 @@
 <?php
 
+use App\Exceptions\ApiExceptionRenderer;
 use App\Http\Middleware\AllowSiteOrigins;
+use App\Http\Middleware\AssignRequestId;
 use App\Http\Middleware\EnsureBusinessPermission;
 use App\Http\Middleware\EnsurePlatformStaff;
 use App\Http\Middleware\EnsureSuperAdmin;
@@ -32,6 +34,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Before HandleCors, which is part of the global stack.
         $middleware->prepend(AllowSiteOrigins::class);
 
+        // Outermost, so every answer (errors and CORS preflights included)
+        // carries the request's id.
+        $middleware->prepend(AssignRequestId::class);
+
         $middleware->api(append: [
             SetLocale::class,
         ]);
@@ -55,6 +61,12 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
+            fn (Request $request) => ApiExceptionRenderer::wantsJson($request),
+        );
+
+        // One JSON shape for every API error (code, message, request id;
+        // file, line and trace only with APP_DEBUG), see ApiExceptionRenderer.
+        $exceptions->render(
+            fn (Throwable $e, Request $request) => (new ApiExceptionRenderer((bool) config('app.debug')))($e, $request),
         );
     })->create();

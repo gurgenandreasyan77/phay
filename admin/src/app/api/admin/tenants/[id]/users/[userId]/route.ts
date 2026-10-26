@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { bffResponse } from "@/lib/bff";
 import { adminApiFetch } from "@/lib/adminApi";
 
 // Typed by hand: RouteContext only knows routes `next dev`/`next build` has
@@ -13,7 +14,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     method: "PATCH",
     body,
   });
-  return NextResponse.json({ data: result.data }, { status: result.ok ? 200 : result.status });
+  return bffResponse(result);
 }
 
 export async function DELETE(_request: NextRequest, ctx: Ctx) {
@@ -23,5 +24,5 @@ export async function DELETE(_request: NextRequest, ctx: Ctx) {
   });
   return result.ok
     ? new NextResponse(null, { status: 204 })
-    : NextResponse.json({ data: result.data }, { status: result.status });
+    : bffResponse(result);
 }

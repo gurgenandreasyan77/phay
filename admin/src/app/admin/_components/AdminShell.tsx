@@ -11,7 +11,14 @@ import { SubscriptionBanner } from "./subscription/SubscriptionBanner";
 import { Topbar } from "./Topbar";
 
 /** Sign-in pages and the 2FA setup that comes before everything: no menu. */
-const BARE_PATHS = ["/admin/login", "/admin/forgot-password", "/admin/reset-password", "/admin/invite", "/admin/setup-2fa"];
+const BARE_PATHS = [
+  "/admin/login",
+  "/admin/forgot-password",
+  "/admin/reset-password",
+  "/admin/invite",
+  "/admin/setup-2fa",
+  "/admin/maintenance",
+];
 
 export function AdminShell({
   features,

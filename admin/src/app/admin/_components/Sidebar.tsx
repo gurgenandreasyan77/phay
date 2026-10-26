@@ -41,7 +41,7 @@ export function Sidebar({
           <BusinessLogo name={businessName ?? "Phay"} logo={businessLogo} size="sm" className="border-0" />
         ) : (
           <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
-            S
+            P
           </span>
         )}
         <div className="min-w-0 leading-tight">

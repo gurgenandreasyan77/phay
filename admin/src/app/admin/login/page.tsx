@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
+import { describeApiError, friendlyApiError, parseApiError } from "@/lib/apiError";
+import { safeNextPath } from "@/lib/adminSession";
 import { Button, Input } from "@/ui";
 import { AuthCard, ErrorBox, errorClasses, fieldError, homeFor, labelClasses } from "../_components/auth/AuthCard";
 
@@ -28,7 +30,9 @@ export default function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   function done(user: SignedInUser | undefined) {
-    router.push(homeFor(user));
+    // Back to the page that sent here (?next=), unless 2FA must be set up first.
+    const next = user?.twoFactorSetupRequired ? null : safeNextPath(new URLSearchParams(window.location.search).get("next"));
+    router.push(next ?? homeFor(user));
     router.refresh();
   }
 
@@ -88,7 +92,14 @@ function PasswordStep({
       } | null;
 
       if (!response.ok) {
-        setError("Սխալ էլ. հասցե կամ գաղտնաբառ։");
+        // A wrong password is a 422; anything else (the API down, a bug) says what it is.
+        if (response.status === 422 || response.status === 401) {
+          setError("Սխալ էլ. հասցե կամ գաղտնաբառ։");
+        } else {
+          const apiError = parseApiError(response.status, json, response.headers.get("x-request-id"));
+          console.error("[admin] sign-in failed:", describeApiError(apiError, "POST /api/admin/session"));
+          setError(friendlyApiError(apiError));
+        }
         return;
       }
 
@@ -106,6 +117,7 @@ function PasswordStep({
   return (
     <AuthCard title="Մուտք" description="Մուտք գործեք ադմին վահանակ։">
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
+        <SessionExpiredNote />
         <div className="space-y-1.5">
           <label htmlFor="email" className={labelClasses}>
             Էլ. փոստ
@@ -175,8 +187,12 @@ function TwoFactorStep({
       } else if (fieldError(json, "challenge")) {
         onRestart(fieldError(json, "challenge"));
         return;
-      } else {
+      } else if (response.status === 422) {
         setError(useRecovery ? "Վերականգնման կոդը սխալ է կամ արդեն օգտագործված։" : "Կոդը սխալ է։ Ստուգեք, որ հեռախոսի ժամը ճիշտ է։");
+      } else {
+        const apiError = parseApiError(response.status, json, response.headers.get("x-request-id"));
+        console.error("[admin] 2FA sign-in failed:", describeApiError(apiError, "POST /api/admin/session/two-factor"));
+        setError(friendlyApiError(apiError));
       }
     } catch {
       setError("Չհաջողվեց կապ հաստատել։ Փորձեք նորից։");
@@ -235,5 +251,24 @@ function TwoFactorStep({
         </div>
       </form>
     </AuthCard>
+  );
+}
+
+const noSubscription = () => () => {};
+
+/** After /api/admin/session/expired: why the person is asked to sign in again. */
+function SessionExpiredNote() {
+  // Read after hydration (the server doesn't render it): no mismatch.
+  const expired = useSyncExternalStore(
+    noSubscription,
+    () => new URLSearchParams(window.location.search).get("expired") === "1",
+    () => false,
+  );
+  if (!expired) return null;
+
+  return (
+    <div className="rounded-md border border-warning bg-warning-light p-3.5" role="status">
+      <p className="text-sm text-warning">Ձեր մուտքի ժամկետն ավարտվել է։ Մուտք գործեք նորից, և կվերադառնաք նույն էջ։</p>
+    </div>
   );
 }

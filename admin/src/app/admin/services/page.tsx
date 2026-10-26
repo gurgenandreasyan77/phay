@@ -1,10 +1,8 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { requirePermission } from "@/lib/adminAuth";
+import { requireModule } from "@/lib/adminAuth";
 import {
   getAdditionalServicesAdmin,
   getCalculatorSettingsAdmin,
-  getFeatureFlagsAdmin,
   getServiceCategoriesAdmin,
   getServicesAdmin,
 } from "@/lib/adminApi";
@@ -23,9 +21,7 @@ export const dynamic = "force-dynamic";
  * its own; a business that prices by a calculator adds one below.
  */
 export default async function AdminServicesPage() {
-  await requirePermission("catalog");
-  const flags = await getFeatureFlagsAdmin();
-  if (!flags.find((f) => f.key === "services")?.active) notFound();
+  await requireModule("services", "catalog");
 
   const [services, categories, calculator] = await Promise.all([
     getServicesAdmin(),

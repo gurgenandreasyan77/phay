@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { requirePermission } from "@/lib/adminAuth";
-import { getFeatureFlagsAdmin, getPostsAdmin } from "@/lib/adminApi";
+import { requireModule } from "@/lib/adminAuth";
+import { getPostsAdmin } from "@/lib/adminApi";
 import { Badge, EmptyRow, PageHeader, TableWrap, Td, Th, Thead, Tr, buttonClasses } from "@/ui";
 import { formatMoment } from "../../_components/tables/shared";
 import { POST_CATEGORY_LABELS } from "./shared";
@@ -10,9 +9,7 @@ export const dynamic = "force-dynamic";
 
 /** The blog of the business's site: drafts and published posts. */
 export default async function AdminBlogPage() {
-  await requirePermission("catalog");
-  const flags = await getFeatureFlagsAdmin();
-  if (!flags.find((f) => f.key === "site")?.active) notFound();
+  await requireModule("site", "catalog");
 
   const posts = await getPostsAdmin();
 

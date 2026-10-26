@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Exceptions\ApiException;
 use App\Subscriptions\Subscriptions;
 use App\Tenancy\TenantContext;
 use Closure;
@@ -42,15 +43,15 @@ class ResolveAdminTenant
         $user = $request->user();
         $tenant = $user->resolveCurrentTenant();
 
-        abort_unless($tenant, 403, 'Your account is not linked to any business.');
+        if (! $tenant) {
+            throw new ApiException(403, 'no_business', 'Your account is not linked to any business.');
+        }
 
         // A suspended business can't be worked on by its own people; the
         // platform staff still can (e.g. to look into it).
-        abort_unless(
-            $tenant->isActive() || $user->isPlatformStaff(),
-            403,
-            'This business is suspended.',
-        );
+        if (! $tenant->isActive() && ! $user->isPlatformStaff()) {
+            throw new ApiException(403, 'business_suspended', 'This business is suspended.');
+        }
 
         return $this->context->run($tenant, function () use ($request, $next, $tenant, $user) {
             // The business's own people: warned before the end, locked out
