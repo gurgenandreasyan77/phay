@@ -536,6 +536,11 @@ export type AssistantAttachmentDto = {
   size: number;
   width: number | null;
   height: number | null;
+  /** upload: the person attached it; design: an AI agent made it (a PNG of its answer). */
+  origin?: "upload" | "design";
+  /** A design's name and size (post, story, square, landscape, flyer). */
+  title?: string | null;
+  format?: string | null;
 };
 
 export type AssistantMessageDto = {
@@ -543,7 +548,7 @@ export type AssistantMessageDto = {
   role: "user" | "assistant";
   content: string;
   refused: boolean;
-  /** Files of a question (none on answers). */
+  /** Files of a question, or the pictures an agent made in an answer. */
   attachments?: AssistantAttachmentDto[];
   /** Cards under an answer: a reshape to apply, a file to download. */
   actions?: AssistantActionDto[];

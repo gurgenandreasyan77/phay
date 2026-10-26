@@ -9,6 +9,10 @@ use App\Audience\SocialSource;
 use App\Features\FeatureFlag;
 use App\Google\GoogleCalendarClient;
 use App\Google\HttpGoogleCalendarClient;
+use App\Media\DesignStudio;
+use App\Media\HttpRenderer;
+use App\Media\LinkReader;
+use App\Media\Renderer;
 use App\Models\User;
 use App\Security\Sms\LogSmsSender;
 use App\Security\Sms\SmsSender;
@@ -78,6 +82,15 @@ class AppServiceProvider extends ServiceProvider
             effort: config('services.anthropic.effort'),
             maxTokens: config('services.anthropic.max_tokens'),
         ));
+
+        // The agents' pictures and links: counted and collected per question.
+        $this->app->bind(Renderer::class, fn () => new HttpRenderer(
+            url: config('services.media.url'),
+            token: config('services.media.token'),
+            timeout: (int) config('services.media.timeout', 40),
+        ));
+        $this->app->scoped(DesignStudio::class);
+        $this->app->scoped(LinkReader::class);
     }
 
     /**

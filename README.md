@@ -24,8 +24,8 @@ phay/
 
 ```
 browser ──► admin (:3001)  ──► api nginx (:8080) ──► backend (php-fpm) ──► postgres
-                                      ▲
-business websites ────────────────────┘  X-Site-Key header
+                                      ▲                     │
+business websites ────────────────────┘  X-Site-Key header  └──► media (Chromium)
 ```
 
 - **admin** talks only to the admin API, through its own `/api/admin/*` route
@@ -35,6 +35,10 @@ business websites ────────────────────�
 - **CORS** allows each active site's origins (its listed origins, else its
   domain with and without `www`) on top of `CORS_ALLOWED_ORIGINS`, so a new
   site needs no deploy.
+- **media** (`media/server.js`) renders the AI agents' designs (an HTML page
+  each) to PNG for the backend, with `MEDIA_TOKEN`. JavaScript is off and every
+  request the page makes is refused; it is reached only on the compose network.
+  Without `MEDIA_URL` the agents give briefs instead of pictures.
 - **Cache refresh:** after an edit Laravel sends the affected cache tags to
   each of the business's sites (webhook URL and secret set on Platform →
   Sites, `App\Sites\SiteRevalidator`), after the response has gone out.

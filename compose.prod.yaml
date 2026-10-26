@@ -36,6 +36,8 @@ x-backend: &backend
     DB_DATABASE: ${POSTGRES_DB:-phay}
     DB_USERNAME: ${POSTGRES_USER:-phay}
     DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env.prod}
+    # MEDIA_TOKEN comes from .env.prod (env_file) like the rest.
+    MEDIA_URL: http://media:3100
   volumes:
     - public_storage:/var/www/html/storage/app/public
     - private_storage:/var/www/html/storage/app/private
@@ -82,6 +84,17 @@ services:
     command: ["php", "artisan", "schedule:work"]
     healthcheck:
       disable: true
+
+  # Chromium that renders the AI agents' designs (HTML) to PNG: media/server.js.
+  # Only the backend reaches it, on the compose network; nothing published.
+  media:
+    build:
+      context: ./media
+    restart: unless-stopped
+    environment:
+      MEDIA_TOKEN: ${MEDIA_TOKEN:?MEDIA_TOKEN must be set in .env.prod (make prod-init, or openssl rand -hex 32)}
+    networks:
+      - phay
 
   api:
     build:

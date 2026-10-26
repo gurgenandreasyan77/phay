@@ -12,12 +12,24 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * A file a person attached to a question in the AI chat (App\Assistant\Attachments).
  * Uploaded first (assistant_message_id null), tied to the question once it
  * is answered; only its uploader ever reads it.
+ *
+ * Or a picture an AI agent made while answering that person (origin
+ * design, App\Media\DesignStudio): tied to the answer, with the HTML it
+ * was rendered from.
  */
 class AssistantAttachment extends Model
 {
     use BelongsToTenant;
 
-    protected $fillable = ['user_id', 'assistant_message_id', 'kind', 'mime', 'name', 'size', 'path', 'width', 'height'];
+    public const UPLOAD = 'upload';
+
+    public const DESIGN = 'design';
+
+    protected $fillable = ['user_id', 'assistant_message_id', 'kind', 'origin', 'mime', 'name', 'title', 'format', 'size', 'path', 'width', 'height', 'html'];
+
+    protected $attributes = ['origin' => self::UPLOAD];
+
+    protected $hidden = ['html'];
 
     protected $casts = [
         'kind' => AttachmentKind::class,
@@ -37,6 +49,17 @@ class AssistantAttachment extends Model
         return $query->where('user_id', $user->id);
     }
 
+    /** Files people attached (not pictures the agents made). */
+    public function scopeUploads(Builder $query): Builder
+    {
+        return $query->where('origin', self::UPLOAD);
+    }
+
+    public function isDesign(): bool
+    {
+        return $this->origin === self::DESIGN;
+    }
+
     /** @return array<string, mixed> */
     public function present(): array
     {
@@ -48,6 +71,9 @@ class AssistantAttachment extends Model
             'size' => $this->size,
             'width' => $this->width,
             'height' => $this->height,
+            'origin' => $this->origin,
+            'title' => $this->title,
+            'format' => $this->format,
         ];
     }
 }

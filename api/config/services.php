@@ -51,6 +51,14 @@ return [
         'monthly_limit' => (int) env('ASSISTANT_MONTHLY_LIMIT', 30),
     ],
 
+    // Renders the AI agents' designs to PNG (media/server.js, App\Media\HttpRenderer).
+    // Without a URL the agents can't render and give briefs instead.
+    'media' => [
+        'url' => env('MEDIA_URL'),
+        'token' => env('MEDIA_TOKEN'),
+        'timeout' => (int) env('MEDIA_TIMEOUT', 40),
+    ],
+
     // Google Calendar in the business calendar (read only). Keys of an OAuth
     // client of type "Web application" in Google Cloud; the redirect URI is
     // the admin's /api/admin/google/callback, registered there exactly.

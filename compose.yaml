@@ -1,6 +1,7 @@
 name: ${COMPOSE_PROJECT_NAME:-phay}
 
-# Phay LOCAL stack (make local-*): the API (php-fpm + nginx), the admin app and Postgres.
+# Phay LOCAL stack (make local-*): the API (php-fpm + nginx), the admin app, Postgres
+# and the media service (renders the AI agents' designs).
 # Sites of the businesses are separate projects that
 # call this API with their X-Site-Key; nothing of them runs here.
 
@@ -62,9 +63,23 @@ services:
       DB_DATABASE: ${POSTGRES_DB:-phay}
       DB_USERNAME: ${POSTGRES_USER:-phay}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      # The AI agents' designs are rendered to PNG by the media service.
+      MEDIA_URL: http://media:3100
+      MEDIA_TOKEN: ${MEDIA_TOKEN:-dev_media_token}
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - phay
+
+  # Chromium that renders the AI agents' designs (HTML) to PNG: media/server.js.
+  # Reached only by the backend on this network, nothing published.
+  media:
+    build:
+      context: ./media
+    restart: unless-stopped
+    environment:
+      MEDIA_TOKEN: ${MEDIA_TOKEN:-dev_media_token}
     networks:
       - phay
 
