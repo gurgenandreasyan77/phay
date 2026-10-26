@@ -49,7 +49,7 @@ function Hint({ children }: { children: React.ReactNode }) {
  * Who buys and where they come from: channels, social accounts, gender and
  * age. A block with no data yet shows a dimmed sample and what to add.
  */
-export function AudienceSection({ audience }: { audience: AudienceDto | null }) {
+export function AudienceSection({ audience, socialModule = false }: { audience: AudienceDto | null; socialModule?: boolean }) {
   const channels = audience?.channels ?? null;
   const gender = audience?.gender ?? null;
   const age = audience?.age ?? null;
@@ -104,16 +104,29 @@ export function AudienceSection({ audience }: { audience: AudienceDto | null }) 
               </div>
             ) : (
               <div className="space-y-3">
-                <SampleFrame badge="Շուտով">
+                <SampleFrame badge={socialModule ? "Օրինակ" : "Մոդուլ"}>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <SocialTile network="instagram" handle="@mybusiness.am" followers={4820} followersChange={312} reach={18400} engagement={5.8} />
                     <SocialTile network="facebook" handle="mybusiness" followers={2140} followersChange={64} reach={7300} engagement={3.1} />
                   </div>
                 </SampleFrame>
-                <Hint>
-                  Instagram-ի և Facebook-ի միացումը շուտով։ Այստեղ կերևան հետևորդները, դիտումները և ներգրավվածությունը՝ ձեր
-                  պատվերների կողքին։
-                </Hint>
+                {socialModule ? (
+                  <Hint>
+                    <Link href="/admin/social" className="text-primary hover:underline">
+                      Միացրեք Instagram-ը և Facebook-ը
+                    </Link>
+                    , և այստեղ կերևան հետևորդները, ընդգրկումը և ներգրավվածությունը՝ ձեր պատվերների կողքին։
+                  </Hint>
+                ) : (
+                  <Hint>
+                    Instagram-ը և Facebook-ը միանում են «Սոցցանցեր» մոդուլով։ Այստեղ կերևան հետևորդները, ընդգրկումը և
+                    ներգրավվածությունը, իսկ AI օգնականը կհամեմատի ձեզ մրցակիցների հետ։ Մոդուլը միացնելու համար գրեք{" "}
+                    <Link href="/admin/subscription" className="text-primary hover:underline">
+                      բաժանորդագրության էջում
+                    </Link>
+                    ։
+                  </Hint>
+                )}
               </div>
             )}
           </Card>
@@ -217,7 +230,7 @@ function SocialTile({
         color={info.color}
         display={`${formatNumber(engagement)}%`}
         label="Ներգրավվածություն"
-        hint={`${formatNumber(reach)} դիտում`}
+        hint={`${formatNumber(reach)} ընդգրկում 28 օրում`}
       />
     </div>
   );

@@ -1390,6 +1390,139 @@ export async function getGoogleState(): Promise<GoogleStateDto | null> {
   return result.data;
 }
 
+export type SocialNetwork = "instagram" | "facebook";
+
+/** Post figures the same way for the business and its competitors (App\Social\PostStats). */
+export type SocialPostStatsDto = {
+  posts: number;
+  from?: string;
+  to?: string;
+  lastPostAt?: string;
+  postsLast30Days?: number;
+  postsLast90Days?: number;
+  postsPerWeek?: number;
+  avgLikes?: number;
+  avgComments?: number;
+  avgShares?: number;
+  avgSaves?: number;
+  avgReach?: number;
+  avgViews?: number;
+  hiddenLikes?: boolean;
+  engagementRate?: number;
+  byKind?: { kind: string; posts: number; avgLikes?: number; avgComments?: number; avgReach?: number; avgViews?: number }[];
+  bestWeekdays?: { group: string; posts: number; avgEngagement: number }[];
+  bestHours?: { group: string; posts: number; avgEngagement: number }[];
+};
+
+export type SocialPostDto = {
+  postedAt?: string;
+  kind?: string;
+  caption?: string;
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  saves?: number;
+  reach?: number;
+  views?: number;
+  permalink?: string;
+};
+
+export type SocialAccountInsightsDto = {
+  id: number;
+  network: SocialNetwork;
+  handle: string;
+  username?: string;
+  name?: string;
+  picture?: string;
+  url?: string;
+  profile?: { biography?: string; website?: string; category?: string; link?: string };
+  followers?: number;
+  followersChange7Days?: number;
+  followersChange30Days?: number;
+  follows?: number;
+  mediaCount?: number;
+  last28Days?: {
+    from: string | null;
+    to: string | null;
+    totals: Record<string, number>;
+    previous28Days: Record<string, number>;
+    changePercent: Record<string, number>;
+  };
+  /** Followers by age, gender, city, country (from 100 followers). */
+  followersAudience?: Partial<Record<"age" | "gender" | "city" | "country", Record<string, number>>>;
+  postsLast90Days: SocialPostStatsDto;
+  topPosts?: SocialPostDto[];
+  syncedAt?: string;
+};
+
+export type SocialCompetitorDto = {
+  id: number;
+  username: string;
+  status: "pending" | "ok" | "not_found" | "error";
+  error?: string;
+  name?: string;
+  picture?: string;
+  biography?: string;
+  website?: string;
+  url: string;
+  adLibraryUrl: string;
+  followers?: number;
+  followersChange30Days?: number;
+  follows?: number;
+  mediaCount?: number;
+  stats?: SocialPostStatsDto;
+  recentPosts?: SocialPostDto[];
+  syncedAt?: string;
+};
+
+export type SocialComparisonRowDto = {
+  own: boolean;
+  username: string | null;
+  followers: number | null;
+  mediaCount: number | null;
+  postsPerWeek: number | null;
+  avgLikes: number | null;
+  avgComments: number | null;
+  engagementRate: number | null;
+  hiddenLikes: boolean;
+  lastPostAt: string | null;
+};
+
+export type SocialStateDto = {
+  /** The platform has its Meta app keys (META_APP_ID…). */
+  configured: boolean;
+  connection: {
+    name: string | null;
+    connectedAt: string | null;
+    syncedAt: string | null;
+    expiresAt: string | null;
+    expiringSoon: boolean;
+    /** Meta refused the access: connect again. */
+    needsReconnect: boolean;
+    missingPermissions: string[];
+    syncError: string | null;
+    accounts: {
+      id: number;
+      network: SocialNetwork;
+      pageId: string | null;
+      handle: string;
+      name: string | null;
+      picture: string | null;
+      followers: number | null;
+      selected: boolean;
+    }[];
+  } | null;
+  insights: SocialAccountInsightsDto[];
+  competitors: SocialCompetitorDto[];
+  comparison: SocialComparisonRowDto[];
+  maxCompetitors: number;
+};
+
+export async function getSocialState(): Promise<SocialStateDto | null> {
+  const result = await adminApiFetch<SocialStateDto>("/admin/social");
+  return result.data;
+}
+
 export async function getCalendar(from: string, to: string): Promise<CalendarDto | null> {
   const result = await adminApiFetch<CalendarDto>(`/admin/calendar?from=${from}&to=${to}`);
   return result.data;

@@ -1,9 +1,15 @@
 import { requirePermission } from "@/lib/adminAuth";
 import { can, isPlatformStaff } from "@/lib/roles";
-import { getAssistantConversation, getAssistantConversations, getAssistantStatus, getDataTables } from "@/lib/adminApi";
+import {
+  getAssistantConversation,
+  getAssistantConversations,
+  getAssistantStatus,
+  getDataTables,
+  getFeatureFlagsAdmin,
+} from "@/lib/adminApi";
 import { PageHeader } from "@/ui";
 import { AssistantChat } from "./AssistantChat";
-import { SUGGESTIONS } from "./suggestions";
+import { SOCIAL_SUGGESTION, SUGGESTIONS } from "./suggestions";
 
 export const dynamic = "force-dynamic";
 
@@ -12,11 +18,12 @@ export default async function AdminAssistantPage(props: PageProps<"/admin/assist
   const { c } = await props.searchParams;
   // ?c=<id> reopens one of the person's earlier chats.
   const openId = typeof c === "string" && /^\d+$/.test(c) ? Number(c) : null;
-  const [status, tables, conversations, opened] = await Promise.all([
+  const [status, tables, conversations, opened, flags] = await Promise.all([
     getAssistantStatus(),
     getDataTables(),
     getAssistantConversations(),
     openId ? getAssistantConversation(openId) : null,
+    getFeatureFlagsAdmin(),
   ]);
   // A shop that keeps only sales gets questions about sales.
   const salesOnly = tables.some((t) => t.section === "sales") && !tables.some((t) => t.section === "orders");
@@ -28,7 +35,13 @@ export default async function AdminAssistantPage(props: PageProps<"/admin/assist
         description="Հարցրեք ձեր վաճառքների, պատվերների, ծախսերի և շահույթի մասին՝ ցանկացած օրվա, ամսվա կամ ապրանքի։ Զրույցները պահվում են «Պատմություն»-ում։ Օգնականը ինքն է գտնում ճշգրիտ թվերը ձեր բիզնեսի տվյալներում (առանց հաճախորդների անունների ու հեռախոսների) և խորհուրդ է տալիս, թե ինչպես ավելացնել վաճառքները։"
       />
       <AssistantChat
-        suggestions={salesOnly ? SUGGESTIONS.sales : SUGGESTIONS.orders}
+        suggestions={
+          flags.find((f) => f.key === "social")?.active
+            ? [...(salesOnly ? SUGGESTIONS.sales : SUGGESTIONS.orders).slice(0, 3), SOCIAL_SUGGESTION]
+            : salesOnly
+              ? SUGGESTIONS.sales
+              : SUGGESTIONS.orders
+        }
         configured={status?.configured ?? false}
         initialUsage={
           status ?? {

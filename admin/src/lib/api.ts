@@ -313,6 +313,7 @@ export type FeatureFlags = {
   services: boolean;
   market: boolean;
   site: boolean;
+  social: boolean;
 };
 
 export type SiteSettingsDto = {

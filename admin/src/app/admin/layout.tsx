@@ -19,6 +19,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     services: isActive("services"),
     market: isActive("market"),
     site: isActive("site"),
+    social: isActive("social"),
   };
 
   return (

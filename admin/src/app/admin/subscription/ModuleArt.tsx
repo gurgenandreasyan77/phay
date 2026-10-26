@@ -8,6 +8,7 @@ export const MODULE_TINTS: Record<string, ModuleTint> = {
   services: { tint: "#3f6f62", soft: "rgba(63, 111, 98, 0.18)", bg: "#eaf2ee" },
   market: { tint: "#b47a2b", soft: "rgba(185, 130, 50, 0.2)", bg: "#f8efe0" },
   site: { tint: "#3f6b86", soft: "rgba(82, 117, 137, 0.2)", bg: "#e7eff4" },
+  social: { tint: "#b4507a", soft: "rgba(180, 80, 122, 0.18)", bg: "#f7e9ef" },
 };
 
 const FALLBACK_TINT: ModuleTint = { tint: "#5d6a64", soft: "rgba(93, 106, 100, 0.16)", bg: "#eef0ee" };
@@ -171,6 +172,43 @@ function SiteArt({ tint }: ArtProps) {
   );
 }
 
+/** Social: a profile with its followers growing, a heart and a comment. */
+function SocialArt({ tint }: ArtProps) {
+  return (
+    <>
+      <g className={styles.float} style={delay(0)}>
+        <rect x="58" y="14" width="96" height="104" rx="14" fill="#fff" stroke={tint} strokeOpacity="0.2" />
+        <circle cx="80" cy="36" r="10" fill="none" stroke={tint} strokeWidth="2.4" />
+        <circle cx="80" cy="36" r="5" fill={tint} fillOpacity="0.5" />
+        <rect x="96" y="30" width="44" height="5" rx="2.5" fill="#202623" fillOpacity="0.55" />
+        <rect x="96" y="39" width="30" height="4" rx="2" fill="#202623" fillOpacity="0.2" />
+        {[0, 1, 2].map((i) => (
+          <rect key={i} x={70 + i * 24} y="54" width="20" height="20" rx="4" fill={tint} fillOpacity={0.2 + i * 0.15} />
+        ))}
+        <path d="M70 104l14-10 12 6 16-14 14 4" stroke={tint} strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+      <g className={styles.float} style={delay(0.8)}>
+        <rect x="172" y="28" width="62" height="34" rx="10" fill={tint} />
+        <path
+          d="M190 45c0-4 5-6 7-2 2-4 7-2 7 2 0 4-7 8-7 8s-7-4-7-8z"
+          fill="#fff"
+          transform="translate(-6 -2)"
+        />
+        <rect x="204" y="39" width="20" height="5" rx="2.5" fill="#fff" fillOpacity="0.9" />
+        <rect x="204" y="48" width="13" height="4" rx="2" fill="#fff" fillOpacity="0.6" />
+      </g>
+      <g className={styles.float} style={delay(1.6)}>
+        <rect x="178" y="76" width="54" height="30" rx="9" fill="#fff" stroke={tint} strokeOpacity="0.3" />
+        <path d="M186 106v7l8-7" fill="#fff" stroke={tint} strokeOpacity="0.3" />
+        <rect x="186" y="85" width="36" height="4" rx="2" fill="#202623" fillOpacity="0.45" />
+        <rect x="186" y="93" width="24" height="4" rx="2" fill="#202623" fillOpacity="0.2" />
+      </g>
+      <Spark x={34} y={40} tint={tint} d={0.4} />
+      <Spark x={250} y={20} tint={tint} d={1.2} />
+    </>
+  );
+}
+
 function GenericArt({ tint }: ArtProps) {
   return (
     <g className={styles.float}>
@@ -197,4 +235,5 @@ const ARTS: Record<string, (props: ArtProps) => ReactElement> = {
   services: ServicesArt,
   market: MarketArt,
   site: SiteArt,
+  social: SocialArt,
 };
