@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\NotificationType;
 use App\Services\SupportChat;
 use App\Subscriptions\Subscriptions;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -179,7 +180,14 @@ class Agents
         // tenant_id isn't fillable: set it, not the current business's.
         $row = new TenantAgent(['agent_key' => $agent->key(), 'active' => false]);
         $row->tenant_id = $tenant->id;
-        $row->save();
+
+        try {
+            // A savepoint inside a caller's transaction, so Postgres doesn't abort it.
+            DB::transaction(fn () => $row->save());
+        } catch (UniqueConstraintViolationException) {
+            // Another request made it first: use that one.
+            return TenantAgent::withoutTenancy()->where('tenant_id', $tenant->id)->where('agent_key', $agent->key())->firstOrFail();
+        }
 
         return $row;
     }
