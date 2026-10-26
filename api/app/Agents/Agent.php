@@ -73,6 +73,15 @@ abstract class Agent
         return true;
     }
 
+    /**
+     * Whether it makes finished pictures itself (posters, posts, covers:
+     * App\Media\DesignStudio), when the media service is connected.
+     */
+    public function designs(): bool
+    {
+        return false;
+    }
+
     /** What it can't do yet, said plainly on its card (null: nothing to say). */
     public function limitation(): ?string
     {

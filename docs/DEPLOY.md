@@ -52,7 +52,7 @@ Cloud и server-блоки в `deploy/phay.nginx.conf`. Я рекомендую 
 
 ```
 /var/www/projects/
-├── phay/     compose-проект phay-prod: postgres, backend, scheduler, api, admin
+├── phay/     compose-проект phay-prod: postgres, backend, scheduler, api, admin, media
 └── <сайт>/   свой compose-проект сайта бизнеса (если он на этом сервере)
 ```
 
@@ -69,6 +69,7 @@ Cloud и server-блоки в `deploy/phay.nginx.conf`. Я рекомендую 
 | `scheduler` | Тот же образ, `php artisan schedule:work`: ежедневная рассылка предупреждений о подписке (10:00 по Еревану) и очистка просроченных сессий админки |
 | `api` | nginx внутри Docker: отдаёт `/storage/*` и передаёт PHP в `backend` |
 | `admin` | Next.js админка |
+| `media` | Chromium (Node), рендерит дизайны AI-агентов (HTML) в PNG для `backend`. Порт не публикуется, доступ по `MEDIA_TOKEN` из `.env.prod` |
 
 Очередей (queue worker) нет: ни одна задача сейчас не ставится в очередь,
 обновление кеша сайтов отправляется сразу после ответа.
@@ -324,7 +325,7 @@ make prod-config
 # 3. Собрать и запустить (сборка 5-10 минут)
 make prod-build
 make prod-up
-make prod-ps            # postgres, backend, api, admin: healthy; scheduler: running
+make prod-ps            # postgres, backend, api, admin, media: healthy; scheduler: running
 
 # 4. Таблицы. На пустой базе миграции создают бизнес по умолчанию и его сайт с ключом
 make prod-migrate

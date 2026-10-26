@@ -83,6 +83,7 @@ class BusinessAssistant
      */
     public function ask(array $messages, ?Agent $agent = null, ?User $user = null): AssistantReply
     {
+        $this->agentTools->newQuestion();
         $reply = $agent
             ? $this->client->reply($this->agentPrompt->build($agent, $this), $messages, $this->agentTools->for($agent, $user))
             : $this->client->reply($this->systemPrompt(), $messages, $this->tools);

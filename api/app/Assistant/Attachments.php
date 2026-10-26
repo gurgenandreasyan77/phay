@@ -135,7 +135,7 @@ class Attachments
     /** Keeps an uploaded file for the person's next question. */
     public function upload(UploadedFile $file, User $user): AssistantAttachment
     {
-        $pending = AssistantAttachment::query()->of($user)->whereNull('assistant_message_id')->count();
+        $pending = AssistantAttachment::query()->of($user)->uploads()->whereNull('assistant_message_id')->count();
         if ($pending >= self::MAX_PENDING) {
             throw ValidationException::withMessages(['file' => ['Չուղարկված ֆայլերը շատ են։ Ուղարկեք կամ հեռացրեք դրանք։']]);
         }
@@ -251,6 +251,10 @@ class Attachments
         $count = 0;
         $bytes = 0;
         for ($i = count($messages) - 1; $i >= 0; $i--) {
+            // An answer can't carry pictures to the model: its designs are named only.
+            if ($messages[$i]['role'] !== 'user') {
+                continue;
+            }
             foreach (array_reverse($messages[$i]['files'] ?? []) as $file) {
                 if ($count < self::MAX_IN_CONTEXT && $bytes + $file->size <= self::MAX_CONTEXT_BYTES && Storage::disk(self::DISK)->exists($file->path)) {
                     $send[$file->id] = true;
@@ -264,6 +268,13 @@ class Attachments
             $files = $message['files'] ?? [];
             if ($files === []) {
                 return ['role' => $message['role'], 'content' => $message['content']];
+            }
+
+            // The pictures an agent made in this answer, by number (get_design opens one).
+            if ($message['role'] !== 'user') {
+                $names = array_map(fn (AssistantAttachment $f) => "[design #{$f->id}] «{$f->title}» ({$f->format})", $files);
+
+                return ['role' => $message['role'], 'content' => trim($message['content'])."\n\n(Pictures made in this answer: ".implode(', ', $names).')'];
             }
 
             $blocks = [];
@@ -295,6 +306,7 @@ class Attachments
     /** Uploads nobody sent within PENDING_HOURS, in every business. */
     public function prune(): int
     {
+        // Designs of an answer that failed, too: nobody sees them.
         $old = AssistantAttachment::withoutTenancy()
             ->whereNull('assistant_message_id')
             ->where('created_at', '<', now()->subHours(self::PENDING_HOURS))

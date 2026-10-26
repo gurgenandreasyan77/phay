@@ -6,6 +6,8 @@ use App\Assistant\Attachments;
 use App\Assistant\BusinessTools;
 use App\Assistant\ToolOutput;
 use App\Assistant\ToolSet;
+use App\Media\DesignStudio;
+use App\Media\LinkReader;
 use App\Models\AssistantAttachment;
 use App\Models\BrandAsset;
 use App\Models\BrandProfile;
@@ -21,8 +23,10 @@ use InvalidArgumentException;
  * tells about the brand into the profile every agent reads, and keeping
  * its own notes. Pictures the owner attaches (a logo, examples of posts)
  * can be kept for the whole team (save_brand_asset) and looked at again in
- * later conversations (view_brand_assets). Everything stays inside the
- * current business.
+ * later conversations (view_brand_assets). Every agent can open a link
+ * the owner sends (read_link); the designers also make pictures
+ * (render_designs, get_design). Everything stays inside the current
+ * business.
  */
 class AgentTools implements ToolSet
 {
@@ -43,7 +47,22 @@ class AgentTools implements ToolSet
         private readonly Agents $agents,
         private readonly TenantContext $tenants,
         private readonly Attachments $attachments,
+        private readonly DesignStudio $studio,
+        private readonly LinkReader $links,
     ) {}
+
+    /** Counts renders and links afresh, and forgets the pictures of an earlier question. */
+    public function newQuestion(): void
+    {
+        $this->studio->newQuestion();
+        $this->links->newQuestion();
+    }
+
+    /** Whether this agent makes pictures here (its role, and the media service is connected). */
+    public function designs(): bool
+    {
+        return $this->agent()->designs() && $this->studio->available();
+    }
 
     /** The same tools for another agent, saving as the given person. */
     public function for(Agent $agent, ?User $user): self
@@ -120,9 +139,11 @@ class AgentTools implements ToolSet
             // Only once there is something to look at.
             ...(BrandAsset::query()->exists() ? [[
                 'name' => self::VIEW_ASSETS,
-                'description' => 'Shows you the business\'s saved logo and example pictures. Look before you describe, design or write anything about how the brand looks.',
+                'description' => 'Shows you the business\'s saved logo and example pictures (with their ids for {{asset:ID}}). Look before you describe, design or write anything about how the brand looks.',
                 'inputSchema' => ['type' => 'object'],
             ]] : []),
+            $this->links->definition(),
+            ...($this->designs() ? $this->studio->definitions() : []),
         ];
     }
 
@@ -136,6 +157,18 @@ class AgentTools implements ToolSet
 
         if ($name === self::VIEW_ASSETS) {
             return $this->viewAssets();
+        }
+
+        if ($name === LinkReader::TOOL) {
+            return $this->links->read((string) ($input['url'] ?? ''));
+        }
+
+        if (in_array($name, [DesignStudio::RENDER, DesignStudio::GET], true)) {
+            if (! $this->designs()) {
+                throw new InvalidArgumentException('You can\'t make pictures here: give a brief instead.');
+            }
+
+            return $name === DesignStudio::RENDER ? $this->studio->render($input, $this->user) : $this->studio->get($input, $this->user);
         }
 
         if ($name === self::SAVE_PROFILE) {
@@ -198,7 +231,7 @@ class AgentTools implements ToolSet
 
         $blocks = [];
         foreach ($assets as $asset) {
-            $label = $asset->kind === BrandAsset::LOGO ? 'The logo' : "Example #{$asset->id}";
+            $label = $asset->kind === BrandAsset::LOGO ? 'The logo ({{logo}})' : "Example #{$asset->id} ({{asset:{$asset->id}}})";
             $blocks[] = ['type' => 'text', 'text' => $label.($asset->note ? ": {$asset->note}" : '')];
             $blocks[] = $this->attachments->block($asset);
         }

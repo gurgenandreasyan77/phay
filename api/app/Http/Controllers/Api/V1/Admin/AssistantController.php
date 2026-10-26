@@ -11,6 +11,7 @@ use App\Assistant\Attachments;
 use App\Assistant\BusinessAssistant;
 use App\Assistant\ReplyActions;
 use App\Http\Controllers\Controller;
+use App\Media\DesignStudio;
 use App\Models\AssistantAttachment;
 use App\Models\AssistantConversation;
 use App\Models\AssistantMessage;
@@ -38,6 +39,9 @@ use Illuminate\Validation\ValidationException;
  * A question may carry files uploaded before it (AssistantAttachmentController,
  * at most Attachments::MAX_PER_MESSAGE): they are tied to it once answered
  * and sent to the model again with later questions (the newest few).
+ *
+ * Pictures an agent makes while answering (DesignStudio) are kept as files
+ * of the answer and come back with it ("designs").
  */
 class AssistantController extends Controller
 {
@@ -57,7 +61,7 @@ class AssistantController extends Controller
         ]]);
     }
 
-    public function store(Request $request, BusinessAssistant $assistant, Agents $agents, TenantContext $tenants, Attachments $attachments, ReplyActions $actions): JsonResponse
+    public function store(Request $request, BusinessAssistant $assistant, Agents $agents, TenantContext $tenants, Attachments $attachments, ReplyActions $actions, DesignStudio $studio): JsonResponse
     {
         $validated = $request->validate([
             // One of the business's AI agents, for a new conversation.
@@ -145,8 +149,10 @@ class AssistantController extends Controller
             ], $failure->status);
         }
 
+        $designs = collect($studio->produced());
+
         if ($kept) {
-            $conversation = DB::transaction(function () use ($request, $conversation, $question, $files, $reply, $agent, $actions) {
+            $conversation = DB::transaction(function () use ($request, $conversation, $question, $files, $reply, $agent, $actions, $designs) {
                 $conversation ??= AssistantConversation::create([
                     'user_id' => $request->user()->id,
                     'agent_key' => $agent?->key(),
@@ -156,12 +162,15 @@ class AssistantController extends Controller
                 if ($files->isNotEmpty()) {
                     AssistantAttachment::query()->whereKey($files->modelKeys())->update(['assistant_message_id' => $asked->id]);
                 }
-                $conversation->messages()->create([
+                $answer = $conversation->messages()->create([
                     'role' => 'assistant',
                     'content' => $reply->text,
                     'refused' => $reply->refused,
                     'actions' => $actions->all() ?: null,
                 ]);
+                if ($designs->isNotEmpty()) {
+                    AssistantAttachment::query()->whereKey($designs->pluck('id'))->update(['assistant_message_id' => $answer->id]);
+                }
                 $conversation->touch();
 
                 return $conversation;
@@ -175,6 +184,8 @@ class AssistantController extends Controller
             'actions' => $actions->all(),
             // The files as the question now holds them.
             'attachments' => $files->map(fn (AssistantAttachment $file) => $file->present())->values(),
+            // The pictures the agent made in its answer.
+            'designs' => $designs->map(fn (AssistantAttachment $file) => $file->present())->values(),
             'conversation' => $conversation ? $this->summary($conversation->loadCount('messages')) : null,
             ...$assistant->usage(),
         ]]);
@@ -254,6 +265,7 @@ class AssistantController extends Controller
     {
         $files = AssistantAttachment::query()
             ->of($request->user())
+            ->uploads()
             ->whereNull('assistant_message_id')
             ->whereKey($ids)
             ->orderBy('id')

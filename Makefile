@@ -136,6 +136,7 @@ prod-init: ## Create .env.prod from .env.prod.example with a new APP_KEY and DB 
 	chmod 600 $(PROD_ENV)
 	sed -i.bak "s|^APP_KEY=.*|APP_KEY=base64:$$(openssl rand -base64 32)|" $(PROD_ENV)
 	sed -i.bak "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$$(openssl rand -hex 24)|" $(PROD_ENV)
+	sed -i.bak "s|^MEDIA_TOKEN=.*|MEDIA_TOKEN=$$(openssl rand -hex 32)|" $(PROD_ENV)
 	rm -f $(PROD_ENV).bak
 	@echo "$(PROD_ENV) created. Fill MAIL_*, ANTHROPIC_API_KEY, GOOGLE_* ... then: make prod-build prod-up"
 

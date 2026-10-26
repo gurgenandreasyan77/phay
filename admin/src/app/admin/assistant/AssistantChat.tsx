@@ -27,10 +27,18 @@ import {
   shownFromAttachment,
   type ShownFile,
 } from "./Attachments";
+import { chooseMessage, DesignGallery } from "./Designs";
 import { SUGGESTIONS } from "./suggestions";
 import { AnswerActions } from "./AnswerActions";
 
-type Message = { role: "user" | "assistant"; content: string; files?: ShownFile[]; actions?: AssistantActionDto[] };
+/** A question with its files, or an answer with the pictures the agent made. */
+type Message = {
+  role: "user" | "assistant";
+  content: string;
+  files?: ShownFile[];
+  actions?: AssistantActionDto[];
+  designs?: AssistantAttachmentDto[];
+};
 
 const REFUSED = "Այս հարցին չեմ կարող պատասխանել։ Փորձեք ձևակերպել այլ կերպ։";
 
@@ -39,11 +47,19 @@ function toMessage(message: Pick<AssistantMessageDto, "role" | "content" | "refu
   if (message.role === "user") {
     return { role: "user", content: message.content, files: (message.attachments ?? []).map(shownFromAttachment) };
   }
+  const designs = message.attachments ?? [];
   return {
     role: "assistant",
-    content: message.refused ? REFUSED : message.content || "Պատասխանը դատարկ է։ Փորձեք կրկին։",
+    content: message.refused ? REFUSED : message.content || (designs.length > 0 ? "" : "Պատասխանը դատարկ է։ Փորձեք կրկին։"),
     actions: message.actions ?? [],
+    designs,
   };
+}
+
+/** The variant a question picked («… (design #12)»), to mark it in the answer before. */
+function chosenDesign(message: Message | undefined): number | null {
+  const match = message?.role === "user" ? message.content.match(/design #(\d+)/) : null;
+  return match ? Number(match[1]) : null;
 }
 
 /** ?c=<id> keeps the open conversation on reload and in a shared link to oneself. */
@@ -306,17 +322,22 @@ export function AssistantChat({
         return;
       }
 
-      const { reply, refused, conversation, attachments, actions, ...nextUsage } = json.data as {
+      const { reply, refused, conversation, attachments, actions, designs, ...nextUsage } = json.data as {
         reply: string;
         refused: boolean;
         actions?: AssistantActionDto[];
         conversation: AssistantConversationDto | null;
         attachments?: AssistantAttachmentDto[];
+        designs?: AssistantAttachmentDto[];
       } & AssistantUsageDto;
       // The question shows its kept files (served by the API, no local blobs).
       const asked: Message = { role: "user", content: text, files: (attachments ?? []).map(shownFromAttachment) };
       for (const f of sending) if (f.src?.startsWith("blob:")) URL.revokeObjectURL(f.src);
-      setMessages([...messages, asked, toMessage({ role: "assistant", content: reply, refused, actions })]);
+      setMessages([
+        ...messages,
+        asked,
+        toMessage({ role: "assistant", content: reply, refused, actions, attachments: designs ?? [] }),
+      ]);
       setUsage(nextUsage);
       if (conversation) {
         // The asked chat goes to the top of the history.
@@ -409,8 +430,18 @@ export function AssistantChat({
           ) : (
             messages.map((message, i) =>
               message.role === "assistant" && agent ? (
-                <AgentBubble key={i} agent={agent}>
-                  <Formatted text={message.content} />
+                <AgentBubble key={i} agent={agent} wide={(message.designs?.length ?? 0) > 1}>
+                  {message.content ? <Formatted text={message.content} /> : null}
+                  <DesignGallery
+                    designs={message.designs ?? []}
+                    chosenId={chosenDesign(messages[i + 1])}
+                    // Picking is for the latest answer: the agent works from it.
+                    onChoose={
+                      i === messages.length - 1 && !pending && !limitReached
+                        ? (design, position) => ask(chooseMessage(design, position))
+                        : undefined
+                    }
+                  />
                   <AnswerActions actions={message.actions ?? []} />
                 </AgentBubble>
               ) : (
@@ -574,12 +605,17 @@ function AgentHeader({ agent, talking }: { agent: AgentDto; talking: boolean }) 
   );
 }
 
-/** An agent's words, with its face next to them. */
-function AgentBubble({ agent, children }: { agent: AgentDto; children: ReactNode }) {
+/** An agent's words, with its face next to them; wide when it shows variants to choose from. */
+function AgentBubble({ agent, children, wide = false }: { agent: AgentDto; children: ReactNode; wide?: boolean }) {
   return (
     <div className="flex items-end gap-2" style={agentTintStyle(agent.key)}>
       <AgentAvatar agentKey={agent.key} size={34} className="shrink-0" />
-      <div className="max-w-[85%] rounded-lg rounded-bl-sm border border-[var(--tint-soft)] bg-[var(--tint-bg)] px-4 py-3 text-sm text-ink">
+      <div
+        className={cn(
+          "min-w-0 rounded-lg rounded-bl-sm border border-[var(--tint-soft)] bg-[var(--tint-bg)] px-4 py-3 text-sm text-ink",
+          wide ? "flex-1" : "max-w-[85%]",
+        )}
+      >
         {children}
       </div>
     </div>

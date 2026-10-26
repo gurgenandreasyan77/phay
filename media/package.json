@@ -1,0 +1,16 @@
+{
+  "name": "phay-media",
+  "private": true,
+  "description": "Renders the AI agents' designs (HTML) to PNG for the Phay API.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "puppeteer-core": "24.43.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

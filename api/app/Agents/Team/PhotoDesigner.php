@@ -4,7 +4,7 @@ namespace App\Agents\Team;
 
 use App\Agents\Agent;
 
-/** Photo shoot briefs, promo layouts and image prompts in the brand's colours. */
+/** Finished promo pictures in the brand's colours (three variants to choose from), shoot plans and image prompts. */
 class PhotoDesigner extends Agent
 {
     public function key(): string
@@ -24,27 +24,32 @@ class PhotoDesigner extends Agent
 
     public function tagline(): string
     {
-        return 'Լուսանկարներ և դիզայն ձեր գույներով';
+        return 'Պատրաստի նկարներ ձեր գույներով';
     }
 
     public function description(): string
     {
-        return 'Սովորում է ձեր բրենդի գույներն ու ոճը և պատրաստում է լուսանկարահանման պլաններ, ակցիաների պաստառների կառուցվածք և նկար ստեղծող AI-ի համար պատրաստի պրոմպտներ, որպեսզի բոլոր նկարները լինեն մեկ ոճով։';
+        return 'Սովորում է ձեր բրենդի գույներն ու ոճը և պատրաստում է պատրաստի նկարներ՝ ակցիաների պաստառներ, փոստեր, սթորիներ և բաններներ։ Սկզբում առաջարկում է 3 տարբերակ, դուք ընտրում եք մեկը, և նա այն վերջնական տեսքի է բերում։ Կարող է ուսումնասիրել ձեր ուղարկած հղումները և օգտագործել ձեր լոգոն ու լուսանկարները։';
     }
 
     public function skills(): array
     {
         return [
-            'Լուսանկարահանման պլան և կադրերի ցանկ',
-            'Ակցիայի պաստառի կառուցվածք և տեքստեր',
-            'Պրոմպտներ նկար ստեղծող AI-ի համար',
-            'Գունային պալիտրա և ոճի կանոններ',
+            'Պաստառներ, փոստեր և սթորիներ՝ պատրաստի PNG',
+            '3 տարբերակ ընտրության համար',
+            'Ոճը սովորում է ձեր հղումներից և օրինակներից',
+            'Լուսանկարահանման պլան և պրոմպտներ',
         ];
     }
 
     public function tools(): array
     {
         return ['list_tables', 'group_rows', 'social_posts', 'social_profile'];
+    }
+
+    public function designs(): bool
+    {
+        return true;
     }
 
     public function defaultPrice(): int
@@ -54,26 +59,26 @@ class PhotoDesigner extends Agent
 
     public function limitation(): ?string
     {
-        return 'Նկարները դեռ ինքը չի ստեղծում. տալիս է մանրամասն բրիֆ և պրոմպտ, որով կարող եք ստեղծել նկարը ցանկացած AI ծառայությունում կամ տալ դիզայներին։';
+        return 'Նոր լուսանկարներ չի ստեղծում. նկարները կառուցում է տեքստից, գույներից, ձեր լոգոյից և ձեր ուղարկած լուսանկարներից։';
     }
 
     public function instructions(): string
     {
         return <<<'TEXT'
-        You are Mariam, the visual designer on the team. You keep every picture of the business on brand: its colours (use the exact hex codes from the brand profile), its visual style and what it must avoid. You give: photo shoot plans (shot list, angles, light, props, background, how to shoot on a phone), promo poster and post layouts (format 1080×1350 or 1080×1920, what goes where, headline and price text, colours per element), and ready-to-use prompts for an image-generation model (write those prompts in English, detailed: subject, setting, light, camera, composition, colours with hex, mood, what to exclude; add the aspect ratio), plus the text to overlay in the business's language. You cannot create or edit images yourself: say so if asked, and give the brief and prompt instead.
+        You are Mariam, the visual designer on the team. You keep every picture of the business on brand: its colours (use the exact hex codes from the brand profile), its visual style and what it must avoid. Your main work is finished pictures: promo posters, feed posts, stories, covers, banners and flyers, made with your design tool when you have it; without it you give the layout as a brief (format, what goes where, headline and price text, colours per element). You also give photo shoot plans (shot list, angles, light, props, background, how to shoot on a phone), and, when the owner wants a photograph you can't make, a ready-to-use prompt for an image-generation model (in English, detailed: subject, setting, light, camera, composition, colours with hex, mood, what to exclude, aspect ratio).
         TEXT;
     }
 
     public function greeting(): string
     {
-        return 'Բարև, ես Մարիամն եմ։ Կօգնեմ, որ ձեր բոլոր նկարները լինեն մեկ ոճով և ձեր գույներով։ Ցույց տվեք ձեր բրենդը՝ գույներ, ոճ, օրինակներ, որոնք դուր են գալիս։';
+        return 'Բարև, ես Մարիամն եմ։ Կպատրաստեմ ձեր պաստառներն ու փոստերը ձեր գույներով՝ սկզբում 3 տարբերակ, որ ընտրեք։ Ուղարկեք ձեր լոգոն, օրինակներ կամ հղում էջի, որի ոճը դուր է գալիս։';
     }
 
     public function suggestions(): array
     {
         return [
-            'Պատրաստիր պաստառ մեր ակցիայի համար',
-            'Գրիր պրոմպտ նկարի համար մեր ծառայության գովազդի',
+            'Պատրաստիր պաստառ մեր ակցիայի համար, 3 տարբերակ',
+            'Պատրաստիր սթորի մեր նոր ծառայության մասին',
             'Ինչպե՞ս լուսանկարել մեր աշխատանքը հեռախոսով',
             'Կազմիր մեր բրենդի գունային պալիտրան',
         ];

@@ -47,12 +47,12 @@ class AssistantAttachmentController extends Controller
         return response()->json(['data' => $attachment->present()], 201);
     }
 
-    /** The file itself, shown in the chat (inline, never run as a page). */
+    /** The file itself, shown in the chat (inline, never run as a page); ?download=1 saves it. */
     public function file(Request $request, AssistantAttachment $assistantAttachment): StreamedResponse
     {
         $file = $this->own($request, $assistantAttachment);
 
-        return self::serve($file->path, $file->name, $file->mime === 'text/plain' ? 'text/plain; charset=utf-8' : $file->mime);
+        return self::serve($file->path, $file->name, $file->mime === 'text/plain' ? 'text/plain; charset=utf-8' : $file->mime, $request->boolean('download'));
     }
 
     /** Takes back a file not sent yet; a sent one goes with its conversation. */
@@ -71,7 +71,7 @@ class AssistantAttachmentController extends Controller
      * A private file as the browser should get it: its own type, shown
      * inline, never sniffed into something else nor run as a page.
      */
-    public static function serve(string $path, string $name, string $type): StreamedResponse
+    public static function serve(string $path, string $name, string $type, bool $download = false): StreamedResponse
     {
         $disk = Storage::disk(Attachments::DISK);
         abort_unless($disk->exists($path), 404);
@@ -81,7 +81,7 @@ class AssistantAttachmentController extends Controller
             'X-Content-Type-Options' => 'nosniff',
             'Content-Security-Policy' => "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox",
             'Cache-Control' => 'private, max-age=86400',
-        ], 'inline');
+        ], $download ? 'attachment' : 'inline');
     }
 
     /** Another person's file behaves as if it doesn't exist. */
