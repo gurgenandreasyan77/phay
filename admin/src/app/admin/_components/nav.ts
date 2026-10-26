@@ -35,6 +35,7 @@ import {
   Newspaper,
   Inbox,
   PieChart,
+  AtSign,
 } from "lucide-react";
 
 export type NavItem = {
@@ -90,6 +91,7 @@ export const BUSINESS_NAV_GROUPS: NavGroup[] = [
       { href: "/admin/site", label: "Կայք", icon: Globe, requiresFeature: "site", requires: "catalog" },
       { href: "/admin/site/blog", label: "Բլոգ", icon: Newspaper, requiresFeature: "site", requires: "catalog" },
       { href: "/admin/site/feedback", label: "Հետադարձ կապ", icon: Inbox, requiresFeature: "site", requires: "orders" },
+      { href: "/admin/social", label: "Սոցցանցեր", icon: AtSign, requiresFeature: "social", requires: "insights" },
     ],
   },
   {

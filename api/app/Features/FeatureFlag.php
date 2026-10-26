@@ -22,6 +22,10 @@ enum FeatureFlag: string
     // The business's site: logo, contacts, videos, before/after photos,
     // blog and the feedback form. On once the platform gives it a site.
     case Site = 'site';
+    // The business's Instagram and Facebook through Meta (read only): its
+    // figures, posts and followers, competitors' public figures, and the AI
+    // assistant's answers about them. Each business connects its own login.
+    case Social = 'social';
 
     public function label(): string
     {
@@ -29,6 +33,7 @@ enum FeatureFlag: string
             self::Services => 'Ծառայություններ',
             self::Market => 'Խանութ',
             self::Site => 'Կայքի կառավարում',
+            self::Social => 'Սոցցանցեր',
         };
     }
 
@@ -38,6 +43,7 @@ enum FeatureFlag: string
             self::Services => 'Բիզնեսի ծառայությունների կատալոգը՝ կատեգորիաներով (օր.՝ ավտոքիմմաքրում, կահույքի քիմմաքրում), գներով և հաշվիչով, որոնք երևում են նրա կայքում։',
             self::Market => 'Ապրանքների խանութը՝ կատեգորիաներով և SEO էջերով, կայքում և ադմինում։',
             self::Site => 'Կայքի բովանդակությունը. լոգո, կոնտակտներ, «մինչև/հետո» և տեղեկատվական տեսանյութեր, լուսանկարներ, բլոգ և հետադարձ կապի ձև։',
+            self::Social => 'Instagram-ի և Facebook-ի միացում. հետևորդներ, դիտումներ, ներգրավվածություն, լավագույն գրառումներ, մրցակիցների հրապարակային թվերը և AI օգնականի խորհուրդները դրանց մասին։',
         };
     }
 
@@ -46,6 +52,7 @@ enum FeatureFlag: string
         return match ($this) {
             self::Services, self::Market => 'Կատալոգ',
             self::Site => 'Կայք',
+            self::Social => 'Մարքեթինգ',
         };
     }
 
@@ -58,7 +65,7 @@ enum FeatureFlag: string
     {
         return match ($this) {
             self::Market => true,
-            self::Services, self::Site => false,
+            self::Services, self::Site, self::Social => false,
         };
     }
 

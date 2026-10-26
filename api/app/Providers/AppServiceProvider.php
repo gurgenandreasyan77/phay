@@ -4,7 +4,6 @@ namespace App\Providers;
 
 use App\Assistant\AnthropicAssistantClient;
 use App\Assistant\AssistantClient;
-use App\Audience\NullSocialSource;
 use App\Audience\SocialSource;
 use App\Features\FeatureFlag;
 use App\Google\GoogleCalendarClient;
@@ -15,6 +14,9 @@ use App\Security\Sms\SmsSender;
 use App\Security\Sms\TwilioSmsSender;
 use App\Sites\RefreshSiteCache;
 use App\Sites\SiteRevalidator;
+use App\Social\HttpMetaClient;
+use App\Social\MetaClient;
+use App\Social\MetaSocialSource;
 use App\Tenancy\TenantContext;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -40,8 +42,16 @@ class AppServiceProvider extends ServiceProvider
         // Collects cache tags during a request; sent once when it ends.
         $this->app->scoped(SiteRevalidator::class);
 
-        // No social network can be connected yet; an Instagram source replaces this.
-        $this->app->bind(SocialSource::class, NullSocialSource::class);
+        // The business's connected Instagram / Facebook (social module); none: no figures.
+        $this->app->bind(SocialSource::class, MetaSocialSource::class);
+
+        $this->app->bind(MetaClient::class, fn () => new HttpMetaClient(
+            appId: config('services.meta.app_id'),
+            appSecret: config('services.meta.app_secret'),
+            redirectUri: config('services.meta.redirect_uri'),
+            version: config('services.meta.graph_version'),
+            configId: config('services.meta.login_config_id'),
+        ));
 
         $this->app->bind(GoogleCalendarClient::class, fn () => new HttpGoogleCalendarClient(
             clientId: config('services.google.client_id'),
@@ -131,6 +141,14 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('google-sync', function (Request $request) {
             return Limit::perMinute(6)->by('user:'.$request->user()?->id);
         });
+
+        // «Refresh» reads Meta for every account; SocialSync also keeps a cooldown.
+        RateLimiter::for('social-sync', function (Request $request) {
+            return Limit::perMinute(3)->by('tenant:'.app(TenantContext::class)->id());
+        });
+
+        // Meta's callbacks are public: a few per minute from one address.
+        RateLimiter::for('meta-callbacks', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
 
         RateLimiter::for('data-imports', function (Request $request) {
             return Limit::perMinute(10)->by('user:'.$request->user()?->id);

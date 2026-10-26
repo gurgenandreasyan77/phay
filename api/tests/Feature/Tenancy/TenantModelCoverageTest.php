@@ -6,6 +6,7 @@ use App\Models\AccountToken;
 use App\Models\AdminNotification;
 use App\Models\AssistantBonus;
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\MetaDataDeletion;
 use App\Models\ModulePrice;
 use App\Models\Plan;
 use App\Models\SecurityLogEntry;
@@ -41,6 +42,9 @@ class TenantModelCoverageTest extends TestCase
         AssistantBonus::class, AdminNotification::class,
         // Sign-in security belongs to a person, not a business.
         AccountToken::class, VerificationCode::class, SecurityLogEntry::class,
+        // Meta's deletion requests name a Facebook login, which may be
+        // connected to several businesses.
+        MetaDataDeletion::class,
     ];
 
     public function test_every_content_model_is_scoped_to_a_tenant(): void

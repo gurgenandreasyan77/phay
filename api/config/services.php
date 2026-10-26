@@ -61,6 +61,20 @@ return [
         'redirect_uri' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    // Instagram and Facebook (social module), read only, through a Meta app
+    // of type Business with Facebook Login. The redirect URI is the admin's
+    // /api/admin/social/callback, registered in the app exactly. Without
+    // the keys the social screen says the connection is not set up yet.
+    'meta' => [
+        'app_id' => env('META_APP_ID'),
+        'app_secret' => env('META_APP_SECRET'),
+        'redirect_uri' => env('META_REDIRECT_URI'),
+        'graph_version' => env('META_GRAPH_VERSION', 'v26.0'),
+        // A «Facebook Login for Business» configuration id; empty: the
+        // permissions are asked by name (App\Social\HttpMetaClient::SCOPES).
+        'login_config_id' => env('META_LOGIN_CONFIG_ID'),
+    ],
+
     'admin_login' => [
         'rate_limit_per_minute' => env('ADMIN_LOGIN_RATE_LIMIT_PER_MINUTE', 5),
     ],

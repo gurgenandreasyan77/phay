@@ -5,6 +5,7 @@ import { can } from "@/lib/roles";
 import {
   getAnalytics,
   getAudience,
+  getFeatureFlagsAdmin,
   getFinance,
   type FinanceDto,
   getTableAnalytics,
@@ -83,11 +84,12 @@ export default async function AdminAnalyticsPage(props: {
   const me = await requirePermission("insights");
   const searchParams = await props.searchParams;
   const period = periodFrom(searchParams.period);
-  const [analytics, tables, finance, audience] = await Promise.all([
+  const [analytics, tables, finance, audience, flags] = await Promise.all([
     getAnalytics(period),
     getTableAnalytics(period),
     can(me, "expenses") ? getFinance({ by: "month" }) : null,
     getAudience(period),
+    getFeatureFlagsAdmin(),
   ]);
   // Only what the business has: its site orders if it ever had one, and
   // each section whose tables have rows. Nothing yet: how to start.
@@ -127,7 +129,7 @@ export default async function AdminAnalyticsPage(props: {
             <SectionFigures key={summary.section} summary={summary} besideSite={Boolean(site)} />
           ))}
 
-          <AudienceSection audience={audience} />
+          <AudienceSection audience={audience} socialModule={flags.find((f) => f.key === "social")?.active ?? false} />
         </>
       )}
     </div>

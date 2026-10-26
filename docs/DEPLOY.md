@@ -489,6 +489,24 @@ SMTP. Пример с **Resend** (бесплатно до 3000 писем в м�
 | `GOOGLE_CLIENT_SECRET` | `GOCSPX-...` |
 | `GOOGLE_REDIRECT_URI` | `https://app.phay.am/api/admin/google/callback`, ровно как в Google Cloud |
 
+### Instagram и Facebook (модуль «Սոցցանցեր»)
+
+Пошагово: создание Meta-приложения, App Review и проверка бизнеса описаны в
+инструкции к PR модуля. Ключи:
+
+| Ключ | Значение |
+| --- | --- |
+| `META_APP_ID` | App ID из developers.facebook.com → App settings → Basic |
+| `META_APP_SECRET` | App secret оттуда же (никому не показывать) |
+| `META_REDIRECT_URI` | `https://app.phay.am/api/admin/social/callback`, ровно как в Facebook Login → Settings |
+| `META_GRAPH_VERSION` | `v26.0` |
+| `META_LOGIN_CONFIG_ID` | пусто, или ID конфигурации Facebook Login for Business |
+
+В Meta-приложении также: Deauthorize callback
+`https://api.phay.am/api/v1/meta/deauthorize`, Data deletion callback
+`https://api.phay.am/api/v1/meta/data-deletion`. Обновление данных идёт через
+scheduler (`platform:social:sync` каждые 6 часов).
+
 После любого изменения `.env.prod`: `make prod-up` (compose пересоздаст
 контейнеры с новыми значениями). `make prod-restart` новые значения не
 подхватывает.

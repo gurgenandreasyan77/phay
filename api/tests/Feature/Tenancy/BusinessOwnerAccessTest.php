@@ -193,6 +193,7 @@ class BusinessOwnerAccessTest extends TestCase
         $this->assertFalse(Feature::for($shop)->active('market'));
         $this->assertFalse(Feature::for($shop)->active('services'));
         $this->assertFalse(Feature::for($shop)->active('site'));
+        $this->assertFalse(Feature::for($shop)->active('social'));
         $this->assertTrue(Feature::for(Tenant::default())->active('services'));
         $this->assertTrue(Feature::for(Tenant::default())->active('market'));
         $this->assertTrue(Feature::for(Tenant::default())->active('site'));
@@ -201,13 +202,15 @@ class BusinessOwnerAccessTest extends TestCase
         // Only the managed modules: orders and sales are always there.
         $this->getJson('/api/v1/admin/feature-flags')
             ->assertOk()
-            ->assertJsonCount(3, 'data')
+            ->assertJsonCount(4, 'data')
             ->assertJsonPath('data.0.key', 'services')
             ->assertJsonPath('data.1.key', 'market')
             ->assertJsonPath('data.2.key', 'site')
+            ->assertJsonPath('data.3.key', 'social')
             ->assertJsonPath('data.0.active', false)
             ->assertJsonPath('data.1.active', false)
-            ->assertJsonPath('data.2.active', false);
+            ->assertJsonPath('data.2.active', false)
+            ->assertJsonPath('data.3.active', false);
         $this->getJson('/api/v1/admin/leads')->assertOk();
     }
 

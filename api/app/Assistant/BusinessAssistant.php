@@ -13,6 +13,7 @@ use App\Models\DataTable;
 use App\Models\Lead;
 use App\Models\Service;
 use App\Services\BusinessAnalytics;
+use App\Social\SocialReport;
 use App\Tenancy\TenantContext;
 use Laravel\Pennant\Feature;
 
@@ -32,6 +33,7 @@ class BusinessAssistant
         private readonly Finance $finance,
         private readonly BusinessTools $tools,
         private readonly AssistantQuota $quota,
+        private readonly SocialReport $social,
     ) {}
 
     public function isConfigured(): bool
@@ -104,6 +106,8 @@ class BusinessAssistant
             'ownTables' => $this->ownTables(),
             'columnMeanings' => $this->columnMeanings(),
             'finance' => $this->finance(),
+            // The social module: a short summary, the tools give the rest.
+            'social' => $this->social->snapshot(),
         ], fn ($value) => $value !== null && $value !== []), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
         return <<<PROMPT
@@ -119,6 +123,7 @@ class BusinessAssistant
         - columnMeanings: what the business's columns mean, whatever they are called (a column "Модель" or "Մոդել" has the meaning "model"): use these meanings to pick the column for group_rows ("by": "model", "supplier", "intermediary", "country"...), and to understand a question about a model, brand, supplier, mentor/intermediary, country of origin, material, colour, size, city, branch, service type or expense category.
         - finance (only when the business records its expenses): money in and out per month for the last twelve months ("periods", this month the last, not over yet): "revenue" (orders and sales tables plus completed site orders), "cogs" (cost of goods: unit cost × quantity of the rows that have one), "grossProfit" = revenue − cogs, "expenses" (expenses of the categories counted in the profit), "netProfit" = grossProfit − expenses, "excluded" (expenses the owner keeps out of the profit: equipment, loan repayments, what the owner takes out...) and "cashLeft" = netProfit − excluded, "margin" = netProfit / revenue in %. "categories" are the expenses of the twelve months by category ("inProfit" false: kept out of the profit, "recurring": the part that repeats every week, month, quarter or year), "thisMonth" the same for this month, "notes" what makes the figures less exact. Talk about net profit, where the money goes, which costs grow, and what could be cut, with real numbers.
         Amounts are in {$tenant->currency}; write Armenian dram as "դր.".
+        {$this->socialGuide()}
 
         Looking things up: the data below is a summary. When a question needs more (a given day, week or month, a product, service, performer, channel or category, the biggest or latest rows, profit of a past period, site orders of some dates), use the tools to get the exact figures from the business's own records instead of estimating: list_tables shows the tables and their column labels, find_rows finds rows by dates and words, group_rows sums rows by day, week, month, weekday, hour or a column, finance_report gives profit and expenses for any period, expenses_report what was spent in any day, week, month, quarter or year (by category, payee, payment method, who spent, object), site_orders the website's orders. Dates are YYYY-MM-DD; today is in "business.today". Use as few look-ups as the answer needs, and don't mention the tools by name to the user: say what you found.
 
@@ -128,6 +133,18 @@ class BusinessAssistant
         {$data}
         </business_data>
         PROMPT;
+    }
+
+    /** How to read the social data, only when the module is on. */
+    private function socialGuide(): string
+    {
+        if (! $this->social->enabled()) {
+            return '';
+        }
+
+        return <<<'GUIDE'
+        - social (the business's Instagram and Facebook, read from Meta on a schedule): its connected accounts with followers and the last 28 days against the 28 before, and the Instagram usernames of competitors it watches. Use social_profile for its own figures, followers' age, gender and city and how its posts do; social_posts for its posts by dates, kind or words, best or newest; social_competitors to compare with competitors (with a username: one account, even one not on the list, if it is a business or creator account). Of other accounts only public figures exist (followers, posts, likes, comments): never claim to know a competitor's reach, views, audience or ad spend. For competitors' ads give the Ad Library link from the tool. When nothing is connected ("connected": false), say the owner can connect Instagram and Facebook on the «Սոցցանցեր» screen. Tie social advice to sales when the data allows (e.g. orders by channel "Instagram" in the tables), and give concrete ideas: what kind of post, which days and hours, how often, what competitors do better.
+        GUIDE;
     }
 
     /**

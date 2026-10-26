@@ -46,6 +46,7 @@ use App\Http\Controllers\Api\V1\Admin\ServicePackageController as AdminServicePa
 use App\Http\Controllers\Api\V1\Admin\ServiceVideoController as AdminServiceVideoController;
 use App\Http\Controllers\Api\V1\Admin\SettingsController as AdminSettingsController;
 use App\Http\Controllers\Api\V1\Admin\SiteController as AdminSiteController;
+use App\Http\Controllers\Api\V1\Admin\SocialController as AdminSocialController;
 use App\Http\Controllers\Api\V1\Admin\SubscriptionController as AdminSubscriptionController;
 use App\Http\Controllers\Api\V1\Admin\SupportController as AdminSupportController;
 use App\Http\Controllers\Api\V1\Admin\TableAnalyticsController as AdminTableAnalyticsController;
@@ -57,6 +58,7 @@ use App\Http\Controllers\Api\V1\Admin\UploadController as AdminUploadController;
 use App\Http\Controllers\Api\V1\CalculatorSettingController;
 use App\Http\Controllers\Api\V1\FeedbackController;
 use App\Http\Controllers\Api\V1\LeadController;
+use App\Http\Controllers\Api\V1\MetaCallbackController;
 use App\Http\Controllers\Api\V1\PostController;
 use App\Http\Controllers\Api\V1\ProductCategoryController;
 use App\Http\Controllers\Api\V1\ProductController;
@@ -72,6 +74,14 @@ use Illuminate\Support\Facades\Route;
 Route::get('/health', HealthController::class);
 
 Route::prefix('v1')->group(function () {
+    // Meta's callbacks (set in the Meta app): a person removed the app or
+    // asked for their data to be deleted. Signed with the app secret.
+    Route::middleware('throttle:meta-callbacks')->group(function () {
+        Route::post('/meta/deauthorize', [MetaCallbackController::class, 'deauthorize']);
+        Route::post('/meta/data-deletion', [MetaCallbackController::class, 'deletion']);
+        Route::get('/meta/data-deletion/{code}', [MetaCallbackController::class, 'status'])->where('code', '[a-z0-9]{20}');
+    });
+
     // Public API: the X-Site-Key header decides which business's content is
     // served (no header: the default business).
     Route::middleware('tenant.site')->group(function () {
@@ -294,6 +304,23 @@ Route::prefix('v1')->group(function () {
                 Route::post('/assistant', [AdminAssistantController::class, 'store'])->middleware('throttle:assistant');
                 // Each person's kept conversations with the assistant.
                 Route::get('/assistant/conversations', [AdminAssistantController::class, 'conversations']);
+
+                // The social module: the business's Instagram and Facebook
+                // through Meta (read only) and the accounts it watches.
+                Route::middleware('feature:social')->group(function () {
+                    Route::get('/social', [AdminSocialController::class, 'show']);
+                    Route::post('/social/sync', [AdminSocialController::class, 'sync'])->middleware('throttle:social-sync');
+                    Route::get('/social/competitors/{socialCompetitor}', [AdminSocialController::class, 'competitor']);
+                    // Connecting and choosing what is read: who manages the business's settings.
+                    Route::middleware('business.can:settings')->group(function () {
+                        Route::post('/social/connect', [AdminSocialController::class, 'connect'])->middleware('throttle:10,1');
+                        Route::post('/social/callback', [AdminSocialController::class, 'callback'])->middleware('throttle:10,1');
+                        Route::put('/social/accounts', [AdminSocialController::class, 'choose'])->middleware('throttle:social-sync');
+                        Route::delete('/social', [AdminSocialController::class, 'disconnect']);
+                        Route::post('/social/competitors', [AdminSocialController::class, 'addCompetitor'])->middleware('throttle:20,1');
+                        Route::delete('/social/competitors/{socialCompetitor}', [AdminSocialController::class, 'removeCompetitor']);
+                    });
+                });
                 Route::get('/assistant/conversations/{assistantConversation}', [AdminAssistantController::class, 'conversation']);
                 Route::patch('/assistant/conversations/{assistantConversation}', [AdminAssistantController::class, 'rename']);
                 Route::delete('/assistant/conversations/{assistantConversation}', [AdminAssistantController::class, 'destroy']);

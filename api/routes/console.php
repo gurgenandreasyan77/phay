@@ -13,3 +13,7 @@ Schedule::command('platform:subscriptions:sync')->dailyAt('10:00')->timezone('As
 
 // Expired admin sessions (sanctum.expiration) are dropped from the table.
 Schedule::command('sanctum:prune-expired --hours=24')->daily();
+
+// Instagram and Facebook figures of businesses with the social module (Meta
+// updates insights about daily; each business is read at most every 5 hours).
+Schedule::command('platform:social:sync')->cron('20 */6 * * *')->withoutOverlapping(120);
