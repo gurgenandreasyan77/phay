@@ -69,7 +69,7 @@ Cloud и server-блоки в `deploy/phay.nginx.conf`. Я рекомендую 
 | `scheduler` | Тот же образ, `php artisan schedule:work`: ежедневная рассылка предупреждений о подписке (10:00 по Еревану) и очистка просроченных сессий админки |
 | `api` | nginx внутри Docker: отдаёт `/storage/*` и передаёт PHP в `backend` |
 | `admin` | Next.js админка |
-| `media` | Chromium (Node), рендерит дизайны AI-агентов (HTML) в PNG для `backend`. Порт не публикуется, доступ по `MEDIA_TOKEN` из `.env.prod` |
+| `media` | Chromium и ffmpeg (Node): рендерит дизайны AI-агентов (HTML) в PNG и монтирует видео из клипов владельца для `backend`. Порт не публикуется, доступ по `MEDIA_TOKEN` из `.env.prod` |
 
 Очередей (queue worker) нет: ни одна задача сейчас не ставится в очередь,
 обновление кеша сайтов отправляется сразу после ответа.

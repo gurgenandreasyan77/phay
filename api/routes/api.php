@@ -333,6 +333,8 @@ Route::prefix('v1')->group(function () {
                 // Files attached to a question: uploaded first, sent with it by id.
                 Route::post('/assistant/attachments', [AdminAssistantAttachmentController::class, 'store'])->middleware('throttle:assistant-uploads');
                 Route::get('/assistant/attachments/{assistantAttachment}/file', [AdminAssistantAttachmentController::class, 'file']);
+                // A video an agent is cutting: polled by the chat until it is ready.
+                Route::get('/assistant/videos/{videoJob}', [AdminAssistantController::class, 'video']);
                 Route::delete('/assistant/attachments/{assistantAttachment}', [AdminAssistantAttachmentController::class, 'destroy']);
 
                 // The social module: the business's Instagram and Facebook

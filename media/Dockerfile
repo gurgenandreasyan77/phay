@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
-# Phay media: Chromium that renders the AI agents' designs to PNG (server.js).
+# Phay media: Chromium that renders the AI agents' designs to PNG (server.js)
+# and ffmpeg that cuts the owner's clips into videos (video.js).
 # Debian's chromium has amd64 and arm64 builds (a Mac with Apple Silicon too).
 FROM node:22-bookworm-slim
 
@@ -11,7 +12,7 @@ ENV CHROMIUM_PATH=/usr/bin/chromium \
 # Noto for Armenian, Cyrillic and Latin, colour emoji, and a few display faces.
 ARG FONTS=https://raw.githubusercontent.com/google/fonts/main/ofl
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends chromium fonts-noto-color-emoji fonts-dejavu-core fontconfig ca-certificates curl \
+    && apt-get install -y --no-install-recommends chromium ffmpeg fonts-noto-color-emoji fonts-dejavu-core fontconfig ca-certificates curl \
     && mkdir -p /usr/share/fonts/truetype/phay && cd /usr/share/fonts/truetype/phay \
     && for f in \
         "notosansarmenian/NotoSansArmenian[wdth,wght].ttf" \
@@ -31,7 +32,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
-COPY server.js ./
+COPY server.js video.js ./
 
 USER node
 EXPOSE 3100

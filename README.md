@@ -39,6 +39,11 @@ business websites ────────────────────�
   each) to PNG for the backend, with `MEDIA_TOKEN`. JavaScript is off and every
   request the page makes is refused; it is reached only on the compose network.
   Without `MEDIA_URL` the agents give briefs instead of pictures.
+  It also cuts the owner's clips into videos with ffmpeg (`media/video.js`):
+  the video editor and the reel maker plan the cut (`App\Media\VideoStudio`),
+  the chat polls until the MP4 is ready, and the scheduler collects finished
+  ones every minute (`platform:videos:collect`). Clips and finished videos stay
+  in the container for 3 hours; the kept copy is the backend's.
 - **Cache refresh:** after an edit Laravel sends the affected cache tags to
   each of the business's sites (webhook URL and secret set on Platform →
   Sites, `App\Sites\SiteRevalidator`), after the response has gone out.

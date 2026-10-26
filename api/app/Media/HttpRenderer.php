@@ -19,7 +19,7 @@ class HttpRenderer implements Renderer
         return filled($this->url) && filled($this->token);
     }
 
-    public function png(string $html, int $width, int $height): string
+    public function png(string $html, int $width, int $height, bool $transparent = false): string
     {
         if (! $this->isConfigured()) {
             throw new RenderFailed('The media service is not configured (MEDIA_URL, MEDIA_TOKEN).');
@@ -28,7 +28,7 @@ class HttpRenderer implements Renderer
         try {
             $response = Http::withToken((string) $this->token)
                 ->timeout($this->timeout)
-                ->post(rtrim((string) $this->url, '/').'/render', ['html' => $html, 'width' => $width, 'height' => $height]);
+                ->post(rtrim((string) $this->url, '/').'/render', ['html' => $html, 'width' => $width, 'height' => $height, 'transparent' => $transparent]);
         } catch (ConnectionException $e) {
             throw new RenderFailed('The media service is not reachable: '.$e->getMessage(), previous: $e);
         }

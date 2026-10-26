@@ -530,17 +530,33 @@ export type AssistantConversationDto = {
 /** A file attached to a question in the AI chat; read through /api/admin/assistant/attachments/{id}/file. */
 export type AssistantAttachmentDto = {
   id: number;
-  kind: "image" | "pdf" | "text";
+  kind: "image" | "pdf" | "text" | "video";
   name: string;
   mime: string;
   size: number;
   width: number | null;
   height: number | null;
-  /** upload: the person attached it; design: an AI agent made it (a PNG of its answer). */
-  origin?: "upload" | "design";
-  /** A design's name and size (post, story, square, landscape, flyer). */
+  /** upload: the person attached it; design: an AI agent made it (a PNG of its answer); video: an MP4 an agent cut. */
+  origin?: "upload" | "design" | "video";
+  /** A design's name and size (post, story, square, landscape, flyer), or a video's (reel, feed, square, landscape). */
   title?: string | null;
   format?: string | null;
+  /** A video's length in seconds. */
+  duration?: number | null;
+};
+
+/** A video an AI agent cuts from the owner's clips; asked about at /api/admin/assistant/videos/{id} until it is ready. */
+export type AssistantVideoDto = {
+  id: number;
+  status: "rendering" | "done" | "failed";
+  title: string;
+  format: string;
+  duration: number;
+  error: string | null;
+  /** The MP4, once done. */
+  attachment: AssistantAttachmentDto | null;
+  /** 0-100 while rendering (from the polling endpoint). */
+  progress?: number | null;
 };
 
 export type AssistantMessageDto = {
@@ -552,6 +568,8 @@ export type AssistantMessageDto = {
   attachments?: AssistantAttachmentDto[];
   /** Cards under an answer: a reshape to apply, a file to download. */
   actions?: AssistantActionDto[];
+  /** Videos an agent cut in an answer. */
+  videos?: AssistantVideoDto[];
   createdAt: string | null;
 };
 

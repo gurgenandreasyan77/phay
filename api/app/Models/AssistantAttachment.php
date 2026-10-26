@@ -25,17 +25,21 @@ class AssistantAttachment extends Model
 
     public const DESIGN = 'design';
 
-    protected $fillable = ['user_id', 'assistant_message_id', 'kind', 'origin', 'mime', 'name', 'title', 'format', 'size', 'path', 'width', 'height', 'html'];
+    /** An MP4 an agent cut from the owner's clips (App\Media\VideoStudio). */
+    public const VIDEO = 'video';
+
+    protected $fillable = ['user_id', 'assistant_message_id', 'kind', 'origin', 'mime', 'name', 'title', 'format', 'size', 'path', 'width', 'height', 'html', 'meta'];
 
     protected $attributes = ['origin' => self::UPLOAD];
 
-    protected $hidden = ['html'];
+    protected $hidden = ['html', 'meta'];
 
     protected $casts = [
         'kind' => AttachmentKind::class,
         'size' => 'integer',
         'width' => 'integer',
         'height' => 'integer',
+        'meta' => 'array',
     ];
 
     public function message(): BelongsTo
@@ -60,6 +64,12 @@ class AssistantAttachment extends Model
         return $this->origin === self::DESIGN;
     }
 
+    /** The file and the frames kept with it (a video's), for removal. */
+    public function paths(): array
+    {
+        return [$this->path, ...array_column($this->meta['frames'] ?? [], 'path')];
+    }
+
     /** @return array<string, mixed> */
     public function present(): array
     {
@@ -74,6 +84,8 @@ class AssistantAttachment extends Model
             'origin' => $this->origin,
             'title' => $this->title,
             'format' => $this->format,
+            // A video's length in seconds.
+            'duration' => $this->meta['duration'] ?? null,
         ];
     }
 }

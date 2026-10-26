@@ -8,6 +8,7 @@ use App\Assistant\ToolOutput;
 use App\Assistant\ToolSet;
 use App\Media\DesignStudio;
 use App\Media\LinkReader;
+use App\Media\VideoStudio;
 use App\Models\AssistantAttachment;
 use App\Models\BrandAsset;
 use App\Models\BrandProfile;
@@ -25,8 +26,8 @@ use InvalidArgumentException;
  * can be kept for the whole team (save_brand_asset) and looked at again in
  * later conversations (view_brand_assets). Every agent can open a link
  * the owner sends (read_link); the designers also make pictures
- * (render_designs, get_design). Everything stays inside the current
- * business.
+ * (render_designs, get_design), the video editors cut the owner's clips
+ * (edit_video). Everything stays inside the current business.
  */
 class AgentTools implements ToolSet
 {
@@ -49,19 +50,27 @@ class AgentTools implements ToolSet
         private readonly Attachments $attachments,
         private readonly DesignStudio $studio,
         private readonly LinkReader $links,
+        private readonly VideoStudio $videos,
     ) {}
 
-    /** Counts renders and links afresh, and forgets the pictures of an earlier question. */
+    /** Counts renders, links and videos afresh, and forgets the pictures of an earlier question. */
     public function newQuestion(): void
     {
         $this->studio->newQuestion();
         $this->links->newQuestion();
+        $this->videos->newQuestion();
     }
 
     /** Whether this agent makes pictures here (its role, and the media service is connected). */
     public function designs(): bool
     {
         return $this->agent()->designs() && $this->studio->available();
+    }
+
+    /** Whether this agent cuts videos here (its role, and the media service is connected). */
+    public function edits(): bool
+    {
+        return $this->agent()->edits() && $this->videos->available();
     }
 
     /** The same tools for another agent, saving as the given person. */
@@ -144,6 +153,7 @@ class AgentTools implements ToolSet
             ]] : []),
             $this->links->definition(),
             ...($this->designs() ? $this->studio->definitions() : []),
+            ...($this->edits() ? [$this->videos->definition()] : []),
         ];
     }
 
@@ -169,6 +179,14 @@ class AgentTools implements ToolSet
             }
 
             return $name === DesignStudio::RENDER ? $this->studio->render($input, $this->user) : $this->studio->get($input, $this->user);
+        }
+
+        if ($name === VideoStudio::EDIT) {
+            if (! $this->edits()) {
+                throw new InvalidArgumentException('You can\'t cut videos here: give the editing plan instead.');
+            }
+
+            return $this->videos->edit($input, $this->user);
         }
 
         if ($name === self::SAVE_PROFILE) {

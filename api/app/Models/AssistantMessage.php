@@ -28,4 +28,10 @@ class AssistantMessage extends Model
     {
         return $this->hasMany(AssistantAttachment::class)->orderBy('id');
     }
+
+    /** Videos an agent started cutting in this answer. */
+    public function videoJobs(): HasMany
+    {
+        return $this->hasMany(VideoJob::class)->orderBy('id');
+    }
 }

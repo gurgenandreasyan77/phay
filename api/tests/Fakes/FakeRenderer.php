@@ -12,7 +12,7 @@ class FakeRenderer implements Renderer
 
     public bool $fail = false;
 
-    /** @var list<array{html: string, width: int, height: int}> */
+    /** @var list<array{html: string, width: int, height: int, transparent: bool}> */
     public array $renders = [];
 
     public function isConfigured(): bool
@@ -20,12 +20,12 @@ class FakeRenderer implements Renderer
         return $this->configured;
     }
 
-    public function png(string $html, int $width, int $height): string
+    public function png(string $html, int $width, int $height, bool $transparent = false): string
     {
         if ($this->fail) {
             throw new RenderFailed('down');
         }
-        $this->renders[] = compact('html', 'width', 'height');
+        $this->renders[] = compact('html', 'width', 'height', 'transparent');
 
         // A tenth of the real size: enough to be a real PNG of the right shape.
         $image = imagecreatetruecolor(intdiv($width, 10), intdiv($height, 10));
