@@ -139,7 +139,7 @@ function TeamRow({
           </Select>
         )}
       </Td>
-      <Td className="text-right">
+      <Td className="whitespace-nowrap text-right">
         <span className="inline-flex flex-wrap items-center justify-end gap-2">
           {error ? <span className="text-xs text-danger">{error}</span> : null}
           {!isMe ? (

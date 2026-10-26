@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./admin.css";
 import { getFeatureFlagsAdmin, getMe } from "@/lib/adminApi";
 import { AdminShell } from "./_components/AdminShell";
@@ -8,6 +8,16 @@ import { AdminShell } from "./_components/AdminShell";
 export const metadata: Metadata = {
   title: "Phay ադմին",
   robots: { index: false, follow: false },
+};
+
+// viewport-fit=cover lets the header and sheets reach under the notch and
+// pad themselves with env(safe-area-inset-*). No maximum-scale: fields are
+// 16px on touch screens instead (admin.css), so pinch zoom stays.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#ffffff",
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

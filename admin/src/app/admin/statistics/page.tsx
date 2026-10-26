@@ -260,8 +260,8 @@ function SectionStats({ stats }: { stats: Stats }) {
             {shown.map((b) => (
               <Tr key={b.date} className={b.rows === 0 ? "text-ink-faint" : undefined}>
                 <Td className={cn("whitespace-nowrap", b.rows > 0 && "font-medium text-ink")}>{bucketTitle(b.date)}</Td>
-                <Td className="text-right">{b.rows}</Td>
-                {withSite ? <Td className="text-right">{b.site ?? 0}</Td> : null}
+                <Td className="whitespace-nowrap text-right">{b.rows}</Td>
+                {withSite ? <Td className="whitespace-nowrap text-right">{b.site ?? 0}</Td> : null}
                 {hasAmount ? <Td className="whitespace-nowrap text-right">{b.rows > 0 ? money(b.amount) : "—"}</Td> : null}
                 {hasProfit ? (
                   <Td className={cn("whitespace-nowrap text-right", (b.profit ?? 0) < 0 && "text-danger")}>
@@ -269,7 +269,7 @@ function SectionStats({ stats }: { stats: Stats }) {
                   </Td>
                 ) : null}
                 {hasAmount ? <Td className="whitespace-nowrap text-right">{b.rows > 0 ? money(b.amount / b.rows) : "—"}</Td> : null}
-                {hasAmount ? <Td className="text-right">{b.rows > 0 ? percent(b.amount, amount) : "—"}</Td> : null}
+                {hasAmount ? <Td className="whitespace-nowrap text-right">{b.rows > 0 ? percent(b.amount, amount) : "—"}</Td> : null}
               </Tr>
             ))}
             {shown.length === 0 ? <EmptyRow colSpan={7}>Այս ժամանակահատվածում տվյալներ չկան։</EmptyRow> : null}
@@ -277,12 +277,12 @@ function SectionStats({ stats }: { stats: Stats }) {
           <tfoot>
             <TotalRow>
               <Td>Ընդամենը</Td>
-              <Td className="text-right">{rows}</Td>
-              {withSite ? <Td className="text-right">{site}</Td> : null}
+              <Td className="whitespace-nowrap text-right">{rows}</Td>
+              {withSite ? <Td className="whitespace-nowrap text-right">{site}</Td> : null}
               {hasAmount ? <Td className="whitespace-nowrap text-right">{money(amount)}</Td> : null}
               {hasProfit ? <Td className="whitespace-nowrap text-right">{money(profit)}</Td> : null}
               {hasAmount ? <Td className="whitespace-nowrap text-right">{rows > 0 ? money(amount / rows) : "—"}</Td> : null}
-              {hasAmount ? <Td className="text-right">100%</Td> : null}
+              {hasAmount ? <Td className="whitespace-nowrap text-right">100%</Td> : null}
             </TotalRow>
           </tfoot>
         </TableWrap>
@@ -308,11 +308,11 @@ function SectionStats({ stats }: { stats: Stats }) {
               {stats.numbers.map((n) => (
                 <Tr key={`${n.label}-${n.unit ?? ""}`}>
                   <Td className="font-medium">{n.label}</Td>
-                  <Td className="text-right">
+                  <Td className="whitespace-nowrap text-right">
                     {formatNumber(n.sum)}
                     {n.unit ? ` ${n.unit}` : ""}
                   </Td>
-                  <Td className="text-right">{n.filled}</Td>
+                  <Td className="whitespace-nowrap text-right">{n.filled}</Td>
                 </Tr>
               ))}
             </tbody>
@@ -338,9 +338,9 @@ function SectionStats({ stats }: { stats: Stats }) {
                       {t.name}
                     </Link>
                   </Td>
-                  <Td className="text-right">{t.rows}</Td>
+                  <Td className="whitespace-nowrap text-right">{t.rows}</Td>
                   {hasAmount ? <Td className="whitespace-nowrap text-right">{t.amount === null ? "—" : money(t.amount)}</Td> : null}
-                  <Td className="text-right">
+                  <Td className="whitespace-nowrap text-right">
                     {t.total}
                     {t.withoutDate > 0 ? <span className="block text-xs text-ink-faint">{t.withoutDate} առանց ամսաթվի</span> : null}
                   </Td>
@@ -380,10 +380,10 @@ function ShareTable({ share, unit, rows, amount }: { share: Stats["shares"][numb
           {share.values.map((v) => (
             <Tr key={v.label}>
               <Td className="font-medium">{v.label}</Td>
-              <Td className="text-right">{v.rows}</Td>
-              <Td className="text-right text-ink-muted">{percent(v.rows, rows)}</Td>
+              <Td className="whitespace-nowrap text-right">{v.rows}</Td>
+              <Td className="whitespace-nowrap text-right text-ink-muted">{percent(v.rows, rows)}</Td>
               {withAmount ? <Td className="whitespace-nowrap text-right">{v.amount === null ? "—" : money(v.amount)}</Td> : null}
-              {withAmount ? <Td className="text-right text-ink-muted">{v.amount === null ? "—" : percent(v.amount, amount)}</Td> : null}
+              {withAmount ? <Td className="whitespace-nowrap text-right text-ink-muted">{v.amount === null ? "—" : percent(v.amount, amount)}</Td> : null}
             </Tr>
           ))}
         </tbody>
@@ -427,8 +427,8 @@ function AudienceStats({ audience }: { audience: AudienceDto }) {
                   {block.rows.map((r) => (
                     <Tr key={r.key}>
                       <Td className="font-medium">{r.name}</Td>
-                      <Td className="text-right">{r.rows}</Td>
-                      <Td className="text-right text-ink-muted">{percent(r.rows, total)}</Td>
+                      <Td className="whitespace-nowrap text-right">{r.rows}</Td>
+                      <Td className="whitespace-nowrap text-right text-ink-muted">{percent(r.rows, total)}</Td>
                       <Td className="whitespace-nowrap text-right">{r.amount === null ? "—" : money(r.amount)}</Td>
                     </Tr>
                   ))}

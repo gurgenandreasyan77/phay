@@ -401,7 +401,7 @@ function SessionsSection({ security, onChanged }: { security: AccountSecurityDto
               <Td className="font-mono text-xs">{session.ipAddress ?? "—"}</Td>
               <Td className="text-xs">{dateTime(session.createdAt)}</Td>
               <Td className="text-xs">{dateTime(session.lastUsedAt)}</Td>
-              <Td className="text-right">
+              <Td className="whitespace-nowrap text-right">
                 {!session.current ? (
                   <Button size="sm" variant="ghost" disabled={pending} onClick={() => revoke(session.id)}>
                     Դուրս հանել

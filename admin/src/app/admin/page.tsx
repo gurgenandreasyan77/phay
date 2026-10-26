@@ -216,10 +216,11 @@ function SectionBlock({ section }: { section: HomeSectionDto }) {
         </Card>
       ) : (
         <Card>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+          {/* Today and the week side by side on a phone, the month under them with its comparison. */}
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5">
             <Figure label="Այսօր" figures={section.today} money={money} />
             <Figure label="Այս շաբաթ" figures={section.week} money={money} />
-            <div>
+            <div className="col-span-2 border-t border-border pt-4 sm:col-span-1 sm:border-0 sm:pt-0">
               <Figure label="Այս ամիս" figures={section.month} money={money} />
               <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
                 <span>
@@ -289,7 +290,7 @@ function UpcomingBlock({ upcoming, today }: { upcoming: NonNullable<DashboardDto
             <Link
               key={`${item.kind}-${item.id}`}
               href={href(item)}
-              className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 hover:bg-surface-secondary"
+              className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-surface-secondary active:bg-surface-secondary sm:px-5"
             >
               <span className="w-full shrink-0 text-sm text-ink-muted sm:w-32">
                 {dayLabel(item.date, today)}

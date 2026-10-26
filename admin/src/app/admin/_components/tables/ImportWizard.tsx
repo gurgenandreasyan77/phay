@@ -276,7 +276,7 @@ export function ImportWizard({
                 <Td>
                   <Badge tone={STATUS[item.status].tone}>{STATUS[item.status].label}</Badge>
                 </Td>
-                <Td className="text-right">
+                <Td className="whitespace-nowrap text-right">
                   {item.status === "done" && item.importedRows > 0 ? (
                     <Button variant="secondary" size="sm" onClick={() => undo(item)}>
                       Հետ վերցնել

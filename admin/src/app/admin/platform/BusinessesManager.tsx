@@ -158,7 +158,7 @@ export function BusinessesManager({
                     <Badge tone="warning">Կասեցված</Badge>
                   )}
                 </Td>
-                <Td className="text-right">
+                <Td className="whitespace-nowrap text-right">
                   <span className="inline-flex items-center justify-end gap-2">
                     <Link
                       href={`/admin/platform/support?tenant=${tenant.id}`}

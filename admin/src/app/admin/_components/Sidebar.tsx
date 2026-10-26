@@ -17,6 +17,7 @@ export function Sidebar({
   businessName,
   businessLogo,
   onNavigate,
+  mobile = false,
   className,
 }: {
   features: FeatureFlags;
@@ -26,6 +27,8 @@ export function Sidebar({
   /** The business's logo, if it uploaded one in its settings. */
   businessLogo?: string | null;
   onNavigate?: () => void;
+  /** In the phone's slide-out menu: taller rows for a finger, room for the close button. */
+  mobile?: boolean;
   className?: string;
 }) {
   const pathname = usePathname();
@@ -35,8 +38,11 @@ export function Sidebar({
   const unread = useSupportUnread(me !== null);
 
   return (
-    <nav className={cn("flex h-full flex-col bg-sidebar text-sidebar-text", className)}>
-      <div className="flex h-16 items-center gap-2.5 px-5">
+    <nav
+      className={cn("flex h-full flex-col bg-sidebar text-sidebar-text", className)}
+      style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+    >
+      <div className={cn("flex h-16 shrink-0 items-center gap-2.5 px-5", mobile && "pr-14")}>
         {!onPlatform && businessLogo ? (
           <BusinessLogo name={businessName ?? "Phay"} logo={businessLogo} size="sm" className="border-0" />
         ) : (
@@ -57,7 +63,10 @@ export function Sidebar({
           <Link
             href={PLATFORM_HOME}
             onClick={onNavigate}
-            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-sidebar-text-muted hover:bg-sidebar-hover hover:text-sidebar-text"
+            className={cn(
+              "flex items-center gap-2 rounded-md px-3 text-sm text-sidebar-text-muted hover:bg-sidebar-hover hover:text-sidebar-text active:bg-sidebar-hover",
+              mobile ? "min-h-11 py-2.5" : "py-2",
+            )}
           >
             <ArrowLeft className="h-4 w-4 shrink-0" strokeWidth={1.75} />
             Պլատֆորմ
@@ -65,7 +74,7 @@ export function Sidebar({
         </div>
       ) : null}
 
-      <div className="flex-1 overflow-y-auto px-3 pb-4">
+      <div className="overscroll-contain flex-1 overflow-y-auto px-3 pb-4">
         {navGroups.map((group) => (
           <div key={group.label} className="mb-5">
             <p className="px-3 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-sidebar-text-muted">
@@ -100,7 +109,8 @@ export function Sidebar({
                       href={item.href}
                       onClick={onNavigate}
                       className={cn(
-                        "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
+                        "flex items-center gap-2.5 rounded-md px-3 text-sm transition-colors active:bg-sidebar-hover",
+                        mobile ? "min-h-11 py-2.5" : "py-2",
                         isActive
                           ? "bg-sidebar-hover font-medium text-sidebar-text"
                           : "text-sidebar-text-muted hover:bg-sidebar-hover hover:text-sidebar-text",

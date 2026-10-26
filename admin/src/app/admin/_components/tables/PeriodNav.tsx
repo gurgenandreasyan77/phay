@@ -23,7 +23,7 @@ export function PeriodNav({ base, current }: { base: string; current: { kind: Pe
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex flex-wrap gap-1 rounded-md border border-border bg-surface p-1">
+      <div className="segmented flex flex-wrap gap-1 rounded-md border border-border bg-surface p-1">
         {PERIOD_KINDS.map((kind) => (
           <Link
             key={kind}

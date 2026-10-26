@@ -16,9 +16,15 @@
     box-shadow 0.2s ease;
 }
 
-.chip:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 22px -12px rgba(19, 36, 31, 0.8);
+@media (hover: hover) and (pointer: fine) {
+  .chip:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px -12px rgba(19, 36, 31, 0.8);
+  }
+}
+
+.chip:active {
+  transform: scale(0.96);
 }
 
 /* A band of light passing over the chip now and then. */

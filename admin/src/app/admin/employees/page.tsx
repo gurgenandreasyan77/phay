@@ -34,7 +34,7 @@ export default async function AdminEmployeesPage(props: PageProps<"/admin/employ
         }
       />
 
-      <nav className="inline-flex rounded-lg border border-border bg-surface p-1" aria-label="Աշխատակիցների տեսակները">
+      <nav className="segmented inline-flex rounded-lg border border-border bg-surface p-1" aria-label="Աշխատակիցների տեսակները">
         {[
           {
             href: "/admin/employees",

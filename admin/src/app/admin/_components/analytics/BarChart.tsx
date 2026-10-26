@@ -127,11 +127,14 @@ export function BarChart({
   const zero = y(0);
   const labelEvery = bars.length <= 12 ? 1 : Math.ceil(bars.length / 7);
   const withValues = bars.length <= 12;
+  // Twelve figures side by side need room: in a narrow card (a phone) they
+  // overlap, so above the bars only up to 7, the rest on tap.
+  const valuesWhenNarrow = bars.length <= 7;
   // Near the edges the card leans inwards, or it would be cut off.
   const edge = bars.length < 5 ? 0 : Math.max(1, Math.floor(bars.length / 6));
 
   return (
-    <div data-chart className="select-none">
+    <div data-chart className="@container select-none">
       <div className="flex">
         <div className="relative mr-2 h-48 w-12 shrink-0 text-right text-[10px] text-ink-faint">
           {ticks.map((tick) => (
@@ -161,7 +164,7 @@ export function BarChart({
                   data-bar
                   tabIndex={0}
                   aria-label={`${bar.title}: ${format(bar.value)}`}
-                  className="group relative h-full flex-1 rounded-sm outline-none hover:bg-primary/5 focus:bg-primary/5"
+                  className="group relative h-full min-w-0 flex-1 rounded-sm outline-none hover:bg-primary/5 focus:bg-primary/5"
                 >
                   {bar.value === 0 ? (
                     <div className="absolute left-1/2 h-0.5 w-3/5 max-w-10 -translate-x-1/2 rounded-full bg-border" style={{ bottom: `calc(${zero}% - 1px)` }} />
@@ -183,7 +186,11 @@ export function BarChart({
                   )}
                   {withValues && bar.value !== 0 ? (
                     <span
-                      className={`absolute inset-x-0 text-center text-[10px] font-medium whitespace-nowrap text-ink-muted ${styles.fadeIn}`}
+                      className={cn(
+                        "absolute inset-x-0 text-center text-[10px] font-medium whitespace-nowrap text-ink-muted",
+                        styles.fadeIn,
+                        !valuesWhenNarrow && "hidden @md:block",
+                      )}
                       style={
                         {
                           ...(negative ? { top: `calc(${100 - bottom}% + 2px)` } : { bottom: `calc(${top}% + 2px)` }),
@@ -197,10 +204,10 @@ export function BarChart({
                   <div
                     role="tooltip"
                     className={cn(
-                      "pointer-events-none absolute z-20 hidden min-w-28 rounded-md bg-ink px-2.5 py-1.5 text-xs whitespace-nowrap text-white shadow-lg group-hover:block group-focus:block",
+                      "pointer-events-none absolute z-20 hidden max-w-[calc(100vw-3rem)] min-w-28 rounded-md bg-ink px-2.5 py-1.5 text-xs whitespace-nowrap text-white shadow-lg group-hover:block group-focus:block",
                       i < edge ? "left-0" : i >= bars.length - edge ? "right-0" : "left-1/2 -translate-x-1/2",
                     )}
-                    style={{ bottom: `calc(${Math.min(top, 60)}% + ${withValues ? 18 : 6}px)` }}
+                    style={{ bottom: `calc(${Math.min(top, 60)}% + ${withValues && valuesWhenNarrow ? 18 : 6}px)` }}
                   >
                     <p className="text-white/70">{bar.title}</p>
                     <p className="mt-0.5 text-sm font-semibold">{format(bar.value)}</p>
@@ -216,17 +223,24 @@ export function BarChart({
           </div>
         </div>
       </div>
-      <div className="ml-14 mt-1.5 flex text-[10px] text-ink-faint">
+      <div className="ml-14 mt-1.5 flex text-[10px] text-ink-faint" aria-hidden="true">
         {bars.map((bar, i) => {
           const last = i === bars.length - 1;
           // Every few bars and the last one, but not two captions on top of each other.
           const shown = last || (i % labelEvery === 0 && bars.length - 1 - i >= labelEvery / 2);
+          // A phone's card fits half the captions: every other one, and none
+          // so close to the last that the two run into each other.
+          const thin =
+            bars.length <= 12
+              ? bars.length > 7 && (bars.length - 1 - i) % 2 === 1
+              : !last && (i % (2 * labelEvery) !== 0 || bars.length - 1 - i < 1.5 * labelEvery);
           return (
             <div key={bar.key} className="relative flex-1">
               {shown ? (
                 <span
                   className={cn(
                     "absolute top-0 whitespace-nowrap",
+                    thin && "hidden @md:block",
                     bars.length <= 12 ? "left-1/2 -translate-x-1/2" : last ? "right-0" : i === 0 ? "left-0" : "left-1/2 -translate-x-1/2",
                   )}
                 >

@@ -76,7 +76,7 @@ export function ProductsList({ items }: { items: AdminProductDto[] }) {
               </Td>
               <Td className="text-ink-muted">{item.priceAmount ?? "—"}</Td>
               <Td className="text-xs text-warning">{item.adminNote ? "Այո" : ""}</Td>
-              <Td className="text-right">
+              <Td className="whitespace-nowrap text-right">
                 <div className="flex items-center justify-end gap-3">
                   <Link href={`/admin/products/${item.id}`} className="text-xs font-medium text-primary hover:underline">
                     Խմբագրել

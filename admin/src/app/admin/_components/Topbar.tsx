@@ -59,8 +59,8 @@ export function Topbar({
     function handleClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("pointerdown", handleClick);
+    return () => document.removeEventListener("pointerdown", handleClick);
   }, [menuOpen]);
 
   async function handleLogout() {
@@ -71,82 +71,96 @@ export function Topbar({
   }
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-surface px-4 sm:px-6">
-      <button
-        type="button"
-        onClick={onOpenMobileNav}
-        className="-ml-1 flex h-9 w-9 items-center justify-center rounded-md text-ink-muted hover:bg-surface-secondary lg:hidden"
-        aria-label="Մենյու"
-      >
-        <Menu className="h-5 w-5" strokeWidth={1.75} />
-      </button>
+    <header
+      className="sticky top-0 z-20 border-b border-border bg-surface"
+      style={{
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingLeft: "env(safe-area-inset-left, 0px)",
+        paddingRight: "env(safe-area-inset-right, 0px)",
+      }}
+    >
+      <div className="flex h-14 items-center gap-1 pl-2 pr-2 sm:h-16 sm:gap-3 sm:px-6">
+        <button
+          type="button"
+          onClick={onOpenMobileNav}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-ink-muted hover:bg-surface-secondary active:bg-surface-secondary sm:-ml-1 sm:h-9 sm:w-9 lg:hidden"
+          aria-label="Մենյու"
+        >
+          <Menu className="h-5 w-5" strokeWidth={1.75} />
+        </button>
 
-      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm">
-        {crumbs.map((crumb, i) => (
-          <span key={`${crumb.label}-${i}`} className="flex items-center gap-1.5">
-            {i > 0 ? <span className="text-ink-faint">/</span> : null}
-            {crumb.href && i < crumbs.length - 1 ? (
-              <Link href={crumb.href} className="truncate text-ink-muted hover:text-ink">
-                {crumb.label}
-              </Link>
-            ) : (
-              <span className={cn("truncate", i === crumbs.length - 1 ? "font-medium text-ink" : "text-ink-muted")}>
-                {crumb.label}
-              </span>
-            )}
-          </span>
-        ))}
-      </nav>
-
-      <div className="ml-auto flex items-center gap-1">
-        {/* On the platform level a business is entered from its row instead. */}
-        {me?.currentTenant && !(isPlatformStaff(me) && isPlatformPath(pathname)) ? (
-          <TenantSwitcher current={me.currentTenant} tenants={me.tenants} />
-        ) : null}
-        {/* An invitation for a business not on premium; not on the platform level. */}
-        {me?.subscription && me.subscription.premium === false && !isPlatformPath(pathname) ? <PremiumChip /> : null}
-        <HeaderSearch features={features} me={me} />
-        <NotificationBell enabled={me !== null} />
-
-        <div className="relative ml-1" ref={menuRef}>
-          <button
-            type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            className="flex items-center gap-2 rounded-md py-1.5 pl-1.5 pr-2 hover:bg-surface-secondary"
-          >
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-light text-xs font-semibold text-primary">
-              {(adminEmail ?? "A").slice(0, 1).toUpperCase()}
+        {/* On a phone only the current page: the full path doesn't fit beside the buttons. */}
+        <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
+          {crumbs.map((crumb, i) => (
+            <span
+              key={`${crumb.label}-${i}`}
+              className={cn("min-w-0 items-center gap-1.5", i === crumbs.length - 1 ? "flex" : "hidden shrink-0 md:flex")}
+            >
+              {i > 0 ? <span className="hidden text-ink-faint md:inline">/</span> : null}
+              {crumb.href && i < crumbs.length - 1 ? (
+                <Link href={crumb.href} className="truncate text-ink-muted hover:text-ink">
+                  {crumb.label}
+                </Link>
+              ) : (
+                <span className={cn("truncate", i === crumbs.length - 1 ? "font-medium text-ink" : "text-ink-muted")}>
+                  {crumb.label}
+                </span>
+              )}
             </span>
-            <span className="hidden text-sm text-ink sm:inline">{adminEmail ?? "Ադմինիստրատոր"}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-ink-muted" strokeWidth={1.75} />
-          </button>
+          ))}
+        </nav>
 
-          {menuOpen ? (
-            <div className="absolute right-0 top-full mt-1.5 w-56 rounded-lg border border-border bg-surface p-1.5 shadow-md">
-              <div className="px-2.5 py-2">
-                <p className="text-sm font-medium text-ink">{adminEmail ?? "Ադմինիստրատոր"}</p>
-                <p className="text-xs text-ink-muted">{me?.currentTenant?.name ?? "Phay"}</p>
-              </div>
-              <div className="my-1 h-px bg-border" />
-              <Link
-                href="/admin/account"
-                onClick={() => setMenuOpen(false)}
-                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-ink hover:bg-surface-secondary"
-              >
-                <KeyRound className="h-4 w-4" strokeWidth={1.75} />
-                Իմ հաշիվը և գաղտնաբառը
-              </Link>
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={loggingOut}
-                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-ink hover:bg-surface-secondary disabled:opacity-50"
-              >
-                <LogOut className="h-4 w-4" strokeWidth={1.75} />
-                Ելք
-              </button>
-            </div>
+        <div className="ml-auto flex shrink-0 items-center sm:gap-1">
+          {/* On the platform level a business is entered from its row instead. */}
+          {me?.currentTenant && !(isPlatformStaff(me) && isPlatformPath(pathname)) ? (
+            <TenantSwitcher current={me.currentTenant} tenants={me.tenants} />
           ) : null}
+          {/* An invitation for a business not on premium; not on the platform level. */}
+          {me?.subscription && me.subscription.premium === false && !isPlatformPath(pathname) ? <PremiumChip /> : null}
+          <HeaderSearch features={features} me={me} />
+          <NotificationBell enabled={me !== null} />
+
+          <div className="relative ml-1" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label="Հաշիվ"
+              className="flex h-11 items-center gap-2 rounded-md px-2 hover:bg-surface-secondary active:bg-surface-secondary sm:h-auto sm:py-1.5 sm:pl-1.5"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-light text-xs font-semibold text-primary">
+                {(adminEmail ?? "A").slice(0, 1).toUpperCase()}
+              </span>
+              <span className="hidden text-sm text-ink sm:inline">{adminEmail ?? "Ադմինիստրատոր"}</span>
+              <ChevronDown className="hidden h-3.5 w-3.5 text-ink-muted sm:block" strokeWidth={1.75} />
+            </button>
+
+            {menuOpen ? (
+              <div className="absolute right-0 top-full mt-1.5 w-64 max-w-[calc(100vw-1rem)] rounded-lg border border-border bg-surface p-1.5 shadow-md">
+                <div className="px-2.5 py-2">
+                  <p className="truncate text-sm font-medium text-ink">{adminEmail ?? "Ադմինիստրատոր"}</p>
+                  <p className="text-xs text-ink-muted">{me?.currentTenant?.name ?? "Phay"}</p>
+                </div>
+                <div className="my-1 h-px bg-border" />
+                <Link
+                  href="/admin/account"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex min-h-11 w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-ink hover:bg-surface-secondary active:bg-surface-secondary sm:min-h-0"
+                >
+                  <KeyRound className="h-4 w-4" strokeWidth={1.75} />
+                  Իմ հաշիվը և գաղտնաբառը
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                  className="flex min-h-11 w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm text-ink hover:bg-surface-secondary active:bg-surface-secondary disabled:opacity-50 sm:min-h-0"
+                >
+                  <LogOut className="h-4 w-4" strokeWidth={1.75} />
+                  Ելք
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     </header>

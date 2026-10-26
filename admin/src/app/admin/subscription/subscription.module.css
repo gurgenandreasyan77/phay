@@ -136,10 +136,12 @@
     border-color 0.25s ease;
 }
 
-.benefit:hover {
-  transform: translateX(4px);
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(243, 220, 158, 0.35);
+@media (hover: hover) and (pointer: fine) {
+  .benefit:hover {
+    transform: translateX(4px);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(243, 220, 158, 0.35);
+  }
 }
 
 .usageTrack {
@@ -175,9 +177,11 @@
     box-shadow 0.2s ease;
 }
 
-.cta:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 28px -10px rgba(226, 189, 114, 0.95);
+@media (hover: hover) and (pointer: fine) {
+  .cta:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 28px -10px rgba(226, 189, 114, 0.95);
+  }
 }
 
 /* The preview: one sharp copy of the page under a blurred one; the blurred
@@ -308,10 +312,12 @@
     border-color 0.3s ease;
 }
 
-.module:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 22px 40px -22px var(--tint-shadow);
-  border-color: var(--tint-border);
+@media (hover: hover) and (pointer: fine) {
+  .module:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 22px 40px -22px var(--tint-shadow);
+    border-color: var(--tint-border);
+  }
 }
 
 .art {
@@ -333,8 +339,10 @@
   opacity: 0;
 }
 
-.module:hover .art::after {
-  animation: sweep 0.9s ease;
+@media (hover: hover) and (pointer: fine) {
+  .module:hover .art::after {
+    animation: sweep 0.9s ease;
+  }
 }
 
 @keyframes sweep {
@@ -365,8 +373,10 @@
   }
 }
 
-.module:hover .float {
-  animation-duration: 2s;
+@media (hover: hover) and (pointer: fine) {
+  .module:hover .float {
+    animation-duration: 2s;
+  }
 }
 
 .tintText {
@@ -384,8 +394,10 @@
   transition: filter 0.2s ease;
 }
 
-.tintButton:hover:not(:disabled) {
-  filter: brightness(1.08);
+@media (hover: hover) and (pointer: fine) {
+  .tintButton:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
