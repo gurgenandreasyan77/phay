@@ -15,6 +15,10 @@ use App\Tenancy\TenantContext;
  * from the owner), what it was told to remember, and its teammates. The
  * analysts get the business's figures as the assistant does; the creative
  * agents a short summary of the business, which keeps their requests cheap.
+ *
+ * Consulted by a teammate ($consulted; $askedBy is null when the business
+ * assistant asks, see Colleagues) the agent answers that teammate, not the
+ * owner: briefly, from its look-ups, changing nothing.
  */
 class AgentPrompt
 {
@@ -24,10 +28,10 @@ class AgentPrompt
         private readonly AgentTools $tools,
     ) {}
 
-    public function build(Agent $agent, BusinessAssistant $assistant): string
+    public function build(Agent $agent, BusinessAssistant $assistant, bool $consulted = false, ?Agent $askedBy = null): string
     {
-        $designs = $this->tools->for($agent, null)->designs();
-        $edits = $this->tools->for($agent, null)->edits();
+        $designs = ! $consulted && $this->tools->for($agent, null)->designs();
+        $edits = ! $consulted && $this->tools->for($agent, null)->edits();
 
         $tenant = $this->tenants->current();
         $profile = $this->agents->profile($tenant);
@@ -36,8 +40,8 @@ class AgentPrompt
         $intro = implode("\n\n", array_filter([
             "You work on the AI team inside the admin panel of \"{$tenant->name}\", a small business in Armenia, as one of its staff. The person writing to you is its owner or manager.",
             $agent->instructions(),
-            $this->team($agent),
-            $this->brand($agent, $profile),
+            $consulted ? $this->consulted($askedBy) : $this->team($agent),
+            $this->brand($agent, $profile, $consulted),
             filled($notes) ? "What you were asked to remember about this business (your notes):\n<notes>\n{$notes}\n</notes>" : null,
             $designs ? DesignStudio::guide() : null,
             $edits ? VideoStudio::guide() : null,
@@ -53,18 +57,19 @@ class AgentPrompt
         ]));
 
         if ($agent->usesFigures()) {
-            return $assistant->systemPrompt($intro, $agent);
+            return $assistant->systemPrompt($intro, $agent, actions: ! $consulted);
         }
 
         $basics = json_encode($assistant->basics(), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-        $lookups = $this->lookups($agent);
+        $lookups = $this->lookups($agent, $consulted);
+        $actions = $consulted ? '' : $assistant->tableActionsGuide($agent);
 
         return <<<PROMPT
         {$intro}
 
         Looking things up: {$lookups} Use as few look-ups as the work needs and don't name the tools to the owner. Never invent the business's figures.
         {$assistant->socialGuide()}
-        {$assistant->tableActionsGuide($agent)}
+        {$actions}
 
         Reply in the language of the owner's latest message (Armenian, Russian or English); write Armenian as a native speaker would. Keep chat replies short and warm; a finished piece (a post, a script, a plan, a prompt) may use numbered lists and short bold labels so it is easy to copy. No tables unless asked. Amounts are in {$tenant->currency}; write Armenian dram as "դր.".
 
@@ -74,24 +79,38 @@ class AgentPrompt
         PROMPT;
     }
 
-    /** The other agents the business has, so a request can go to the right one. */
+    /**
+     * The other agents the business has, what each one knows, and how to
+     * ask them (ask_colleague) instead of guessing their part.
+     */
     private function team(Agent $agent): ?string
     {
-        $others = array_values(array_filter(
-            array_map(fn (string $key) => AgentCatalog::find($key), $this->agents->activeKeys($this->tenants->current())),
-            fn (?Agent $other) => $other !== null && $other->key() !== $agent->key(),
-        ));
+        $others = $this->agents->colleagues($this->tenants->current(), $agent);
 
         if ($others === []) {
             return null;
         }
 
-        $names = implode(', ', array_map(fn (Agent $a) => $a->label('en').' ('.$a->label('hy').')', $others));
+        $names = implode("\n", array_map(fn (Agent $a) => '- '.Colleagues::introduce($a), $others));
 
-        return "Your teammates in this business: {$names}. When a request is clearly another one's job, give a short useful answer and suggest asking them by name in the AI assistant section.";
+        return <<<TEXT
+        Your teammates in this business (the AI team):
+        {$names}
+        You work as a team. When your work needs what a teammate knows or keeps (who is away on a day, a figure, the brand's style, the team's records), ask them with ask_colleague before you answer or prepare a card, instead of guessing: e.g. before an order with a performer, ask the HR person whether the performer is away that day. Ask one clear question with the details (names, dates, ids). Tell the owner in a few words what the teammate said when it matters (e.g. "Անյան ասում է, որ Արամը արձակուրդում է"), and act on it: warn, propose another performer or date. A teammate only looks things up for you: changes stay yours (your cards) or are theirs to prepare when the owner asks them, so then suggest asking them by name in the AI assistant section.
+        TEXT;
     }
 
-    private function brand(Agent $agent, BrandProfile $profile): string
+    /** Who asks and how to answer them, when a teammate consults the agent. */
+    private function consulted(?Agent $askedBy): string
+    {
+        $who = $askedBy ? $askedBy->label('en').' ('.$askedBy->label('hy').')' : 'the business assistant';
+
+        return <<<TEXT
+        Right now you are not talking to the owner: your teammate {$who} asks you a question while working on the owner's request, and will pass your answer on. Answer only that question, briefly and exactly: facts, names, dates, ids and figures from your look-ups (look up what you need; never guess), and a recommendation in a sentence when it helps (e.g. who else is free). Don't greet, don't ask questions back; if you can't know, say what is missing. You can only look things up now: you can't prepare cards or change or save anything. If something should change in your area, say what, and that the owner can ask you for it. Answer in the language of the question.
+        TEXT;
+    }
+
+    private function brand(Agent $agent, BrandProfile $profile, bool $consulted = false): string
     {
         $data = array_filter(
             collect($profile->present())->only(['about', 'offer', 'audience', 'tone', 'visualStyle', 'colors', 'examples', 'avoid'])->all(),
@@ -100,6 +119,10 @@ class AgentPrompt
         $known = $data === []
             ? 'The brand profile is empty: nobody has told the team about the business yet.'
             : "The business's brand profile, shared by the whole team (the owner's own words):\n<brand_profile>\n".json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)."\n</brand_profile>";
+
+        if ($consulted) {
+            return $known;
+        }
 
         $known .= "\n".$this->pictures();
 
@@ -132,7 +155,7 @@ class AgentPrompt
     }
 
     /** What the agent's look-ups are for, in a sentence each. */
-    private function lookups(Agent $agent): string
+    private function lookups(Agent $agent, bool $consulted = false): string
     {
         $what = [
             'list_tables' => 'list_tables shows the business\'s own tables and their columns',
@@ -151,6 +174,11 @@ class AgentPrompt
         ];
 
         $lines = array_values(array_filter(array_map(fn (string $tool) => $what[$tool] ?? null, $agent->tools())));
+        if ($consulted) {
+            $lines[] = 'view_brand_assets shows the saved logo and examples, read_link opens a link';
+
+            return ucfirst(implode('; ', $lines)).'. Look-ups of a module the business doesn\'t have are not available.';
+        }
         $lines[] = 'save_brand_profile keeps what you learn about the brand for the whole team, save_brand_asset keeps an attached logo or example picture, view_brand_assets shows the saved ones, remember keeps a note for yourself, read_link opens a link';
         if ($this->tools->for($agent, null)->designs()) {
             $lines[] = 'render_designs makes pictures and get_design gives back the HTML of one made earlier';

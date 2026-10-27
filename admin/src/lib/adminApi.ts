@@ -348,6 +348,8 @@ export type AssistantActionDto =
   | { type: "reshape"; id: number }
   | { type: "change"; id: number }
   | { type: "hr"; id: number }
+  /** A teammate the agent asked while answering, with the question and what they said. */
+  | { type: "consult"; agent: string; name: string; role: string; question: string; answer?: string }
   | {
       type: "download";
       kind: "tables" | "finance" | "expenses";

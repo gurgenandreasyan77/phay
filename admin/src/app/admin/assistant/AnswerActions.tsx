@@ -13,7 +13,9 @@ import { HrCard } from "../_components/team/HrCard";
  * (applied only with its button) and files to download. The AI never changes the tables
  * itself.
  */
-export function AnswerActions({ actions }: { actions: AssistantActionDto[] }) {
+export function AnswerActions({ actions: all }: { actions: AssistantActionDto[] }) {
+  // Teammates consulted show above the answer (Consultations).
+  const actions = all.filter((action) => action.type !== "consult");
   if (actions.length === 0) return null;
 
   return (
@@ -25,7 +27,7 @@ export function AnswerActions({ actions }: { actions: AssistantActionDto[] }) {
           <ChangeCard key={`c-${action.id}`} id={action.id} />
         ) : action.type === "hr" ? (
           <HrCard key={`h-${action.id}`} id={action.id} />
-        ) : (
+        ) : action.type === "consult" ? null : (
           <div key={`d-${i}`} className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface p-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-success-light text-success">
               <FileSpreadsheet className="h-5 w-5" strokeWidth={1.8} />

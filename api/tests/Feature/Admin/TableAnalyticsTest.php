@@ -295,7 +295,7 @@ class TableAnalyticsTest extends TestCase
                 return true;
             }
 
-            public function reply(string $system, array $messages, ?ToolSet $tools = null): AssistantReply
+            public function reply(string $system, array $messages, ?ToolSet $tools = null, ?int $timeBudget = null): AssistantReply
             {
                 $this->system = $system;
 

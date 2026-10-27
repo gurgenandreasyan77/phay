@@ -5,6 +5,7 @@ namespace App\Assistant;
 use App\Agents\Agent;
 use App\Agents\AgentPrompt;
 use App\Agents\AgentTools;
+use App\Agents\Colleagues;
 use App\Analytics\Dashboard;
 use App\DataTables\TableAnalytics;
 use App\Enums\ColumnRole;
@@ -41,6 +42,7 @@ class BusinessAssistant
         private readonly AgentTools $agentTools,
         private readonly AgentPrompt $agentPrompt,
         private readonly TableActionTools $tableActions,
+        private readonly Colleagues $colleagues,
     ) {}
 
     public function isConfigured(): bool
@@ -76,20 +78,23 @@ class BusinessAssistant
 
     /**
      * Asks the assistant, or one of the business's AI agents (its role, its
-     * look-ups, the brand profile and its notes). Either way it is one
-     * request of the business's monthly AI requests.
+     * look-ups, the brand profile and its notes). Either may consult the
+     * business's other agents (Colleagues). Either way it is one request of
+     * the business's monthly AI requests, with the consultations' tokens.
      *
      * @param  list<array{role: 'user'|'assistant', content: string|list<array<string, mixed>>}>  $messages
      */
     public function ask(array $messages, ?Agent $agent = null, ?User $user = null): AssistantReply
     {
         $this->agentTools->newQuestion();
+        $this->colleagues->newQuestion();
         $reply = $agent
-            ? $this->client->reply($this->agentPrompt->build($agent, $this), $messages, $this->agentTools->for($agent, $user))
-            : $this->client->reply($this->systemPrompt(), $messages, $this->tools);
+            ? $this->client->reply($this->agentPrompt->build($agent, $this), $messages, $this->colleagues->around($this->agentTools->for($agent, $user), $agent, $this, $user))
+            : $this->client->reply($this->systemPrompt(), $messages, $this->colleagues->around($this->tools, null, $this, $user));
 
         // Only an answer counts: a failed call throws before this.
-        $this->quota->record($this->tenants->current(), $reply->inputTokens, $reply->outputTokens);
+        [$input, $output] = $this->colleagues->tokens();
+        $this->quota->record($this->tenants->current(), $reply->inputTokens + $input, $reply->outputTokens + $output);
 
         return $reply;
     }
@@ -97,9 +102,10 @@ class BusinessAssistant
     /**
      * The prompt with the business's figures. $intro replaces who the
      * model is (an agent of the team, see AgentPrompt); the figures and how
-     * to read them stay the same.
+     * to read them stay the same. Without $actions it offers no cards (an
+     * agent answering a teammate).
      */
-    public function systemPrompt(?string $intro = null, ?Agent $agent = null): string
+    public function systemPrompt(?string $intro = null, ?Agent $agent = null, bool $actions = true): string
     {
         $tenant = $this->tenants->current();
         // Site orders only for a business that has any: no empty figures to talk about.
@@ -129,6 +135,8 @@ class BusinessAssistant
             'social' => $this->social->snapshot(),
         ], fn ($value) => $value !== null && $value !== []), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
+        $team = $intro === null ? $this->colleagues->guide() : '';
+        $cards = $actions ? $this->tableActionsGuide($agent) : '';
         $intro ??= "You are the business assistant inside the admin panel of \"{$tenant->name}\", a small business in Armenia. The person writing to you is its owner or manager. Your job is to help them understand their sales and decide what to do next to get more orders and more revenue.";
 
         return <<<PROMPT
@@ -148,7 +156,8 @@ class BusinessAssistant
 
         Looking things up: the data below is a summary. When a question needs more (a given day, week or month, a product, service, performer, channel or category, the biggest or latest rows, profit of a past period, site orders of some dates), use the tools to get the exact figures from the business's own records instead of estimating: list_tables shows the tables and their column labels, find_rows finds rows by dates and words, group_rows sums rows by day, week, month, weekday, hour or a column, finance_report gives profit and expenses for any period, expenses_report what was spent in any day, week, month, quarter or year (by category, payee, payment method, who spent, object), site_orders the website's orders. Dates are YYYY-MM-DD; today is in "business.today". Use as few look-ups as the answer needs, and don't mention the tools by name to the user: say what you found.
 
-        {$this->tableActionsGuide($agent)}
+        {$cards}
+        {$team}
 
         Files: the user may attach pictures, PDFs or text files to a message (named "[file #N: …]"), e.g. a price list, a receipt, a photo of a shelf or a competitor's post. Read them closely and answer about them; figures you read in a file are the file's, not the business's records.
 

@@ -32,6 +32,7 @@ import { chooseMessage, DesignGallery } from "./Designs";
 import { VideoList } from "./Videos";
 import { SUGGESTIONS } from "./suggestions";
 import { AnswerActions } from "./AnswerActions";
+import { Consultations } from "./Consultations";
 
 /** A question with its files, or an answer with the pictures the agent made. */
 type Message = {
@@ -441,6 +442,7 @@ export function AssistantChat({
             messages.map((message, i) =>
               message.role === "assistant" && agent ? (
                 <AgentBubble key={i} agent={agent} wide={(message.designs?.length ?? 0) > 1 || (message.videos?.length ?? 0) > 1}>
+                  <Consultations actions={message.actions ?? []} />
                   {message.content ? <Formatted text={message.content} /> : null}
                   <DesignGallery
                     designs={message.designs ?? []}
@@ -470,6 +472,7 @@ export function AssistantChat({
                       </div>
                     ) : (
                       <>
+                        <Consultations actions={message.actions ?? []} />
                         <Formatted text={message.content} />
                         <AnswerActions actions={message.actions ?? []} />
                       </>
