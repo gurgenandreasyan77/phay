@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Lock, MessageCircle } from "lucide-react";
+import { ArrowRight, Lock, MessageCircle, Play } from "lucide-react";
 import type { AgentDto, AssistantActionDto } from "@/lib/adminApi";
 import { buttonClasses, cn } from "@/ui";
 import { AgentAvatar, agentTintStyle } from "../_components/agents/AgentAvatar";
@@ -11,12 +11,24 @@ import { RequestButton } from "../subscription/RequestButton";
 type Refer = Extract<AssistantActionDto, { type: "refer" }>;
 
 /**
- * The agent whose work the question is: on the team, a button to its chat;
- * not yet, that it isn't available and a button that asks Phay to add it
- * (the request goes to the chat with Phay). Whether the business has it is
- * read now, not when the answer was given.
+ * The agent whose work the question is, offered because the business
+ * doesn't have it: that it isn't available and a button that asks Phay to
+ * add it (the request goes to the chat with Phay). Once it is on the team,
+ * a button to go on in this chat: the agent then hands the work over
+ * itself. Whether the business has it is read now, not when the answer was
+ * given.
  */
-export function ReferCard({ action, agent, canRequest }: { action: Refer; agent: AgentDto | null; canRequest: boolean }) {
+export function ReferCard({
+  action,
+  agent,
+  canRequest,
+  onContinue,
+}: {
+  action: Refer;
+  agent: AgentDto | null;
+  canRequest: boolean;
+  onContinue?: (message: string) => void;
+}) {
   const active = agent?.active ?? false;
 
   return (
@@ -34,17 +46,22 @@ export function ReferCard({ action, agent, canRequest }: { action: Refer; agent:
         </p>
         <p className="text-xs text-ink-muted">
           {active ? (
-            "Այս հարցով կօգնի այս AI աշխատակիցը"
+            "Արդեն ձեր թիմում է։ Շարունակեք այստեղ, և աշխատանքը կփոխանցվի նրան։"
           ) : (
             <>
               <Lock className="mr-1 inline h-3 w-3 align-[-1px]" strokeWidth={2} />
-              Այս մասնագետը ձեզ համար դեռ հասանելի չէ։ Ավելացրեք թիմին, և նա կօգնի։
+              Այս մասնագետը ձեզ համար դեռ հասանելի չէ։ Ավելացրեք թիմին, հետո վերադարձեք այս զրույցին՝ կշարունակենք։
             </>
           )}
         </p>
         {action.task ? <p className="mt-1 text-xs text-ink">«{action.task}»</p> : null}
       </div>
-      {active ? (
+      {active && onContinue ? (
+        <button type="button" onClick={() => onContinue(continueMessage(action))} className={buttonClasses("primary", "sm")}>
+          <Play className="h-4 w-4" />
+          Շարունակել
+        </button>
+      ) : active ? (
         <Link href={`/admin/assistant?agent=${action.agent}`} className={buttonClasses("primary", "sm")}>
           <MessageCircle className="h-4 w-4" />
           Բացել զրույցը
@@ -70,4 +87,10 @@ export function ReferCard({ action, agent, canRequest }: { action: Refer; agent:
       )}
     </div>
   );
+}
+
+/** What the owner says to go on once the agent offered is on the team. */
+function continueMessage(action: Refer): string {
+  const task = action.task ? ` Շարունակիր՝ «${action.task}»։` : " Շարունակիր։";
+  return `${action.role}՝ ${action.name}, արդեն մեր թիմում է։${task}`;
 }

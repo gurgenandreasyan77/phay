@@ -18,13 +18,16 @@ export function AnswerActions({
   actions: all,
   team = [],
   canRequest = false,
+  onContinue,
 }: {
   actions: AssistantActionDto[];
   team?: AgentDto[];
   canRequest?: boolean;
+  /** Sends a message in this chat: the agent goes on once the teammate it offered is on the team. */
+  onContinue?: (message: string) => void;
 }) {
-  // Teammates consulted show above the answer (Consultations).
-  const actions = all.filter((action) => action.type !== "consult");
+  // Teammates consulted or given work show above the answer (Consultations).
+  const actions = all.filter((action) => action.type !== "consult" && action.type !== "delegate");
   if (actions.length === 0) return null;
 
   return (
@@ -42,6 +45,7 @@ export function AnswerActions({
             action={action}
             agent={team.find((a) => a.key === action.agent) ?? null}
             canRequest={canRequest}
+            onContinue={onContinue}
           />
         ) : (
           <div key={`d-${i}`} className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface p-3">

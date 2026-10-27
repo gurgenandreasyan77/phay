@@ -18,7 +18,9 @@ use App\Tenancy\TenantContext;
  *
  * Consulted by a teammate ($consulted; $askedBy is null when the business
  * assistant asks, see Colleagues) the agent answers that teammate, not the
- * owner: briefly, from its look-ups, changing nothing.
+ * owner: briefly, from its look-ups, changing nothing. Handed a piece of
+ * work by a teammate ($delegated) it does it with all its tools, without
+ * asking the owner anything, and reports to that teammate.
  */
 class AgentPrompt
 {
@@ -28,7 +30,7 @@ class AgentPrompt
         private readonly AgentTools $tools,
     ) {}
 
-    public function build(Agent $agent, BusinessAssistant $assistant, bool $consulted = false, ?Agent $askedBy = null): string
+    public function build(Agent $agent, BusinessAssistant $assistant, bool $consulted = false, ?Agent $askedBy = null, bool $delegated = false): string
     {
         $designs = ! $consulted && $this->tools->for($agent, null)->designs();
         $edits = ! $consulted && $this->tools->for($agent, null)->edits();
@@ -40,8 +42,12 @@ class AgentPrompt
         $intro = implode("\n\n", array_filter([
             "You work on the AI team inside the admin panel of \"{$tenant->name}\", a small business in Armenia, as one of its staff. The person writing to you is its owner or manager.",
             $agent->instructions(),
-            $consulted ? $this->consulted($agent, $askedBy) : $this->team($agent),
-            $this->brand($agent, $profile, $consulted),
+            match (true) {
+                $consulted => $this->consulted($agent, $askedBy),
+                $delegated => $this->delegated($agent, $askedBy),
+                default => $this->team($agent),
+            },
+            $this->brand($agent, $profile, $consulted, $delegated),
             filled($notes) ? "What you were asked to remember about this business (your notes):\n<notes>\n{$notes}\n</notes>" : null,
             $designs ? DesignStudio::guide() : null,
             $edits ? VideoStudio::guide() : null,
@@ -91,16 +97,19 @@ class AgentPrompt
         $directory = $this->agents->directory($this->tenants->current(), $agent);
 
         $scope = <<<TEXT
-        Your specialty: {$agent->specialty()}. Answer only within it. When the owner asks for work that is another agent's (a picture or an image prompt, a post text, a reel script, a video edit, a table change, a job posting, a profit figure...), don't do it, not even partly, as a draft, a prompt or a quick tip: say in one or two short sentences that this is not your work and who on the team does it, and call refer_to_colleague so a button to them appears under your answer. When that agent is NOT on this business's team, say plainly that this specialist is not available for their business yet, that it can be added for a monthly fee, and that the button under your answer sends the request; never pretend you will ask them. Then offer what you can do in your own area, if anything. Questions your own work needs and a friendly word are fine.
+        Your specialty: {$agent->specialty()}. Answer only within it: another agent's work (a picture or an image prompt, a post text, a reel script, a video edit, a table change, a job posting, a profit figure...) you don't do yourself, not even partly, as a draft, a prompt or a quick tip. Who does it decides what you do:
+        - That agent is on this business's team: never send the owner to them or to their chat. Hand the work over yourself with delegate_to_colleague, in the background, with every detail from the conversation; they do it right away and their pictures, texts and cards come under your answer. Then report in a sentence or two what they did (e.g. "Փոխանցեցի Մարիամին, նա պատրաստեց 2 տարբերակ, ընտրեք ներքևում"). Do your own part of the request too.
+        - That agent is NOT on this business's team: say plainly that this specialist is not available for their business yet, that it can be added for a monthly fee with the button under your answer (refer_to_colleague), and that once it is added they can come back to this chat and you will go on with it. Never pretend you asked them or that it is being done. Then do the part that is yours, if any.
+        Questions your own work needs and a friendly word are fine.
         {$directory}
         TEXT;
 
         if ($others === []) {
-            return $scope."\nYou have no teammates in this business to ask.";
+            return $scope."\nYou have no teammates in this business to ask or hand work to.";
         }
 
         return $scope."\n".<<<'TEXT'
-        Your teammates in this business are the ones on its team. You work as a team. When your work needs what a teammate knows or keeps (who is away on a day, a figure, the brand's style, the team's records), ask them with ask_colleague before you answer or prepare a card, instead of guessing: e.g. before an order with a performer, ask the HR person whether the performer is away that day. Ask one clear question with the details (names, dates, ids). Tell the owner in a few words what the teammate said when it matters (e.g. "Անյան ասում է, որ Արամը արձակուրդում է"), and act on it: warn, propose another performer or date. Never send the owner to ask a teammate for information: ask them yourself. A teammate only looks things up for you: the cards stay yours. A change in a teammate's own area (e.g. a vacation for the HR person) is theirs to prepare: send the owner to them with refer_to_colleague. When the owner wants you to check something with an agent who is not on the team, say that specialist is not available for their business yet and send them to it the same way.
+        Your teammates in this business are the ones on its team. You work as a team, in the background: one message of the owner is enough for the whole job, they get the result, not a list of whom to ask. Use every teammate the job needs (e.g. ask the analyst what sells best, then hand the picture of it to the designer) and start your answer by telling in order whom you worked with and what each gave (e.g. "Արամի հետ խորհրդակցեցի՝ ամենաշատը բազմոցներն են պատվիրում, հետո Մարիամը պատրաստեց նկարը"). When your own work needs what a teammate knows or makes (who is away on a day, a figure, the brand's style, a text or an image prompt for your picture), ask them with ask_colleague before you answer or prepare a card, instead of guessing, and go on with your work in the same answer: e.g. before an order with a performer, ask the HR person whether the performer is away that day, then prepare the card. Ask one clear question with the details (names, dates, ids). Tell the owner in a few words what the teammate said and what you did with it (e.g. "Անյայից ճշտեցի՝ Արամն ազատ է, պատրաստեցի պատվերը" or "Լիլիթից խնդրեցի տեքստը և պատրաստեցի նկարը"), and act on it: warn, propose another performer or date. Never send the owner to ask a teammate: ask them yourself. A teammate you ask only looks things up and answers; a change or a piece of work in a teammate's own area (a vacation for the HR person, a picture for the designer) is theirs: hand it to them with delegate_to_colleague. When the owner wants you to check something with an agent who is not on the team, say that specialist is not available for their business yet and offer it with refer_to_colleague.
         TEXT;
     }
 
@@ -111,11 +120,22 @@ class AgentPrompt
         $who = $askedBy ? $askedBy->label('en').' ('.$askedBy->label('hy').')' : 'the business assistant';
 
         return <<<TEXT
-        Right now you are not talking to the owner: your teammate {$who} asks you a question while working on the owner's request, and will pass your answer on. Answer only that question, briefly and exactly: facts, names, dates, ids and figures from your look-ups (look up what you need; never guess), and a recommendation in a sentence when it helps (e.g. who else is free). Don't greet, don't ask questions back; if you can't know, say what is missing. If the question is not about your specialty ({$specialty}), say so in a sentence and which teammate's work it is. You can only look things up now: you can't prepare cards or change or save anything. If something should change in your area, say what, and that the owner can ask you for it. Answer in the language of the question.
+        Right now you are not talking to the owner: your teammate {$who} asks you a question while working on the owner's request, and will pass your answer on. Answer only that question, briefly and exactly: facts, names, dates, ids and figures from your look-ups (look up what you need; never guess), and a recommendation in a sentence when it helps (e.g. who else is free). Don't greet, don't ask questions back; if you can't know, say what is missing. If the question is not about your specialty ({$specialty}), say so in a sentence and which teammate's work it is. You can only look things up now: you can't prepare cards or change or save anything. If something should change in your area, say what: your teammate can hand that work to you. Answer in the language of the question.
         TEXT;
     }
 
-    private function brand(Agent $agent, BrandProfile $profile, bool $consulted = false): string
+    /** Who hands the agent work and how to report, when a teammate delegates to it. */
+    private function delegated(Agent $agent, ?Agent $askedBy): string
+    {
+        $specialty = $agent->specialty();
+        $who = $askedBy ? $askedBy->label('en').' ('.$askedBy->label('hy').')' : 'the business assistant';
+
+        return <<<TEXT
+        Right now your teammate {$who} hands you a piece of the owner's request, in the background, because it is your work. Do it fully now with your own tools, as you would for the owner: make the pictures, prepare the cards, write the text. What you make (pictures, videos, cards) appears in the owner's chat under {$who}'s answer, and the owner applies cards there. You can't ask the owner anything now and can't ask other teammates: when a detail is missing, choose sensibly from what you know and say what you assumed. Then reply to {$who} with a short report: what you did or prepared (how many pictures, which card and what it will change, the text itself when you wrote one) and anything the owner should check or decide. No greetings. If the work is not your specialty ({$specialty}), say so in a sentence and do nothing. Write in the language of the owner's message.
+        TEXT;
+    }
+
+    private function brand(Agent $agent, BrandProfile $profile, bool $consulted = false, bool $delegated = false): string
     {
         $data = array_filter(
             collect($profile->present())->only(['about', 'offer', 'audience', 'tone', 'visualStyle', 'colors', 'examples', 'avoid'])->all(),
@@ -136,6 +156,10 @@ class AgentPrompt
         }
 
         $missing = implode(', ', $profile->missing());
+
+        if ($delegated) {
+            return $known."\nIt is not complete (missing: {$missing}). You can't ask the owner now: work with what you know, and say in your report what the owner could tell you to make it fit better.";
+        }
 
         if (! $agent->needsBrand()) {
             return $known."\nIt is not complete (missing: {$missing}). Don't interrogate the owner about it, but when they tell you something about the business, save it with save_brand_profile.";
