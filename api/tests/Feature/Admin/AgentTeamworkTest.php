@@ -10,6 +10,8 @@ use App\Assistant\BusinessAssistant;
 use App\Assistant\BusinessTools;
 use App\Models\AssistantMessage;
 use App\Models\AssistantUsage;
+use App\Models\DataTable;
+use App\Models\DataTableRow;
 use App\Models\Employee;
 use App\Models\HrChange;
 use App\Models\Tenant;
@@ -198,5 +200,72 @@ class AgentTeamworkTest extends TestCase
 
         $this->assertContains(Colleagues::TOOL, array_column($this->client->toolDefinitions, 'name'));
         $this->assertStringContainsString('AI team of agents', $this->client->system);
+    }
+
+    private function ordersTable(): DataTable
+    {
+        $id = $this->postJson('/api/v1/admin/data-tables', [
+            'section' => 'orders',
+            'name' => 'Պատվերներ',
+            'columns' => [
+                ['label' => 'Ամսաթիվ', 'type' => 'date', 'role' => 'date'],
+                ['label' => 'Ծառայություն', 'type' => 'text', 'role' => 'item'],
+                ['label' => 'Գումար', 'type' => 'money', 'role' => 'amount'],
+                ['label' => 'Կատարող', 'type' => 'text', 'role' => 'performer'],
+            ],
+        ])->assertCreated()->json('data.id');
+
+        return DataTable::query()->findOrFail($id);
+    }
+
+    public function test_sona_saves_every_detail_adding_the_columns_the_table_lacks(): void
+    {
+        $table = $this->ordersTable();
+
+        $reply = $this->ask([['add_rows', [
+            'table' => $table->id,
+            'new_columns' => [['label' => 'Հասցե', 'type' => 'text'], ['label' => 'Հեռախոս', 'type' => 'text']],
+            'rows' => [['Ամսաթիվ' => '2026-11-20', 'Ծառայություն' => 'Բազմոցի մաքրում', 'Գումար' => 9900, 'Հասցե' => 'Կոմիտաս 5, բն. 12', 'Հեռախոս' => '055 33 76 33']],
+        ]]]);
+
+        $card = $this->getJson("/api/v1/admin/table-changes/{$reply['actions'][0]['id']}")->assertOk()->json('data');
+        $this->assertSame(['Նոր սյունակ «Հասցե»՝ տեքստ, հասցե', 'Նոր սյունակ «Հեռախոս»՝ տեքստ, հեռախոս'], $card['changes']);
+        $this->assertCount(4, $table->fresh()->columns);
+        $this->assertSame(0, $table->rows()->count());
+
+        $this->postJson("/api/v1/admin/table-changes/{$card['id']}/apply")->assertOk();
+        $table->refresh();
+        $this->assertSame(['Ամսաթիվ', 'Ծառայություն', 'Գումար', 'Կատարող', 'Հասցե', 'Հեռախոս'], array_column($table->columns, 'label'));
+        $labels = array_column($table->columns, 'key', 'label');
+        $row = $table->rows()->sole();
+        $this->assertSame('Կոմիտաս 5, բն. 12', $row->data[$labels['Հասցե']]);
+        $this->assertSame('055 33 76 33', $row->data[$labels['Հեռախոս']]);
+
+        // Undo takes the row and the columns it added.
+        $this->postJson("/api/v1/admin/table-changes/{$card['id']}/undo")->assertOk();
+        $this->assertSame(0, $table->rows()->count());
+        $this->assertCount(4, $table->fresh()->columns);
+    }
+
+    public function test_a_card_warns_when_the_performer_is_away_that_day(): void
+    {
+        $table = $this->ordersTable();
+        $arman = Employee::create(['name' => 'Արման Սարգսյան', 'position' => 'Վարպետ']);
+        $this->postJson('/api/v1/admin/team/absences', ['employeeId' => $arman->id, 'kind' => 'vacation', 'from' => '2026-11-03', 'to' => '2026-11-14'])->assertCreated();
+
+        $reply = $this->ask([['add_rows', ['table' => $table->id, 'rows' => [
+            ['Ամսաթիվ' => '2026-11-05', 'Ծառայություն' => 'Բազմոցի մաքրում', 'Կատարող' => 'Արման'],
+            ['Ամսաթիվ' => '2026-11-20', 'Ծառայություն' => 'Ներքնակի մաքրում', 'Կատարող' => 'Արման'],
+        ]]]]);
+
+        $away = ['Արման Սարգսյան 05.11.2026-ին բացակա է՝ արձակուրդ (03.11.2026–14.11.2026)։ Ընտրեք ուրիշ կատարող կամ օր։'];
+        $this->assertSame($away, $this->client->toolResults[0]['performersAway']);
+        $id = $reply['actions'][0]['id'];
+        $this->assertSame($away, $this->getJson("/api/v1/admin/table-changes/{$id}")->json('data.warnings'));
+
+        // The owner keeps him anyway: once applied, no more warning.
+        $this->postJson("/api/v1/admin/table-changes/{$id}/apply")->assertOk();
+        $this->assertSame([], $this->getJson("/api/v1/admin/table-changes/{$id}")->json('data.warnings'));
+        $this->assertSame(2, DataTableRow::query()->where('data_table_id', $table->id)->count());
     }
 }

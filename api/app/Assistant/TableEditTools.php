@@ -27,8 +27,9 @@ use InvalidArgumentException;
  *
  * Only for a person who designs the business's tables (owner, admin), and
  * expenses tables only for those who see them. Columns about buyers
- * (names, phones, addresses) are never read back to the model; it may
- * write them when the owner dictates them.
+ * (names, phones, addresses) are never read back to the model; it writes
+ * them when the owner dictates them, and adds the columns a dictated
+ * detail has no place for in the same card (add_rows new_columns).
  */
 class TableEditTools
 {
@@ -86,7 +87,7 @@ class TableEditTools
         return [
             [
                 'name' => self::ROWS,
-                'description' => 'Reads rows of one table with their ids (to edit or delete them), newest first, and the table\'s columns (key, label, type, meaning). Filter by dates, words or ids. Columns about buyers (names, phones, addresses) are hidden.',
+                'description' => 'Reads rows of one table with their ids (to edit or delete them), newest first, and the table\'s columns (key, label, type, meaning). Filter by dates, words or ids. The values of columns about buyers (names, phones, addresses) are not shown to you ("hidden"), but you write them in add_rows and update_rows exactly as the owner dictates.',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [
@@ -152,10 +153,14 @@ class TableEditTools
             ],
             [
                 'name' => self::ADD,
-                'description' => 'Prepares adding rows to a table (up to '.TableChanges::MAX_ROWS.'), e.g. orders or expenses the owner dictated, pasted or attached as a file. A row without a date gets today\'s.',
+                'description' => 'Prepares adding rows to a table (up to '.TableChanges::MAX_ROWS.'), e.g. orders or expenses the owner dictated, pasted or attached as a file. A row without a date gets today\'s. Every detail the owner gave goes in, contacts too (client\'s name, phone, address: as dictated): when the table has no column for one, add it with new_columns in the same card, never drop it. An order with a performer comes back with "performersAway" when the performer is off that day.',
                 'inputSchema' => [
                     'type' => 'object',
-                    'properties' => ['table' => $table, 'rows' => ['type' => 'array', 'items' => $values]],
+                    'properties' => [
+                        'table' => $table,
+                        'rows' => ['type' => 'array', 'items' => $values],
+                        'new_columns' => ['type' => 'array', 'items' => $column, 'description' => 'Columns to add to the table with these rows (e.g. Հասցե, Հեռախոս, Հաճախորդ), for details it has no column for; rows then use their labels.'],
+                    ],
                     'required' => ['table', 'rows'],
                     'additionalProperties' => false,
                 ],
@@ -202,7 +207,7 @@ class TableEditTools
             self::CREATE => $this->changes->planCreate($input, $user),
             self::EDIT => $this->changes->planEdit($this->table($input), $input, $user),
             self::DELETE_TABLES => $this->changes->planDelete($this->tables($input), $user),
-            self::ADD => $this->changes->planAdd($this->table($input), array_values((array) ($input['rows'] ?? [])), $user),
+            self::ADD => $this->changes->planAdd($this->table($input), array_values((array) ($input['rows'] ?? [])), $user, array_values((array) ($input['new_columns'] ?? []))),
             self::UPDATE => $this->changes->planUpdate($this->table($input), array_values((array) ($input['rows'] ?? [])), $user),
             self::DELETE_ROWS => $this->changes->planDeleteRows($this->table($input), (array) ($input['ids'] ?? []), $user),
             default => throw new InvalidArgumentException("Unknown tool [{$name}]."),
@@ -211,7 +216,9 @@ class TableEditTools
         $this->actions->add(['type' => 'change', 'id' => $change->id]);
         $card = $this->changes->describe($change);
 
-        return [
+        $away = $this->changes->performersAway($change);
+
+        return array_filter([
             'planned' => true,
             'note' => 'Nothing is changed yet: the owner sees this as a card under your answer, value by value, and applies it with «Կիրառել» (or not).'
                 .($change->kind === TableChange::DELETE_TABLES ? ' Deleting tables can\'t be undone.' : ' It can be undone afterwards while nobody touched what it changed.'),
@@ -220,7 +227,9 @@ class TableEditTools
                 'changes' => $card['changes'],
                 'rows' => $card['rowsTotal'],
             ],
-        ];
+            // Also on the card: tell the owner and offer someone free (the HR person knows who).
+            'performersAway' => $away ?: null,
+        ], fn ($value) => $value !== null);
     }
 
     /** @return array<string, mixed> */

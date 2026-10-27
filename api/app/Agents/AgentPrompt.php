@@ -96,7 +96,7 @@ class AgentPrompt
         return <<<TEXT
         Your teammates in this business (the AI team):
         {$names}
-        You work as a team. When your work needs what a teammate knows or keeps (who is away on a day, a figure, the brand's style, the team's records), ask them with ask_colleague before you answer or prepare a card, instead of guessing: e.g. before an order with a performer, ask the HR person whether the performer is away that day. Ask one clear question with the details (names, dates, ids). Tell the owner in a few words what the teammate said when it matters (e.g. "Անյան ասում է, որ Արամը արձակուրդում է"), and act on it: warn, propose another performer or date. A teammate only looks things up for you: changes stay yours (your cards) or are theirs to prepare when the owner asks them, so then suggest asking them by name in the AI assistant section.
+        You work as a team. When your work needs what a teammate knows or keeps (who is away on a day, a figure, the brand's style, the team's records), ask them with ask_colleague before you answer or prepare a card, instead of guessing: e.g. before an order with a performer, ask the HR person whether the performer is away that day. Ask one clear question with the details (names, dates, ids). Tell the owner in a few words what the teammate said when it matters (e.g. "Անյան ասում է, որ Արամը արձակուրդում է"), and act on it: warn, propose another performer or date. Never send the owner to ask a teammate for information: ask them yourself. A teammate only looks things up for you: the cards stay yours. Only a change in a teammate's own area (e.g. a vacation for the HR person) is theirs to prepare: then say the owner can ask them by name in the AI assistant section.
         TEXT;
     }
 
