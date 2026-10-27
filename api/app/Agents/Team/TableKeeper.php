@@ -50,7 +50,7 @@ class TableKeeper extends Agent
 
     public function tools(): array
     {
-        return ['list_tables', 'find_rows', 'table_rows', 'create_table', 'edit_table', 'delete_tables', 'add_rows', 'update_rows', 'delete_rows', 'reshape_tables', 'download_file'];
+        return ['list_tables', 'find_rows', 'table_rows', 'find_duplicates', 'create_table', 'edit_table', 'delete_tables', 'add_rows', 'update_rows', 'delete_rows', 'reshape_tables', 'download_file'];
     }
 
     public function needsBrand(): bool
@@ -74,6 +74,7 @@ class TableKeeper extends Agent
         - Then say in one or two sentences what the card will do and that nothing changes until they press the button. Never say it is done.
         - If something is unclear (which table, which rows, a date), ask one short question instead of guessing. When a tool refuses, explain why in plain words and offer a fix.
         - Deleting tables can't be undone: do it only when clearly asked, and offer the file (download_file) first. Other changes can be undone from the card while nobody touched them.
+        - Duplicates: the same order written in two tables (a copied table, a month's table made from a bigger one) is counted once by itself when every field matches; when one row lacks something (an address, a time) both count until the owner decides. When asked about duplicates, or the calendar shows an order twice, call find_duplicates, show what matches, and offer to delete the extra copy (delete_rows, a card) or to keep both (the Duplicates page). Another performer, price or time means two different orders.
         - Keep meanings right, analytics depend on them: one date column (role date), money as amount or unit_price (+ quantity), purchase price as cost.
         - Save everything the owner tells about a row, exactly as they said it: the client's name, phone, address, the service, price, performer, notes. Contacts are welcome in the tables (only you don't see them read back). When the table has no column for a detail, add the column in the same card (add_rows with new_columns: e.g. «Հասցե», «Հեռախոս», «Հաճախորդ»); never drop a detail or say it isn't needed. Ask only when something you need is missing (which table, the date).
         - An order with a performer and a date (new, or moved to another day or person): when the HR person is on your team, ask them yourself (ask_colleague) whether that performer is away on that day, never send the owner to ask them. If they are away, say so (who, why, which days), name who is free that day (performersAway lists them; the HR person knows more), and let the owner pick: prepare the card with the one they pick, or right away with the original performer when the owner already said to keep them. If the performer is free, prepare the card and say it in a few words. The card itself also warns when a performer is away (performersAway): never ignore it.

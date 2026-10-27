@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\Admin\DashboardController as AdminDashboardContr
 use App\Http\Controllers\Api\V1\Admin\DataImportController as AdminDataImportController;
 use App\Http\Controllers\Api\V1\Admin\DataTableController as AdminDataTableController;
 use App\Http\Controllers\Api\V1\Admin\DataTableRowController as AdminDataTableRowController;
+use App\Http\Controllers\Api\V1\Admin\DuplicateRowController as AdminDuplicateRowController;
 use App\Http\Controllers\Api\V1\Admin\EmployeeController as AdminEmployeeController;
 use App\Http\Controllers\Api\V1\Admin\EmployeeGroupController as AdminEmployeeGroupController;
 use App\Http\Controllers\Api\V1\Admin\ExpenseCategoryController as AdminExpenseCategoryController;
@@ -310,6 +311,11 @@ Route::prefix('v1')->group(function () {
                     Route::patch('/data-tables/{dataTable}/rows/{row}', [AdminDataTableRowController::class, 'update']);
                     Route::delete('/data-tables/{dataTable}/rows/{row}', [AdminDataTableRowController::class, 'destroy']);
                 });
+
+                // The same record in several tables: the groups, keep all or delete copies.
+                Route::get('/duplicates', [AdminDuplicateRowController::class, 'index']);
+                Route::post('/duplicates/keep', [AdminDuplicateRowController::class, 'keep']);
+                Route::post('/duplicates/delete', [AdminDuplicateRowController::class, 'destroy']);
 
                 // Who does the orders: the performer field offers them.
                 Route::get('/employees', [AdminEmployeeController::class, 'index']);

@@ -3,6 +3,7 @@
 namespace App\DataTables\Import;
 
 use App\DataTables\DataTableSchema;
+use App\DataTables\Duplicates\RowDuplicates;
 use App\DataTables\Moment;
 use App\DataTables\RowMetrics;
 use App\Models\DataImport;
@@ -92,6 +93,9 @@ final class DataImporter
                 DataTableRow::insert($batch);
             }
         });
+
+        // The same rows may be in another table already (counted once).
+        app(RowDuplicates::class)->refresh();
 
         $import->update([
             'data_table_id' => $table->id,

@@ -7,6 +7,7 @@ import { getCalendar, getGoogleState } from "@/lib/adminApi";
 import { buttonClasses, cn, EmptyCard, PageHeader } from "@/ui";
 import { bucketTitle, weekdayShort } from "../_components/analytics/BarChart";
 import { formatMoney, SECTIONS, tablePath } from "../_components/tables/shared";
+import { DuplicatesNotice } from "../_components/tables/Duplicates";
 import { DayView } from "./DayView";
 import { addDays, addMonths, isDay, today, visibleDays, type CalendarView } from "./dates";
 import { AWAY_DOT, GOOGLE_DOT, groupByDay, markShape, tableColor, type CalendarDay } from "./entries";
@@ -94,6 +95,8 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
           ))}
         </div>
       </div>
+
+      {data?.duplicates ? <DuplicatesNotice count={data.duplicates} /> : null}
 
       {!data ? (
         <EmptyCard>Չհաջողվեց բեռնել օրացույցը։ Թարմացրեք էջը։</EmptyCard>

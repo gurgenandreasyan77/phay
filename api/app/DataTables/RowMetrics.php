@@ -105,5 +105,10 @@ final class RowMetrics
                     }
                 }
             });
+
+        // Other dates or amounts may make other copies (or none).
+        if (! Duplicates\RowDuplicates::isPaused()) {
+            app(Duplicates\RowDuplicates::class)->refresh();
+        }
     }
 }

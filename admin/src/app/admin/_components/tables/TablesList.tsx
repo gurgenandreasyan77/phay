@@ -9,6 +9,7 @@ import { Button, buttonClasses, EmptyRow, Input, Select, TableWrap, Td, Th, Thea
 import { formatDateTime, formatMoment, formatMoney, tablePath } from "./shared";
 import { contains, PERIOD_KINDS, TABLE_PERIOD_LABELS } from "./periods";
 import { ReshapeDialog } from "./Reshape";
+import { ConfirmDialog, type ConfirmContent } from "@/ui/dialog/ConfirmDialog";
 import { tablesDownloadHref } from "../downloads/downloads";
 
 /** What a table is kept for: its period's kind, or any dates. */
@@ -38,6 +39,8 @@ export function TablesList({
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
   const [reshaping, setReshaping] = useState<number[] | null>(null);
+  const [deleting, setDeleting] = useState<number[] | null>(null);
+  const [stopGoogle, setStopGoogle] = useState(false);
 
   const shown = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -68,28 +71,58 @@ export function TablesList({
     });
   }
 
-  async function remove(ids: number[]) {
-    const names = tables.filter((t) => ids.includes(t.id));
-    const rows = names.reduce((sum, t) => sum + (t.rowsCount ?? 0), 0);
-    const what = names.length === 1 ? `«${names[0].name}» աղյուսակը` : `${names.length} աղյուսակ`;
-    if (!confirm(`Ջնջե՞լ ${what} և ${rows} տողերը՝ ներմուծումների պատմության հետ միասին։ Սա հնարավոր չէ հետ բերել։`)) return;
+  function remove(ids: number[]) {
+    setFailed(false);
+    setStopGoogle(false);
+    setDeleting(ids);
+  }
 
+  async function confirmRemove() {
+    if (!deleting) return;
     setPending(true);
     setFailed(false);
     const response = await fetch("/api/admin/data-tables/bulk-delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids }),
+      body: JSON.stringify({ ids: deleting }),
     }).catch(() => null);
+    // The calendars' events would show in the calendar again: stop syncing them too, when asked.
+    const stopped =
+      response?.ok && stopGoogle
+        ? await fetch("/api/admin/google/calendars", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ calendars: [] }),
+          }).catch(() => null)
+        : null;
     setPending(false);
 
-    if (!response?.ok) {
+    // No Google account connected: nothing to stop.
+    if (!response?.ok || (stopGoogle && !stopped?.ok && stopped?.status !== 404)) {
       setFailed(true);
       return;
     }
+    setDeleting(null);
     setSelected(new Set());
     router.refresh();
   }
+
+  const doomed = deleting ? tables.filter((t) => deleting.includes(t.id)) : [];
+  const googleDoomed = doomed.some((t) => t.source === "google");
+  const deleteContent: ConfirmContent | null = deleting
+    ? {
+        title: doomed.length === 1 ? `Ջնջե՞լ «${doomed[0].name}» աղյուսակը` : `Ջնջե՞լ ${doomed.length} աղյուսակ`,
+        description: googleDoomed
+          ? "Google օրացույցից ստեղծված աղյուսակը կջնջվի իր հին տարբերակների հետ։ Google-ում ոչինչ չի փոխվի։ Այն պատվերները, որոնք կան ձեր մյուս աղյուսակներում, օրացույցում կերևան մեկ անգամ։ Սա հնարավոր չէ հետ բերել։"
+          : "Աղյուսակները կջնջվեն իրենց տողերով և ներմուծումների պատմությամբ։ Սա հնարավոր չէ հետ բերել։",
+        details: [
+          { label: "Աղյուսակներ", value: doomed.map((t) => t.name).join(", ") },
+          { label: "Տողեր", value: String(doomed.reduce((sum, t) => sum + (t.rowsCount ?? 0), 0)) },
+        ],
+        confirmLabel: "Ջնջել",
+        tone: "danger",
+      }
+    : null;
 
   return (
     <div className="space-y-4">
@@ -124,7 +157,7 @@ export function TablesList({
             </Button>
           </div>
         ) : null}
-        {failed ? <span className="text-sm text-danger">Չհաջողվեց ջնջել։</span> : null}
+        {failed && !deleting ? <span className="text-sm text-danger">Չհաջողվեց ջնջել։</span> : null}
       </div>
 
       <TableWrap>
@@ -249,6 +282,28 @@ export function TablesList({
           ) : null}
         </tbody>
       </TableWrap>
+      {deleteContent ? (
+        <ConfirmDialog
+          open
+          content={deleteContent}
+          pending={pending}
+          error={failed ? "Չհաջողվեց ջնջել։ Փորձեք կրկին։" : null}
+          onConfirm={confirmRemove}
+          onCancel={() => setDeleting(null)}
+        >
+          {googleDoomed ? (
+            <label className="flex items-start gap-2 text-sm text-ink">
+              <input type="checkbox" className="mt-1" checked={stopGoogle} onChange={(e) => setStopGoogle(e.target.checked)} />
+              <span>
+                Նաև դադարեցնել Google օրացույցների համաժամեցումը
+                <span className="block text-xs text-ink-muted">
+                  Դրանց իրադարձություններն այլևս չեն երևա օրացույցում։ Կարող եք նորից միացնել «Օրացույցներ» կոճակով։
+                </span>
+              </span>
+            </label>
+          ) : null}
+        </ConfirmDialog>
+      ) : null}
       {reshaping ? (
         <ReshapeDialog
           open

@@ -4,6 +4,7 @@ namespace App\Assistant;
 
 use App\DataTables\Changes\TableChanges;
 use App\DataTables\DataColumn;
+use App\DataTables\Duplicates\RowDuplicates;
 use App\DataTables\TableAnalytics;
 use App\Enums\BusinessRole;
 use App\Enums\ColumnRole;
@@ -47,7 +48,9 @@ class TableEditTools
 
     public const DELETE_ROWS = 'delete_rows';
 
-    public const NAMES = [self::ROWS, self::CREATE, self::EDIT, self::DELETE_TABLES, self::ADD, self::UPDATE, self::DELETE_ROWS];
+    public const DUPLICATES = 'find_duplicates';
+
+    public const NAMES = [self::ROWS, self::DUPLICATES, self::CREATE, self::EDIT, self::DELETE_TABLES, self::ADD, self::UPDATE, self::DELETE_ROWS];
 
     /** The tools that prepare a change (a card), not only read. */
     public const WRITES = [self::CREATE, self::EDIT, self::DELETE_TABLES, self::ADD, self::UPDATE, self::DELETE_ROWS];
@@ -56,6 +59,7 @@ class TableEditTools
         private readonly TableChanges $changes,
         private readonly ReplyActions $actions,
         private readonly TenantContext $tenants,
+        private readonly RowDuplicates $duplicates,
     ) {}
 
     public function available(): bool
@@ -99,6 +103,18 @@ class TableEditTools
                         'limit' => ['type' => 'integer', 'description' => '1-100, default 30.'],
                     ],
                     'required' => ['table'],
+                    'additionalProperties' => false,
+                ],
+            ],
+            [
+                'name' => self::DUPLICATES,
+                'description' => 'Finds the same order, sale or expense written in two or more tables (rows of one day whose fields agree). kind "exact": every filled field is the same; the copy ("copyOf" = the row kept) is already counted once in the calendar, analytics and reports. kind "near": nothing differs but one row lacks a field the other has (an address, a time): both still count. Rows with another performer, price or time are different records and never listed. Show the owner what you found and let them decide: delete a copy (delete_rows with its id and table, one card per table) or keep both (they press «Թողնել երկուսն էլ» on the Duplicates page, /admin/duplicates).',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'section' => ['type' => 'string', 'enum' => array_map(fn (DataTableSection $s) => $s->value, RowDuplicates::SECTIONS)],
+                        'limit' => ['type' => 'integer', 'description' => '1-50 groups, default 20.'],
+                    ],
                     'additionalProperties' => false,
                 ],
             ],
@@ -201,6 +217,9 @@ class TableEditTools
         if ($name === self::ROWS) {
             return $this->rows($input);
         }
+        if ($name === self::DUPLICATES) {
+            return $this->findDuplicates($input);
+        }
 
         $user = auth()->user();
         $change = match ($name) {
@@ -273,6 +292,44 @@ class TableEditTools
                 'values' => $shown->mapWithKeys(fn (DataColumn $c) => [$c->label => $row->data[$c->key] ?? null])
                     ->filter(fn ($v) => $v !== null && $v !== '')->all(),
             ])->values()->all(),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function findDuplicates(array $input): array
+    {
+        $section = DataTableSection::tryFrom((string) ($input['section'] ?? ''));
+        $limit = max(1, min(50, (int) ($input['limit'] ?? 20)));
+        $groups = $this->duplicates->review($section, $limit, null, DataTableController::sectionAllowed(...));
+
+        // Never the buyers' details: by label, of the tables in the groups.
+        $hidden = DataTable::withArchived()
+            ->whereIn('id', collect($groups)->flatMap(fn ($g) => array_column($g['rows'], 'tableId'))->unique()->all())
+            ->get()
+            ->mapWithKeys(fn (DataTable $t) => [$t->id => collect($t->columnDefinitions())
+                ->filter(fn (DataColumn $c) => TableAnalytics::isPersonalColumn($c))
+                ->pluck('label')->all()]);
+
+        return [
+            'groups' => array_map(fn (array $group) => [
+                'day' => $group['day'],
+                'section' => $group['section'],
+                'kind' => $group['kind'],
+                'rows' => array_map(fn (array $row) => array_filter([
+                    'id' => $row['id'],
+                    'table' => ['id' => $row['tableId'], 'name' => $row['table']],
+                    'time' => $row['time'],
+                    'amount' => $row['amount'],
+                    'fromGoogle' => $row['source'] === DataTableRow::SOURCE_GOOGLE ?: null,
+                    'copyOf' => $row['copyOf'],
+                    'values' => array_filter(
+                        array_diff_key($row['values'], array_flip($hidden[$row['tableId']] ?? [])),
+                        fn ($v) => $v !== null && $v !== '',
+                    ),
+                    'lacks' => $row['missing'] ?: null,
+                ], fn ($v) => $v !== null), $group['rows']),
+            ], $groups),
+            'note' => $groups === [] ? 'No duplicates between tables.' : 'Rows of a Google table come back on the next update from Google if deleted: delete the other copy instead.',
         ];
     }
 

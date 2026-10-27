@@ -119,8 +119,9 @@ export function GoogleSync({
   }
 
   async function makeTable() {
-    if (preview?.upToDate && preview.table) {
-      router.push(tablePath("orders", preview.table.id));
+    const open = preview?.table ?? preview?.spread?.[0];
+    if (preview?.upToDate && open) {
+      router.push(tablePath("orders", open.id));
       return;
     }
     setPending(true);
@@ -132,10 +133,12 @@ export function GoogleSync({
         setError(response.status === 422 ? "Դեռ համաժամեցված իրադարձություններ չկան։" : failure(response.status, json));
         return;
       }
-      const { table, created, previous } = json.data;
+      const { table, created, previous, spread, counts } = json.data;
       setAsking(null);
       setMessage({
-        text: !created
+        text: !created && spread?.length && !counts?.upToDate
+          ? `Թարմացվեց․ ${counts.new} նոր, ${counts.changed} փոփոխված, ${counts.removed} ջնջված պատվեր՝ ըստ ամիսների աղյուսակներում։`
+          : !created
           ? `«${table.name}» աղյուսակն արդեն թարմ է։`
           : previous
             ? `Ստեղծվեց նոր տարբերակը՝ «${table.name}»։ «${previous.name}»-ը պահված է որպես հին տարբերակ։`
@@ -184,7 +187,28 @@ export function GoogleSync({
           confirmLabel: "Համաժամեցնել",
         }
       : asking === "table" && preview
-        ? !preview.table
+        ? !preview.table && preview.spread?.length
+          ? preview.upToDate
+            ? {
+                title: "Աղյուսակներն արդեն թարմ են",
+                description: `Google-ի պատվերները ${preview.spread.map((t) => `«${t.name}»`).join(", ")} աղյուսակներում են, և բոլորը թարմ են։`,
+                confirmLabel: "Բացել աղյուսակը",
+                cancelLabel: "Փակել",
+              }
+            : {
+                title: "Թարմացնե՞լ ամսական աղյուսակները",
+                description: `Google-ի աղյուսակը բաժանված է՝ ${preview.spread.map((t) => `«${t.name}»`).join(", ")}։ Նոր պատվերները կավելանան իրենց ամսվա աղյուսակին (եթե չկա՝ կստեղծվի նույն սյունակներով), փոփոխվածները կթարմացվեն տեղում, Google-ում ջնջվածները կհեռանան։ Ձեռքով խմբագրված տողերը կմնան անփոփոխ։`,
+                details: [
+                  { label: "Նոր իրադարձություններ", value: String(preview.new) },
+                  { label: "Փոփոխված", value: String(preview.changed) },
+                  { label: "Ջնջված Google-ում", value: String(preview.removed) },
+                  ...(preview.keptEdited > 0
+                    ? [{ label: "Ձեռքով խմբագրված (պահպանվում են)", value: String(preview.keptEdited) }]
+                    : []),
+                ],
+                confirmLabel: "Թարմացնել",
+              }
+          : !preview.table
           ? {
               title: "Ստեղծե՞լ աղյուսակ Google օրացույցից",
               description:
@@ -317,13 +341,13 @@ export function GoogleSync({
                   size="sm"
                   variant="secondary"
                   onClick={askTable}
-                  disabled={pending || (state.pending.events === 0 && !state.pending.table)}
+                  disabled={pending || (state.pending.events === 0 && !state.pending.table && !state.pending.spread?.length)}
                 >
                   <Table2 className="h-4 w-4" />
                   Դարձնել աղյուսակ
                   {state.pending.events > 0 && !state.pending.upToDate ? (
                     <Badge tone="primary" className="ml-0.5 px-1.5">
-                      {state.pending.table ? changes(state.pending) : state.pending.events}
+                      {state.pending.table || state.pending.spread?.length ? changes(state.pending) : state.pending.events}
                     </Badge>
                   ) : null}
                 </Button>
@@ -343,6 +367,11 @@ export function GoogleSync({
         </div>
       </div>
 
+      {connection && !connection.needsReconnect && !state.pending.table && state.pending.spread?.length && !state.pending.upToDate ? (
+        <p className="text-xs text-ink-muted">
+          Google-ում կան փոփոխություններ․ «Դարձնել աղյուսակ»-ը դրանք կավելացնի ըստ ամիսների աղյուսակներին։
+        </p>
+      ) : null}
       {connection && !connection.needsReconnect && state.pending.table && !state.pending.upToDate ? (
         <p className="text-xs text-ink-muted">
           Google-ում կան փոփոխություններ, որոնք դեռ «{state.pending.table.name}» աղյուսակում չեն։ «Դարձնել աղյուսակ»-ը կստեղծի նոր տարբերակ։

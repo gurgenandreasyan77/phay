@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
@@ -159,6 +160,11 @@ export function RowsGrid({
                 ))}
                 <Td className="sticky right-0 whitespace-nowrap bg-surface px-2 text-right shadow-[-8px_0_8px_-8px_rgba(32,38,35,0.18)] sm:static sm:px-4 sm:shadow-none">
                   {/* Not on a phone: the sticky cell keeps only the two buttons. */}
+                  {row.duplicateOf ? (
+                    <Link href="/admin/duplicates" className="mr-2 hidden sm:inline" title="Նույն գրառումը կա այլ աղյուսակում․ հաշվվում է այնտեղ">
+                      <Badge tone="warning">Կրկնօրինակ</Badge>
+                    </Link>
+                  ) : null}
                   {row.source === "import" ? (
                     <span className="hidden sm:inline">
                       <Badge tone="info" className="mr-2">

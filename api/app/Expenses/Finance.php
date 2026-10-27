@@ -157,7 +157,7 @@ final class Finance
         $priced = 0;
         $costed = 0;
 
-        DataTableRow::query()
+        DataTableRow::query()->counted()
             ->whereIn('data_table_id', $tables->pluck('id'))
             ->whereNotNull('amount')
             ->where('occurred_at', '>=', $from->format('Y-m-d 00:00:00'))
@@ -242,7 +242,7 @@ final class Finance
             'name' => $from['name'] ?? null,
         ];
 
-        DataTableRow::query()
+        DataTableRow::query()->counted()
             ->whereIn('data_table_id', $tables->pluck('id'))
             ->whereNotNull('amount')
             ->where('occurred_at', '>=', $from->format('Y-m-d 00:00:00'))

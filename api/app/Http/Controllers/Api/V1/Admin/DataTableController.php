@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\DataTables\DataColumn;
 use App\DataTables\DataTableSchema;
+use App\DataTables\Duplicates\RowDuplicates;
 use App\DataTables\Import\ColumnMatcher;
 use App\DataTables\Period;
 use App\DataTables\PeriodTables;
@@ -166,7 +167,8 @@ class DataTableController extends Controller
     {
         self::ensureReachable($dataTable);
 
-        $dataTable->delete();
+        RowDuplicates::paused(fn () => self::deleteWithVersions(collect([$dataTable])));
+        app(RowDuplicates::class)->refresh();
 
         return response()->noContent();
     }
@@ -181,9 +183,28 @@ class DataTableController extends Controller
 
         $tables = DataTable::withArchived()->whereIn('id', $validated['ids'])->get();
         $tables->each(fn (DataTable $table) => self::ensureReachable($table));
-        $tables->each->delete();
+        RowDuplicates::paused(fn () => self::deleteWithVersions($tables));
+        app(RowDuplicates::class)->refresh();
 
         return response()->noContent();
+    }
+
+    /**
+     * Deletes the tables; a table made from the Google calendars takes its
+     * older versions with it (kept only to show what the newer one replaced).
+     */
+    private static function deleteWithVersions(\Illuminate\Support\Collection $tables): void
+    {
+        $older = collect();
+        foreach ($tables->where('source', DataTable::SOURCE_GOOGLE) as $table) {
+            $chain = DataTable::withArchived()->where('replaced_by_id', $table->id)->get();
+            while ($chain->isNotEmpty()) {
+                $older = $older->merge($chain);
+                $chain = DataTable::withArchived()->whereIn('replaced_by_id', $chain->modelKeys())->get();
+            }
+        }
+
+        $tables->merge($older)->unique('id')->each->delete();
     }
 
     /** A table's period, and a day in it (the first day is stored). */

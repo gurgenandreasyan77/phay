@@ -312,6 +312,86 @@ class GoogleCalendarTest extends TestCase
         $this->assertSame(1, DataTable::withoutTenancy()->where('source', 'google')->count());
     }
 
+    public function test_a_google_table_split_by_month_keeps_syncing_into_the_month_tables(): void
+    {
+        $this->connect();
+        $this->postJson('/api/v1/admin/google/sync')->assertOk();
+        $google = $this->postJson('/api/v1/admin/google/table')->assertCreated()->json('data.table');
+        $keys = collect($google['columns'])->mapWithKeys(fn ($c) => [$c['role'] => $c['key']]);
+
+        // Split like any other table: the rows keep their events.
+        $this->postJson('/api/v1/admin/table-reshapes', ['ids' => [$google['id']], 'period' => 'month'])->assertCreated();
+        $october = DataTable::withoutTenancy()->sole();
+        $this->assertNull($october->source);
+        $this->assertSame(3, DB::table('data_table_rows')->where('data_table_id', $october->id)->whereNotNull('external_id')->count());
+        $this->assertSame([], $this->calendar()['google']);
+
+        // In Google: the sofa moved, a November order added.
+        $this->google->changes['orders@group.calendar.google.com'] = [
+            $this->event('e1', 'Բազմոցի մաքրում', '2026-10-22T09:00:00Z', "Հաճախորդ: Անի\nԳին: 9900", updated: '2026-10-21T09:00:00Z'),
+            $this->event('e4', 'Գորգ 3000 դր', '2026-11-03T10:00:00Z'),
+        ];
+        $this->postJson('/api/v1/admin/google/sync')->assertOk();
+
+        $this->getJson('/api/v1/admin/google/table')->assertOk()
+            ->assertJsonPath('data.table', null)
+            ->assertJsonPath('data.spread.0.id', $october->id)
+            ->assertJsonPath('data.new', 1)
+            ->assertJsonPath('data.changed', 1);
+
+        // No Google table again: the change in place, the new order in November's table.
+        $this->postJson('/api/v1/admin/google/table')->assertOk()->assertJsonPath('data.created', false);
+        $this->assertSame(0, DataTable::withoutTenancy()->where('source', 'google')->count());
+        $tables = DataTable::withoutTenancy()->orderBy('id')->get();
+        $this->assertCount(2, $tables);
+        $this->assertSame('month', $tables[1]->period->value);
+        $this->assertSame('2026-11-01', $tables[1]->period_start->toDateString());
+
+        $rows = collect($this->calendar('2026-10-19', '2026-11-30')['rows'])->keyBy(fn ($r) => $r['values'][$keys['item']]);
+        $this->assertSame(['2026-10-22', '13:00'], [$rows['Բազմոցի մաքրում']['date'], $rows['Բազմոցի մաքրում']['time']]);
+        $this->assertSame($october->id, $rows['Բազմոցի մաքրում']['tableId']);
+        $this->assertSame($tables[1]->id, $rows['Գորգ 3000 դր']['tableId']);
+        $this->assertCount(4, $rows);
+        $this->assertSame([], $this->calendar('2026-10-19', '2026-11-30')['google']);
+
+        $this->postJson('/api/v1/admin/google/table')->assertOk()->assertJsonPath('data.counts.upToDate', true);
+    }
+
+    public function test_a_google_table_is_deleted_with_its_versions_and_copied_orders_show_once(): void
+    {
+        $this->connect();
+        $this->postJson('/api/v1/admin/google/sync')->assertOk();
+        $first = $this->postJson('/api/v1/admin/google/table')->assertCreated()->json('data.table');
+        $this->google->changes['orders@group.calendar.google.com'] = [$this->event('e4', 'Գորգ 3000 դր', '2026-10-27T10:00:00Z')];
+        $this->postJson('/api/v1/admin/google/sync')->assertOk();
+        $second = $this->postJson('/api/v1/admin/google/table')->assertCreated()->json('data.table');
+
+        // A copy of the sofa order, typed by hand into a table of its own.
+        $own = $this->postJson('/api/v1/admin/data-tables', ['section' => 'orders', 'name' => 'Հոկտեմբեր', 'columns' => [
+            ['label' => 'Ծառայություն', 'type' => 'text', 'role' => 'item'],
+            ['label' => 'Ամսաթիվ', 'type' => 'datetime', 'role' => 'date'],
+            ['label' => 'Գումար', 'type' => 'money', 'role' => 'amount'],
+        ]])->assertCreated()->json('data');
+        [$item, $date, $amount] = array_column($own['columns'], 'key');
+        $this->postJson("/api/v1/admin/data-tables/{$own['id']}/rows", ['values' => [$item => 'Բազմոցի մաքրում', $date => '2026-10-22 10:00', $amount => 9900]])->assertCreated();
+
+        // The copy lacks the customer, phone, address: both show, marked for the owner to decide.
+        $sofa = collect($this->calendar()['rows'])->where('date', '2026-10-22');
+        $this->assertCount(2, $sofa);
+        $this->assertNotContains(null, $sofa->pluck('possibleDuplicate')->all());
+
+        $this->deleteJson("/api/v1/admin/data-tables/{$second['id']}")->assertNoContent();
+
+        // The old version went with it.
+        $this->assertSame([$own['id']], DataTable::withoutGlobalScopes()->pluck('id')->all());
+        $this->assertNull(DataTable::withoutGlobalScopes()->find($first['id']));
+
+        // The sofa is the business's own row now; the other events are Google's again.
+        $calendar = $this->calendar();
+        $this->assertSame(1, collect($calendar['rows'])->where('date', '2026-10-22')->count());
+        $this->assertEqualsCanonicalizing(['e2', 'e3', 'e4'], array_column($calendar['google'], 'eventId'));
+    }
+
     public function test_a_moderator_syncs_but_does_not_make_tables(): void
     {
         $moderator = User::factory()->forTenant($this->salon, 'moderator')->create();

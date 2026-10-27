@@ -4,6 +4,7 @@ namespace App\DataTables\Changes;
 
 use App\DataTables\DataColumn;
 use App\DataTables\DataTableSchema;
+use App\DataTables\Duplicates\RowDuplicates;
 use App\DataTables\MonthTables;
 use App\DataTables\OrderNumbers;
 use App\DataTables\PerformerAvailability;
@@ -391,7 +392,7 @@ class TableChanges
     /** Does a planned change, on the tables as they are now (refused when they changed since). */
     public function apply(TableChange $change): TableChange
     {
-        return DB::transaction(function () use ($change) {
+        return $this->settled(fn () => DB::transaction(function () use ($change) {
             $change = $this->locked($change);
             if ($change->status !== TableChange::PLANNED) {
                 throw new ChangeRefused(match ($change->status) {
@@ -416,13 +417,13 @@ class TableChanges
             $change->update(['status' => TableChange::APPLIED, 'applied_at' => now(), 'result' => $result]);
 
             return $change;
-        });
+        }));
     }
 
     /** Puts things back as they were before the change, while nobody touched what it changed. */
     public function undo(TableChange $change): TableChange
     {
-        return DB::transaction(function () use ($change) {
+        return $this->settled(fn () => DB::transaction(function () use ($change) {
             $change = $this->locked($change);
             if (($why = $this->undoBlocked($change)) !== null) {
                 throw new ChangeRefused($why);
@@ -461,7 +462,7 @@ class TableChanges
             $change->update(['status' => TableChange::UNDONE, 'undone_at' => now(), 'result' => $result]);
 
             return $change;
-        });
+        }));
     }
 
     /** The owner decided not to do it. */
@@ -1062,5 +1063,14 @@ class TableChanges
         Tenant::query()->whereKey($this->tenants->id())->lockForUpdate()->first();
 
         return TableChange::query()->lockForUpdate()->findOrFail($change->id);
+    }
+
+    /** A bulk change of rows or tables, then which rows are copies (RowDuplicates) once. */
+    private function settled(\Closure $change): mixed
+    {
+        $result = RowDuplicates::paused($change);
+        app(RowDuplicates::class)->refresh();
+
+        return $result;
     }
 }

@@ -101,7 +101,7 @@ final class EmployeeStats
      */
     public static function rows(Collection $tables, ?Period $period)
     {
-        return DataTableRow::query()
+        return DataTableRow::query()->counted()
             ->whereIn('data_table_id', $tables->modelKeys())
             ->when($period !== null, fn ($query) => $query
                 ->where('occurred_at', '>=', $period->start->format('Y-m-d H:i:s'))

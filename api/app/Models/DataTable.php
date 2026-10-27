@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\DataTables\CurrentTableScope;
 use App\DataTables\DataColumn;
+use App\DataTables\Duplicates\RowDuplicates;
 use App\DataTables\Period;
 use App\Enums\ColumnRole;
 use App\Enums\DataTableSection;
@@ -41,6 +42,19 @@ class DataTable extends Model
     protected static function booted(): void
     {
         static::addGlobalScope(new CurrentTableScope);
+
+        // Which rows are copies depends on which tables are current and their columns.
+        $refresh = function () {
+            if (! RowDuplicates::isPaused()) {
+                app(RowDuplicates::class)->refresh();
+            }
+        };
+        static::saved(function (DataTable $table) use ($refresh) {
+            if (! $table->wasRecentlyCreated && $table->wasChanged(['columns', 'archived_at', 'section'])) {
+                $refresh();
+            }
+        });
+        static::deleted($refresh);
     }
 
     /** Older versions too: for the tables list and a table's own page. */

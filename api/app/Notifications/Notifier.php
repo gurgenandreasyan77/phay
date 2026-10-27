@@ -256,7 +256,7 @@ class Notifier
             ->keyBy('id');
 
         $rows = $tables->isEmpty() ? collect() : DataTableRow::query()
-            ->withoutGlobalScopes()
+            ->withoutGlobalScopes()->counted()
             ->whereIn('data_table_id', $tables->keys())
             ->where('occurred_at', '>=', $today->format('Y-m-d H:i:s'))
             ->where('occurred_at', '<', $today->addDay()->format('Y-m-d H:i:s'))
