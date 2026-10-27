@@ -62,6 +62,11 @@ class Recruiter extends Agent
         return false;
     }
 
+    public function specialty(): string
+    {
+        return 'the staff: hiring, job postings, candidates and interviews, vacations, days off and sick leave, who is away on a day, employees\' records and onboarding';
+    }
+
     public function instructions(): string
     {
         return <<<'TEXT'

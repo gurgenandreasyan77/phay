@@ -58,6 +58,11 @@ class VideoEditor extends Agent
         return 'Երաժշտություն ինքը չի դնում և գույնը չի շտկում. դրանք կավելացնեք Instagram-ում կամ CapCut-ում։ Պատրաստի տեսանյութը՝ մինչև 90 վայրկյան։';
     }
 
+    public function specialty(): string
+    {
+        return 'video editing: editing plans for footage, cutting the owner\'s clips, subtitles, transitions, music mood, export settings';
+    }
+
     public function instructions(): string
     {
         return <<<'TEXT'

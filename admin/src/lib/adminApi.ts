@@ -352,6 +352,8 @@ export type AssistantActionDto =
   | { type: "hr"; id: number }
   /** A teammate the agent asked while answering, with the question and what they said. */
   | { type: "consult"; agent: string; name: string; role: string; question: string; answer?: string }
+  /** Another agent's work: a button to its chat, or to request it when the business doesn't have it. */
+  | { type: "refer"; agent: string; name: string; role: string; task?: string }
   | {
       type: "download";
       kind: "tables" | "finance" | "expenses";

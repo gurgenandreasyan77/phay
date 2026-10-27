@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use Anthropic\Core\Exceptions\APIStatusException;
+use App\Agents\Colleagues;
 use App\Assistant\AssistantClient;
 use App\Assistant\BusinessTools;
 use App\Models\AssistantUsage;
@@ -150,8 +151,9 @@ class AdminAssistantTest extends TestCase
         $this->postJson('/api/v1/admin/assistant', ['messages' => [['role' => 'user', 'content' => 'Որքա՞ն մոմ ենք վաճառել հոկտեմբերին']]])->assertOk();
 
         [$tables, $found, $byMonth, $byItem, $finance, $site] = $this->client->toolResults;
-        // The six look-ups, and for the owner the two cards (reshape, download).
-        $this->assertCount(8, $this->client->toolDefinitions);
+        // The six look-ups, for the owner the two cards (reshape, download), and sending to an agent.
+        $this->assertCount(9, $this->client->toolDefinitions);
+        $this->assertContains(Colleagues::REFER, array_column($this->client->toolDefinitions, 'name'));
         $this->assertSame(['Ապրանք', 'Քանակ', 'Գին', 'Ամսաթիվ'], array_column($tables['tables'][0]['columns'], 'label'));
         $this->assertSame(2, $found['matched']);
         $this->assertSame(['Ապրանք' => 'Մոմ', 'Քանակ' => 2, 'Գին' => 4500], $found['rows'][0]['values']);

@@ -42,6 +42,13 @@ abstract class Agent
      */
     abstract public function tools(): array;
 
+    /**
+     * What is its work and nobody else's, in a line (English, for the
+     * model): it answers only within it, and every agent and the business
+     * assistant send the owner to it for this (Colleagues::directory).
+     */
+    abstract public function specialty(): string;
+
     /** How it works and what it gives back, for the model (English). */
     abstract public function instructions(): string;
 

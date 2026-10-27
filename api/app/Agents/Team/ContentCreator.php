@@ -47,6 +47,11 @@ class ContentCreator extends Agent
         return ['list_tables', 'group_rows', 'find_rows', 'social_profile', 'social_posts', 'social_competitors'];
     }
 
+    public function specialty(): string
+    {
+        return 'texts for social media and ads: posts, captions, story texts, promo texts, hashtags, content plans';
+    }
+
     public function instructions(): string
     {
         return <<<'TEXT'

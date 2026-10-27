@@ -76,6 +76,8 @@ export default async function AdminAssistantPage(props: PageProps<"/admin/assist
           initialConversation={opened}
           agent={agent}
           brandComplete={team?.profile.complete ?? true}
+          team={team?.agents ?? []}
+          canRequest={team?.canRequest ?? false}
           key={`${agent?.key ?? "assistant"}-${opened?.id ?? "new"}`}
         />
       )}

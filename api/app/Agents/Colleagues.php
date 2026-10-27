@@ -25,10 +25,19 @@ use InvalidArgumentException;
  * person. A consultation is part of the owner's question: no request of
  * its own, its tokens are added to the question's. The chat shows who was
  * consulted, with the question and the answer ({type: consult}).
+ *
+ * Every agent keeps to its specialty: work of another one (a picture asked
+ * of the table agent) it doesn't do but sends the owner to that agent with
+ * refer_to_colleague, which puts a card under the answer ({type: refer}):
+ * a button to that agent's chat, or, when the business doesn't have that
+ * agent, a button to request it. The business assistant routes the same
+ * way (Agents::directory()).
  */
 class Colleagues
 {
     public const TOOL = 'ask_colleague';
+
+    public const REFER = 'refer_to_colleague';
 
     /** Teammates one answer may consult. */
     public const MAX_PER_QUESTION = 2;
@@ -83,47 +92,123 @@ class Colleagues
     }
 
     /**
-     * The tools of whoever answers the owner, with ask_colleague added when
-     * the business has teammates for it.
+     * The tools of whoever answers the owner, with refer_to_colleague and,
+     * when the business has teammates for it, ask_colleague added.
      */
     public function around(ToolSet $tools, ?Agent $asker, BusinessAssistant $assistant, ?User $user): ToolSet
     {
         $team = $this->agents->colleagues($this->tenants->current(), $asker);
+        $others = self::others($asker);
 
-        if ($team === []) {
-            return $tools;
-        }
+        $added = array_filter([
+            self::REFER => $others === [] ? null : $this->referDefinition($others),
+            self::TOOL => $team === [] ? null : $this->definition($team),
+        ]);
+        $run = fn (string $name, array $input) => $name === self::REFER
+            ? $this->refer($input, $others)
+            : $this->ask($input, $team, $asker, $assistant, $user);
 
-        return new class($tools, $this->definition($team), fn (array $input) => $this->ask($input, $team, $asker, $assistant, $user)) implements ToolSet
+        return new class($tools, $added, $run) implements ToolSet
         {
+            /** @param  array<string, array<string, mixed>>  $added */
             public function __construct(
                 private readonly ToolSet $tools,
-                private readonly array $definition,
-                private readonly \Closure $ask,
+                private readonly array $added,
+                private readonly \Closure $run,
             ) {}
 
             public function definitions(): array
             {
-                return [...$this->tools->definitions(), $this->definition];
+                return [...$this->tools->definitions(), ...array_values($this->added)];
             }
 
             public function run(string $name, array $input): array|ToolOutput
             {
-                return $name === Colleagues::TOOL ? ($this->ask)($input) : $this->tools->run($name, $input);
+                return isset($this->added[$name]) ? ($this->run)($name, $input) : $this->tools->run($name, $input);
             }
         };
     }
 
     /**
-     * One line for the business assistant's prompt: the team it may ask.
+     * How the business assistant shares the work with the team: it keeps
+     * the figures and advice, the agents' specialist work goes to them.
      */
     public function guide(): string
     {
         $team = $this->agents->colleagues($this->tenants->current());
 
-        return $team === []
-            ? ''
-            : 'The business also has an AI team of agents. When a question needs what one of them keeps or knows best (e.g. who of the staff is away: the HR person), ask them with ask_colleague, then answer with what they said.';
+        return implode("\n", array_filter([
+            $this->agents->directory($this->tenants->current()),
+            'Your own work is the business\'s figures and advice on selling more. The specialist work of the agents above (pictures, image prompts and the brand\'s look; post, caption and ad texts and content plans; reel scripts; video editing; changing the tables; hiring, job postings and staff time off) is not yours: don\'t do it, not even as a draft or a prompt. Say in a sentence or two who on the team does it and call '.self::REFER.', which puts a button to them under your answer. When that agent is not on this business\'s team, say plainly that this specialist isn\'t available for their business yet, that it can be added for a monthly fee, and that the button under your answer sends the request.',
+            $team === [] ? null : 'When a question needs what one of the business\'s agents keeps or knows best (e.g. who of the staff is away: the HR person), ask them with ask_colleague, then answer with what they said.',
+        ]));
+    }
+
+    /** @return list<Agent> the catalog without the asker */
+    public static function others(?Agent $asker): array
+    {
+        return array_values(array_filter(AgentCatalog::all(), fn (Agent $agent) => $agent->key() !== $asker?->key()));
+    }
+
+    /**
+     * @param  list<Agent>  $others
+     * @return array<string, mixed>
+     */
+    private function referDefinition(array $others): array
+    {
+        return [
+            'name' => self::REFER,
+            'description' => 'Sends the owner to the agent whose work their request is, when it is not yours: puts a card under your answer with a button to that agent\'s chat, or, when the business doesn\'t have that agent, a button to request it. Tell the owner in a sentence who does it (and, when they are not on the team, that this specialist is not available yet and must be added for a fee); the card does the rest, never write a link.',
+            'inputSchema' => [
+                'type' => 'object',
+                'properties' => [
+                    'colleague' => ['type' => 'string', 'enum' => array_map(fn (Agent $a) => $a->key(), $others), 'description' => 'The key of the agent whose work it is.'],
+                    'task' => ['type' => 'string', 'description' => 'What the owner wants of them, in a short line in the owner\'s language (shown on the card).'],
+                ],
+                'required' => ['colleague'],
+                'additionalProperties' => false,
+            ],
+        ];
+    }
+
+    /**
+     * The card that sends the owner to another agent.
+     *
+     * @param  array<string, mixed>  $input
+     * @param  list<Agent>  $others
+     * @return array<string, mixed>
+     */
+    private function refer(array $input, array $others): array
+    {
+        $agent = collect($others)->first(fn (Agent $a) => $a->key() === ($input['colleague'] ?? null));
+        if (! $agent) {
+            throw new InvalidArgumentException('No such agent.');
+        }
+
+        return $this->referTo($agent, isset($input['task']) ? (string) $input['task'] : null);
+    }
+
+    /** @return array<string, mixed> */
+    private function referTo(Agent $agent, ?string $task): array
+    {
+        $task = $task === null ? null : (mb_substr(trim($task), 0, 200) ?: null);
+        $available = $this->agents->isActive($this->tenants->current(), $agent);
+
+        $this->actions->add(array_filter([
+            'type' => 'refer',
+            'agent' => $agent->key(),
+            'name' => $agent->persona()['hy'],
+            'role' => $agent->role()['hy'],
+            'task' => $task,
+        ], fn ($value) => $value !== null));
+
+        return [
+            'colleague' => $agent->label('en'),
+            'available' => $available,
+            'note' => $available
+                ? 'The card under your answer opens their chat. Don\'t do their part yourself.'
+                : 'They are not on this business\'s team. Tell the owner this specialist is not available for them yet, that it can be added for a monthly fee, and that the button on the card under your answer sends the request. Don\'t do their part yourself.',
+        ];
     }
 
     /**
@@ -156,6 +241,11 @@ class Colleagues
     {
         $colleague = collect($team)->first(fn (Agent $a) => $a->key() === ($input['colleague'] ?? null));
         if (! $colleague) {
+            // An agent of the platform the business hasn't added: the owner gets the card to request it.
+            $missing = collect(self::others($asker))->first(fn (Agent $a) => $a->key() === ($input['colleague'] ?? null));
+            if ($missing) {
+                return ['answer' => null, ...$this->referTo($missing, null)];
+            }
             throw new InvalidArgumentException('No such teammate in this business.');
         }
         $question = trim((string) ($input['question'] ?? ''));

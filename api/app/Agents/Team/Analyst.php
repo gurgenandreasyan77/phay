@@ -57,6 +57,11 @@ class Analyst extends Agent
         return false;
     }
 
+    public function specialty(): string
+    {
+        return 'the business\'s figures and what to do about them: trends of sales and orders, the best and weakest products, services, days, months and channels, comparing periods, advice on how to sell more';
+    }
+
     public function instructions(): string
     {
         return <<<'TEXT'

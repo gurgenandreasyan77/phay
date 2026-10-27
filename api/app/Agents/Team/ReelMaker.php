@@ -71,6 +71,11 @@ class ReelMaker extends Agent
         return 'Տեսանյութը ինքը չի նկարում. տալիս է սցենար և նկարահանման պլան, իսկ ձեր նկարածից կմոնտաժի պատրաստի ռիլս և կպատրաստի շապիկը։';
     }
 
+    public function specialty(): string
+    {
+        return 'short vertical videos: ideas and scripts of reels and TikToks, hooks, shot lists, reel covers, cutting a reel by its script';
+    }
+
     public function instructions(): string
     {
         return <<<'TEXT'
