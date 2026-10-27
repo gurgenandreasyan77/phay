@@ -5,6 +5,8 @@ namespace App\Assistant;
 use App\DataTables\Changes\TableChanges;
 use App\DataTables\DataColumn;
 use App\DataTables\Duplicates\RowDuplicates;
+use App\DataTables\Import\TableCopier;
+use App\DataTables\Import\TableSource;
 use App\DataTables\TableAnalytics;
 use App\Enums\BusinessRole;
 use App\Enums\ColumnRole;
@@ -12,6 +14,7 @@ use App\Enums\DataColumnType;
 use App\Enums\DataTableSection;
 use App\Enums\TablePeriod;
 use App\Http\Controllers\Api\V1\Admin\DataTableController;
+use App\Models\AssistantAttachment;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
 use App\Models\TableChange;
@@ -50,16 +53,20 @@ class TableEditTools
 
     public const DUPLICATES = 'find_duplicates';
 
-    public const NAMES = [self::ROWS, self::DUPLICATES, self::CREATE, self::EDIT, self::DELETE_TABLES, self::ADD, self::UPDATE, self::DELETE_ROWS];
+    public const COPY = 'copy_table';
+
+    public const NAMES = [self::ROWS, self::DUPLICATES, self::COPY, self::CREATE, self::EDIT, self::DELETE_TABLES, self::ADD, self::UPDATE, self::DELETE_ROWS];
 
     /** The tools that prepare a change (a card), not only read. */
-    public const WRITES = [self::CREATE, self::EDIT, self::DELETE_TABLES, self::ADD, self::UPDATE, self::DELETE_ROWS];
+    public const WRITES = [self::COPY, self::CREATE, self::EDIT, self::DELETE_TABLES, self::ADD, self::UPDATE, self::DELETE_ROWS];
 
     public function __construct(
         private readonly TableChanges $changes,
         private readonly ReplyActions $actions,
         private readonly TenantContext $tenants,
         private readonly RowDuplicates $duplicates,
+        private readonly TableSource $sources,
+        private readonly TableCopier $copier,
     ) {}
 
     public function available(): bool
@@ -115,6 +122,35 @@ class TableEditTools
                         'section' => ['type' => 'string', 'enum' => array_map(fn (DataTableSection $s) => $s->value, RowDuplicates::SECTIONS)],
                         'limit' => ['type' => 'integer', 'description' => '1-50 groups, default 20.'],
                     ],
+                    'additionalProperties' => false,
+                ],
+            ],
+            [
+                'name' => self::COPY,
+                'description' => 'Prepares a new table identical to one the owner has elsewhere: a Google Sheets link (shared as «anyone with the link»; the sheet the link opens), a link to a CSV/XLSX file or to a page with a table, or a CSV/XLSX file attached here ([file #N]). The same columns in the same order, each with the type and meaning its header and values suggest, and all its rows (up to '.TableCopier::MAX_ROWS.') exactly as they are; nothing is typed by you. Comes back with the columns it guessed: if a meaning or type is wrong, call again with "columns" corrections (by the source header) or leave columns out with "skip". For a picture or screenshot of a table use create_table with the columns and rows you read in it.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'url' => ['type' => 'string', 'description' => 'The link, http(s)://…'],
+                        'file' => ['type' => 'integer', 'description' => 'The attached CSV or XLSX file\'s number (the N of [file #N]).'],
+                        'section' => ['type' => 'string', 'enum' => array_column(DataTableSection::cases(), 'value'), 'description' => 'orders (services done), sales (goods sold) or expenses.'],
+                        'name' => ['type' => 'string', 'description' => 'The new table\'s name; leave out to keep the source\'s.'],
+                        'period' => ['type' => 'string', 'enum' => TablePeriod::values()],
+                        'period_date' => ['type' => 'string'],
+                        'columns' => ['type' => 'array', 'items' => [
+                            'type' => 'object',
+                            'properties' => [
+                                'from' => ['type' => 'string', 'description' => 'The source\'s header.'],
+                                'label' => ['type' => 'string'],
+                                'type' => ['type' => 'string', 'enum' => DataColumnType::values()],
+                                'role' => ['type' => ['string', 'null'], 'enum' => [...ColumnRole::values(), null]],
+                                'options' => ['type' => 'array', 'items' => ['type' => 'string']],
+                            ],
+                            'required' => ['from'],
+                        ], 'description' => 'Corrections of guessed columns, by the source header.'],
+                        'skip' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Source headers to leave out.'],
+                    ],
+                    'required' => ['section'],
                     'additionalProperties' => false,
                 ],
             ],
@@ -222,7 +258,8 @@ class TableEditTools
         }
 
         $user = auth()->user();
-        $change = match ($name) {
+        $copied = $name === self::COPY ? $this->copy($input, $user) : null;
+        $change = $copied['change'] ?? match ($name) {
             self::CREATE => $this->changes->planCreate($input, $user),
             self::EDIT => $this->changes->planEdit($this->table($input), $input, $user),
             self::DELETE_TABLES => $this->changes->planDelete($this->tables($input), $user),
@@ -239,6 +276,14 @@ class TableEditTools
 
         return array_filter([
             'planned' => true,
+            // What the copy guessed and kept: check the meanings, correct with copy_table "columns".
+            'copied' => $copied ? array_filter([
+                'columns' => $copied['columns'],
+                'rows' => $copied['rows'],
+                'cellsLeftEmpty' => $copied['emptied'] ?: null,
+                'onlyFirstRows' => $copied['truncated'] ? TableCopier::MAX_ROWS : null,
+                'noDateColumn' => ! in_array(ColumnRole::Date->value, array_column($copied['columns'], 'meaning'), true) ?: null,
+            ], fn ($v) => $v !== null) : null,
             'note' => 'Nothing is changed yet: the owner sees this as a card under your answer, value by value, and applies it with «Կիրառել» (or not).'
                 .($change->kind === TableChange::DELETE_TABLES ? ' Deleting tables can\'t be undone.' : ' It can be undone afterwards while nobody touched what it changed.'),
             'card' => [
@@ -293,6 +338,26 @@ class TableEditTools
                     ->filter(fn ($v) => $v !== null && $v !== '')->all(),
             ])->values()->all(),
         ];
+    }
+
+    /** @return array{change: TableChange, columns: list<array>, rows: int, emptied: array<string, int>, truncated: bool} */
+    private function copy(array $input, $user): array
+    {
+        $url = trim((string) ($input['url'] ?? ''));
+        $file = (int) ($input['file'] ?? 0);
+        if (($url === '') === ($file === 0)) {
+            throw new InvalidArgumentException('Give either url or file.');
+        }
+
+        if ($url !== '') {
+            $source = $this->sources->fromUrl($url);
+        } else {
+            $attachment = AssistantAttachment::query()->of($user)->find($file)
+                ?? throw new InvalidArgumentException("There is no [file #{$file}] in this chat.");
+            $source = $this->sources->fromAttachment($attachment);
+        }
+
+        return $this->copier->plan($source, $input, $user);
     }
 
     /** @return array<string, mixed> */

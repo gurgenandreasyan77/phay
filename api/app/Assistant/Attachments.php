@@ -2,6 +2,8 @@
 
 namespace App\Assistant;
 
+use App\DataTables\Import\UnreadableFile;
+use App\DataTables\Import\XlsxReader;
 use App\Media\RenderFailed;
 use App\Media\VideoCutter;
 use App\Models\AssistantAttachment;
@@ -65,7 +67,13 @@ class Attachments
 
     private const VIDEO_TYPES = ['video/mp4' => 'mp4', 'video/quicktime' => 'mov', 'video/webm' => 'webm', 'video/x-m4v' => 'm4v'];
 
-    public const UNSUPPORTED = 'Կարելի է կցել նկար (JPG, PNG, WEBP, GIF), տեսանյութ (MP4, MOV, WEBM), PDF կամ տեքստային ֆայլ (TXT, CSV, MD)։';
+    public const UNSUPPORTED = 'Կարելի է կցել նկար (JPG, PNG, WEBP, GIF), տեսանյութ (MP4, MOV, WEBM), PDF, Excel (XLSX) կամ տեքստային ֆայլ (TXT, CSV, MD)։';
+
+    /** An Excel file: its first sheet. */
+    public const MAX_SHEET_BYTES = 5 * 1024 * 1024;
+
+    /** Rows of an Excel file the model reads as text (copy_table copies all). */
+    private const SHEET_ROWS_SHOWN = 300;
 
     public function __construct(
         private readonly TenantContext $tenants,
@@ -75,7 +83,7 @@ class Attachments
     /** Accepted types, for the file picker and the validation rule. */
     public static function extensions(): array
     {
-        return ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', ...self::TEXT_EXTENSIONS, ...array_values(self::VIDEO_TYPES)];
+        return ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 'xlsx', ...self::TEXT_EXTENSIONS, ...array_values(self::VIDEO_TYPES)];
     }
 
     /**
@@ -138,6 +146,19 @@ class Attachments
             }
 
             return ['kind' => AttachmentKind::Pdf, 'mime' => $mime, 'extension' => 'pdf', 'width' => null, 'height' => null];
+        }
+
+        if ($extension === 'xlsx' && in_array($mime, ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip', 'application/octet-stream'], true)) {
+            if ($size > self::MAX_SHEET_BYTES) {
+                $fail('Excel ֆայլը պետք է լինի մինչև 5 ՄԲ։');
+            }
+            try {
+                (new XlsxReader)->read($file->getRealPath(), 1);
+            } catch (UnreadableFile $e) {
+                $fail($e->getMessage());
+            }
+
+            return ['kind' => AttachmentKind::Sheet, 'mime' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'extension' => 'xlsx', 'width' => null, 'height' => null];
         }
 
         if (in_array($extension, self::TEXT_EXTENSIONS, true) && (str_starts_with($mime, 'text/') || in_array($mime, ['application/csv', 'application/x-empty'], true))) {
@@ -314,6 +335,10 @@ class Attachments
             return ['type' => 'document', 'source' => ['type' => 'base64', 'media_type' => 'application/pdf', 'data' => base64_encode($content)], 'title' => $file->name];
         }
 
+        if ($file->kind === AttachmentKind::Sheet) {
+            return ['type' => 'document', 'source' => ['type' => 'text', 'media_type' => 'text/plain', 'data' => self::sheetText($content)], 'title' => $file->name];
+        }
+
         return ['type' => 'document', 'source' => ['type' => 'text', 'media_type' => 'text/plain', 'data' => $content], 'title' => $file->name];
     }
 
@@ -350,6 +375,30 @@ class Attachments
         $disk = Storage::disk(self::DISK);
 
         return array_sum(array_map(fn (array $f) => $disk->exists($f['path']) ? $disk->size($f['path']) : 0, $file->meta['frames'] ?? []));
+    }
+
+    /** An Excel file's first sheet as CSV text, its first rows. */
+    private static function sheetText(string $content): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'sheet');
+        file_put_contents($path, $content);
+        try {
+            $sheet = (new XlsxReader)->read($path, self::SHEET_ROWS_SHOWN);
+        } catch (UnreadableFile) {
+            return '(The file could not be read.)';
+        } finally {
+            @unlink($path);
+        }
+
+        $out = fopen('php://temp', 'w+');
+        foreach ([$sheet->headers, ...$sheet->rows] as $row) {
+            fputcsv($out, $row, ',', '"', '');
+        }
+        rewind($out);
+        $csv = stream_get_contents($out);
+        fclose($out);
+
+        return $csv.($sheet->truncated ? "\n(Only the first ".self::SHEET_ROWS_SHOWN.' rows are shown; copy_table reads them all.)' : '');
     }
 
     /** How a file is named to the model: "[file #N: name, kind…]". */

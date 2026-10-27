@@ -14,6 +14,9 @@ enum AttachmentKind: string
     /** TXT, CSV or Markdown in UTF-8: the model reads it as text. */
     case Text = 'text';
 
+    /** XLSX: the model reads its first sheet as CSV text; copy_table copies it whole. */
+    case Sheet = 'sheet';
+
     /** MP4, MOV or WEBM: the model sees a few frames and its length; an agent can cut it. */
     case Video = 'video';
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, FileText, Film, ImagePlus, Loader2, X } from "lucide-react";
+import { Check, FileSpreadsheet, FileText, Film, ImagePlus, Loader2, X } from "lucide-react";
 import type { AssistantAttachmentDto } from "@/lib/adminApi";
 import { cn } from "@/ui";
 
@@ -10,19 +10,20 @@ export const MAX_FILES = 4;
 
 /** What the file picker offers; the API checks the content again. */
 export const ACCEPT =
-  "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v,.mov,.m4v,application/pdf,text/plain,text/csv,text/markdown,.txt,.csv,.md";
+  "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v,.mov,.m4v,application/pdf,text/plain,text/csv,text/markdown,.txt,.csv,.md,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 const MB = 1024 * 1024;
-const LIMITS = { image: 5 * MB, pdf: 10 * MB, text: 512 * 1024, video: 80 * MB } as const;
+const LIMITS = { image: 5 * MB, pdf: 10 * MB, text: 512 * 1024, video: 80 * MB, sheet: 5 * MB } as const;
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const VIDEO_EXTENSIONS = ["mp4", "mov", "webm", "m4v"];
 
 export const FILE_ERRORS = {
-  type: "Կարելի է կցել նկար (JPG, PNG, WEBP, GIF), տեսանյութ (MP4, MOV, WEBM), PDF կամ տեքստային ֆայլ (TXT, CSV, MD)։",
+  type: "Կարելի է կցել նկար (JPG, PNG, WEBP, GIF), տեսանյութ (MP4, MOV, WEBM), PDF, Excel (XLSX) կամ տեքստային ֆայլ (TXT, CSV, MD)։",
   image: "Նկարը պետք է լինի մինչև 5 ՄԲ։",
   video: "Տեսանյութը պետք է լինի մինչև 80 ՄԲ։",
   pdf: "PDF-ը պետք է լինի մինչև 10 ՄԲ։",
   text: "Տեքստային ֆայլը պետք է լինի մինչև 512 ԿԲ։",
+  sheet: "Excel ֆայլը պետք է լինի մինչև 5 ՄԲ։",
   tooMany: `Մեկ հարցին կարելի է կցել մինչև ${MAX_FILES} ֆայլ։`,
   upload: "Ֆայլը չհաջողվեց վերբեռնել։ Փորձեք կրկին։",
 };
@@ -57,6 +58,8 @@ export function checkFile(file: File): { kind: FileKind } | { error: string } {
       ? "video"
       : file.type === "application/pdf" || extension === "pdf"
       ? "pdf"
+      : extension === "xlsx"
+      ? "sheet"
       : ["txt", "csv", "md"].includes(extension)
         ? "text"
         : null;
@@ -145,6 +148,13 @@ function Thumb({ file, className }: { file: ShownFile; className?: string }) {
     return (
       <span className={cn("flex shrink-0 items-center justify-center rounded bg-ink text-white", className)}>
         <Film className="h-5 w-5" aria-hidden="true" />
+      </span>
+    );
+  }
+  if (file.kind === "sheet") {
+    return (
+      <span className={cn("flex shrink-0 items-center justify-center rounded bg-success-light text-success", className)}>
+        <FileSpreadsheet className="h-5 w-5" aria-hidden="true" />
       </span>
     );
   }
