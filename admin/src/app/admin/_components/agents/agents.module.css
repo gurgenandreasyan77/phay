@@ -135,6 +135,12 @@
   opacity: 0.6;
 }
 
+@media (min-width: 1280px) {
+  .pool::before {
+    display: none;
+  }
+}
+
 @keyframes drift {
   from {
     transform: translateX(-60px);
@@ -174,69 +180,224 @@
   }
 }
 
-/* An agent swimming its own loop around where it lives. */
-.swimmer {
-  position: absolute;
-  left: var(--x);
-  top: var(--y);
-  animation: swim var(--t, 16s) ease-in-out infinite alternate;
-  animation-delay: var(--d, 0s);
-  transition: filter 0.2s;
+/* Wide screens: the pool split into lanes by ropes; a frosted water band runs along the bottom. */
+.lanes {
+  /* Where the water starts: under the avatars (lane padding + avatar). */
+  --water: 106px;
+  position: relative;
+  display: grid;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  background:
+    linear-gradient(180deg, transparent 0 var(--water), rgba(82, 117, 137, 0.07) var(--water), rgba(63, 111, 98, 0.1) 100%),
+    rgba(255, 255, 255, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 2px rgba(32, 38, 35, 0.04);
 }
 
-.swimmer:focus-visible,
-.swimmer[data-selected="true"] {
+/* The water line, gently moving. */
+.lanes::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--water) - 5px);
+  height: 10px;
+  pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='10' viewBox='0 0 80 10'%3E%3Cpath d='M0 5q10-4 20 0t20 0 20 0 20 0' fill='none' stroke='%237d9c93' stroke-opacity='.35' stroke-width='1.2'/%3E%3C/svg%3E")
+    repeat-x;
+  animation: wave 9s linear infinite;
+}
+
+@keyframes wave {
+  from {
+    background-position-x: 0;
+  }
+  to {
+    background-position-x: 80px;
+  }
+}
+
+.lane {
+  position: relative;
+  min-width: 0;
+}
+
+/* The lane rope: floats in two colours of the palette. */
+.lane + .lane::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: -1.5px;
+  width: 3px;
+  border-radius: 3px;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(63, 111, 98, 0.32) 0 5px,
+    transparent 5px 8px,
+    rgba(82, 117, 137, 0.26) 8px 13px,
+    transparent 13px 16px
+  );
+  pointer-events: none;
+}
+
+.laneLink {
+  position: relative;
+  border-radius: var(--radius-lg);
+  transition:
+    background-color 0.25s,
+    box-shadow 0.25s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.laneLink:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--tint-soft);
+}
+
+/* The lane in use: a wash of its colour and a marker on top. */
+.laneLink[data-selected="true"] {
+  background: linear-gradient(180deg, var(--tint-bg) 0%, transparent 85%);
+}
+
+.laneLink[data-selected="true"]::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 36px;
+  height: 3px;
+  margin-left: -18px;
+  border-radius: 0 0 3px 3px;
+  background: var(--tint);
+}
+
+.laneNo {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--color-ink-muted);
+  opacity: 0.6;
+}
+
+.laneLink[data-selected="true"] .laneNo {
+  color: var(--tint);
+  opacity: 1;
+}
+
+.laneName {
+  color: var(--color-ink);
+  transition: color 0.2s;
+}
+
+.laneLink[data-selected="true"] .laneName {
+  color: var(--tint);
+}
+
+/* An agent swimming a small loop in its lane. */
+.swimmer {
+  animation: swim var(--t, 14s) ease-in-out infinite alternate;
+  animation-delay: var(--d, 0s);
+  transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.laneLink:focus-visible .swimmer,
+.laneLink[data-selected="true"] .swimmer {
   animation-play-state: paused;
-  z-index: 2;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .swimmer:hover {
+  .laneLink:hover {
+    background-color: rgba(255, 255, 255, 0.6);
+  }
+
+  .laneLink[data-selected="true"]:hover {
+    background-color: transparent;
+  }
+
+  .laneLink:hover .swimmer {
     animation-play-state: paused;
-    z-index: 2;
+  }
+
+  .laneLink:hover .laneName {
+    color: var(--tint);
   }
 }
 
 @keyframes swim {
   0% {
-    transform: translate(0, 0) rotate(-2deg);
+    translate: 0 0;
+    rotate: -2deg;
   }
-  25% {
-    transform: translate(var(--dx), calc(var(--dy) * -1)) rotate(2deg);
+  33% {
+    translate: var(--dx) calc(var(--dy) * -1);
+    rotate: 2deg;
   }
-  50% {
-    transform: translate(calc(var(--dx) * 1.7), var(--dy)) rotate(-1deg);
-  }
-  75% {
-    transform: translate(calc(var(--dx) * 0.6), calc(var(--dy) * 1.4)) rotate(2deg);
+  66% {
+    translate: calc(var(--dx) * -0.6) var(--dy);
+    rotate: -1deg;
   }
   100% {
-    transform: translate(calc(var(--dx) * -0.6), calc(var(--dy) * -0.4)) rotate(-2deg);
+    translate: calc(var(--dx) * -1) calc(var(--dy) * -0.5);
+    rotate: 1.5deg;
   }
 }
 
-.swimBody {
-  transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-
-.swimmer:focus-visible .swimBody {
-  transform: scale(1.08);
+.laneLink:focus-visible .swimmer,
+.laneLink[data-selected="true"] .swimmer {
+  transform: scale(1.06);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .swimmer:hover .swimBody {
-    transform: scale(1.08);
+  .laneLink:hover .swimmer {
+    transform: translateY(-3px) scale(1.06);
   }
 }
 
-.swimmer[data-selected="true"] .swimBody {
-  transform: scale(1.12);
+/* Rings on the water under each swimmer. */
+.ripple {
+  position: relative;
+  display: block;
+  width: 72px;
+  height: 12px;
+  margin-top: -8px;
+}
+
+.ripple::before,
+.ripple::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid var(--tint);
+  opacity: 0;
+  animation: ripple 4.2s ease-out infinite;
+}
+
+.ripple::after {
+  animation-delay: 2.1s;
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0.45);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.15);
+    opacity: 0;
+  }
 }
 
 /* The chosen one glows softly in its colour. */
 .halo {
   position: absolute;
-  inset: 6% 10% 14%;
+  inset: 4% 6% 10%;
   z-index: -1;
   border-radius: 999px;
   background: radial-gradient(circle, var(--tint-soft) 0%, transparent 70%);
@@ -244,18 +405,15 @@
   transition: opacity 0.3s;
 }
 
-.swimmer[data-selected="true"] .halo {
+.laneLink[data-selected="true"] .halo {
   opacity: 1;
+  animation: pulse 2.4s ease-in-out infinite;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .swimmer:hover .halo {
+  .laneLink:hover .halo {
     opacity: 1;
   }
-}
-
-.swimmer[data-selected="true"] .halo {
-  animation: pulse 2.4s ease-in-out infinite;
 }
 
 @keyframes pulse {
@@ -266,23 +424,6 @@
   50% {
     transform: scale(1.08);
   }
-}
-
-.nameTag {
-  white-space: nowrap;
-  border-radius: 999px;
-  border: 1px solid var(--color-border);
-  background: rgba(255, 255, 255, 0.92);
-  padding: 2px 10px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-ink);
-  box-shadow: 0 1px 2px rgba(32, 38, 35, 0.06);
-}
-
-.swimmer[data-selected="true"] .nameTag {
-  border-color: var(--tint);
-  color: var(--tint);
 }
 
 /* A team member's tile on phones and tablets: tap to talk to it. */
@@ -416,7 +557,10 @@
   .mouthTalk,
   .pool::before,
   .bubble,
+  .lanes::before,
   .swimmer,
+  .ripple::before,
+  .ripple::after,
   .halo,
   .orb,
   .card,
@@ -429,7 +573,7 @@
   }
 
   .card:hover,
-  .swimmer:hover .swimBody {
+  .laneLink:hover .swimmer {
     transform: none;
   }
 }
