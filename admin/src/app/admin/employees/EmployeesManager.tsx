@@ -8,9 +8,9 @@ import type { AdminEmployeeDto, AdminEmployeeGroupDto } from "@/lib/adminApi";
 import { Badge, Button, Card, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { validationErrors } from "../_components/tables/shared";
 
-type Draft = { name: string; position: string; phone: string; groupId: string };
+type Draft = { name: string; position: string; phone: string; groupId: string; hiredOn: string; birthDate: string };
 
-const EMPTY: Draft = { name: "", position: "", phone: "", groupId: "" };
+const EMPTY: Draft = { name: "", position: "", phone: "", groupId: "", hiredOn: "", birthDate: "" };
 
 async function send(url: string, method: string, body?: unknown): Promise<{ ok: boolean; errors: Record<string, string> }> {
   const response = await fetch(url, {
@@ -29,6 +29,8 @@ function payload(draft: Draft) {
     position: draft.position || null,
     phone: draft.phone || null,
     groupId: draft.groupId ? Number(draft.groupId) : null,
+    hiredOn: draft.hiredOn || null,
+    birthDate: draft.birthDate || null,
   };
 }
 
@@ -95,6 +97,15 @@ export function NewEmployeeForm({ groups }: { groups: AdminEmployeeGroupDto[] })
               {errors.groupId ? <p className="text-xs text-danger">{errors.groupId}</p> : null}
             </label>
           ) : null}
+          <label className="space-y-1.5">
+            <FieldLabel>Աշխատում է սկսած</FieldLabel>
+            <Input type="date" value={draft.hiredOn} onChange={(e) => setDraft((d) => ({ ...d, hiredOn: e.target.value }))} />
+          </label>
+          <label className="space-y-1.5">
+            <FieldLabel>Ծննդյան օր</FieldLabel>
+            <Input type="date" value={draft.birthDate} onChange={(e) => setDraft((d) => ({ ...d, birthDate: e.target.value }))} />
+            {errors.birthDate ? <p className="text-xs text-danger">{errors.birthDate}</p> : null}
+          </label>
         </div>
         <div className="flex items-center gap-3">
           <Button type="submit" disabled={status === "saving"}>
@@ -223,6 +234,8 @@ function EditRow({
     position: employee.position ?? "",
     phone: employee.phone ?? "",
     groupId: employee.group ? String(employee.group.id) : "",
+    hiredOn: employee.hiredOn ?? "",
+    birthDate: employee.birthDate ?? "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pending, setPending] = useState(false);

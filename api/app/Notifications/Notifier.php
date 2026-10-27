@@ -8,8 +8,11 @@ use App\Enums\DataColumnType;
 use App\Enums\DataTableSection;
 use App\Enums\LeadStatus;
 use App\Models\AdminNotification;
+use App\Models\Candidate;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
+use App\Models\Employee;
+use App\Models\EmployeeAbsence;
 use App\Models\FeedbackMessage;
 use App\Models\Lead;
 use App\Models\SupportMessage;
@@ -169,6 +172,74 @@ class Notifier
             $entries->take(self::TODAY_LISTED)->implode('; ')
                 .($entries->count() > self::TODAY_LISTED ? '; …' : ''),
             '/admin/calendar',
+            $key,
+        ));
+    }
+
+    /**
+     * The team today, once a day per person, made when they first look at
+     * the bell: who is away today, who goes away tomorrow (everyone working
+     * with orders plans around it), today's interviews and birthdays (those
+     * who manage the team).
+     */
+    public function teamToday(User $user, Tenant $tenant): void
+    {
+        $role = $user->businessRole($tenant);
+        if ($user->isPlatformStaff() || ! $role?->can(BusinessRole::ORDERS)) {
+            return;
+        }
+
+        $today = CarbonImmutable::now($tenant->timezone ?: config('app.timezone'))->startOfDay();
+        $key = 'team:'.$tenant->id.':'.$today->toDateString();
+        if (AdminNotification::query()->where('user_id', $user->id)->where('dedupe_key', $key)->exists()) {
+            return;
+        }
+
+        $day = $today->toDateString();
+        $tomorrow = $today->addDay()->toDateString();
+        $absences = EmployeeAbsence::withoutTenancy()->with('employee:id,name')
+            ->where('tenant_id', $tenant->id)
+            ->overlapping($day, $tomorrow)
+            ->orderBy('starts_on')
+            ->get();
+        $away = $absences->filter(fn (EmployeeAbsence $a) => $a->starts_on->toDateString() <= $day);
+        $leaving = $absences->filter(fn (EmployeeAbsence $a) => $a->starts_on->toDateString() === $tomorrow);
+
+        $manager = $role->can(BusinessRole::SETTINGS);
+        $interviews = $manager ? Candidate::withoutTenancy()->where('tenant_id', $tenant->id)
+            ->where('interview_at', '>=', $day.' 00:00:00')
+            ->where('interview_at', '<', $tomorrow.' 00:00:00')
+            ->orderBy('interview_at')
+            ->get() : collect();
+        $birthdays = $manager ? Employee::withoutTenancy()->where('tenant_id', $tenant->id)->where('is_active', true)->whereNotNull('birth_date')->get()
+            ->filter(fn (Employee $e) => $e->birth_date->format('m-d') === $today->format('m-d')) : collect();
+
+        $until = fn (EmployeeAbsence $a) => $a->starts_on->eq($a->ends_on) ? '' : ' մինչև '.$a->ends_on->format('d.m');
+        $lines = array_filter([
+            $away->isNotEmpty() ? 'Այսօր բացակա են՝ '.$away->map(fn (EmployeeAbsence $a) => $a->employee?->name.' ('.mb_strtolower($a->kind->label()).$until($a).')')->implode(', ') : null,
+            $leaving->isNotEmpty() ? 'Վաղվանից՝ '.$leaving->map(fn (EmployeeAbsence $a) => $a->employee?->name.' ('.mb_strtolower($a->kind->label()).$until($a).')')->implode(', ') : null,
+            $interviews->isNotEmpty() ? 'Հարցազրույցներ՝ '.$interviews->map(fn (Candidate $c) => substr($c->interviewTime(), 11, 5).' '.$c->name)->implode(', ') : null,
+            $birthdays->isNotEmpty() ? 'Ծննդյան օր՝ '.$birthdays->pluck('name')->implode(', ') : null,
+        ]);
+        if ($lines === []) {
+            return;
+        }
+
+        $title = match (true) {
+            $away->isNotEmpty() => 'Այսօր բացակա են՝ '.$away->count(),
+            $leaving->isNotEmpty() => 'Վաղը բացակա կլինեն՝ '.$leaving->count(),
+            $interviews->isNotEmpty() => 'Այսօրվա հարցազրույցներ՝ '.$interviews->count(),
+            default => 'Այսօր ծննդյան օր է',
+        };
+
+        $this->safely(fn () => $this->send(
+            collect([$user]),
+            $tenant,
+            NotificationScope::Business,
+            NotificationType::Team,
+            $title,
+            Str::limit(implode('. ', $lines), 600),
+            $manager ? '/admin/employees?tab=absences' : '/admin/calendar',
             $key,
         ));
     }

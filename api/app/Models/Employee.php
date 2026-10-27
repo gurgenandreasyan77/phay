@@ -19,11 +19,14 @@ class Employee extends Model
 {
     use BelongsToTenant;
 
-    protected $fillable = ['name', 'position', 'phone', 'group_id', 'is_active'];
+    protected $fillable = ['name', 'position', 'phone', 'email', 'hired_on', 'birth_date', 'onboarding', 'group_id', 'is_active'];
 
     protected $casts = [
         'is_active' => 'boolean',
         'group_id' => 'integer',
+        'hired_on' => 'immutable_date',
+        'birth_date' => 'immutable_date',
+        'onboarding' => 'array',
     ];
 
     public function group(): BelongsTo
@@ -35,6 +38,11 @@ class Employee extends Model
     public function managedGroups(): HasMany
     {
         return $this->hasMany(EmployeeGroup::class, 'manager_id');
+    }
+
+    public function absences(): HasMany
+    {
+        return $this->hasMany(EmployeeAbsence::class);
     }
 
     public function rows(): HasMany

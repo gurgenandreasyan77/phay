@@ -6,6 +6,7 @@ import { getEmployee } from "@/lib/adminApi";
 import { buttonClasses, Card, EmptyRow, PageHeader, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { formatMoment, formatMoney, tablePath } from "../../_components/tables/shared";
 import { filingLabel } from "../../_components/tables/periods";
+import { Onboarding } from "./Onboarding";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export default async function AdminEmployeePage(props: PageProps<"/admin/employe
   const detail = Number.isInteger(Number(id)) ? await getEmployee(Number(id), { page }) : null;
   if (!detail) notFound();
 
-  const { employee, figures, rows, meta } = detail;
+  const { employee, figures, rows, meta, onboardingDefault } = detail;
   const base = `/admin/employees/${employee.id}`;
   const cards: [string, string][] = [
     ["Պատվերներ", String(figures.orders)],
@@ -43,7 +44,7 @@ export default async function AdminEmployeePage(props: PageProps<"/admin/employe
       </Link>
       <PageHeader
         title={employee.name}
-        description={[employee.position, employee.phone, employee.isActive ? null : "Չի աշխատում"].filter(Boolean).join(" · ") || undefined}
+        description={[employee.position, employee.phone, employee.hiredOn ? `աշխատում է ${employee.hiredOn}-ից` : null, employee.isActive ? null : "Չի աշխատում"].filter(Boolean).join(" · ") || undefined}
       />
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {cards.map(([label, value]) => (
@@ -53,6 +54,10 @@ export default async function AdminEmployeePage(props: PageProps<"/admin/employe
           </Card>
         ))}
       </div>
+
+      {employee.isActive ? (
+        <Onboarding employeeId={employee.id} items={employee.onboarding ?? []} defaults={onboardingDefault ?? []} />
+      ) : null}
 
       <TableWrap>
         <Thead>

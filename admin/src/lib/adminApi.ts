@@ -347,6 +347,7 @@ export type TableChangeDto = {
 export type AssistantActionDto =
   | { type: "reshape"; id: number }
   | { type: "change"; id: number }
+  | { type: "hr"; id: number }
   | {
       type: "download";
       kind: "tables" | "finance" | "expenses";
@@ -1580,6 +1581,19 @@ export type CalendarDto = {
   truncated: boolean;
   leads: CalendarLeadDto[];
   google: CalendarGoogleEventDto[];
+  /** Employees away on some of these days. */
+  absences?: AbsenceDto[];
+  /** Interviews with candidates (only for those who manage the team). */
+  interviews?: CalendarInterviewDto[];
+};
+
+export type CalendarInterviewDto = {
+  id: number;
+  date: string;
+  time: string;
+  name: string;
+  opening: string | null;
+  stage: CandidateStage;
 };
 
 /** What «turn into a table» would do now. */
@@ -1807,6 +1821,12 @@ export type AdminEmployeeDto = {
   position: string | null;
   phone: string | null;
   isActive: boolean;
+  email?: string | null;
+  /** First working day, birthday (YYYY-MM-DD). */
+  hiredOn?: string | null;
+  birthDate?: string | null;
+  /** What a new employee still has to go through. */
+  onboarding?: OnboardingItemDto[] | null;
   /** The group they work in, with its manager. */
   group: { id: number; name: string; manager: { id: number; name: string } | null } | null;
   /** The groups they lead: a manager when not empty. */
@@ -1860,6 +1880,8 @@ export type EmployeeRowDto = {
 
 export type EmployeeDetailDto = {
   employee: AdminEmployeeDto;
+  /** The usual first steps of a new employee, to start a checklist from. */
+  onboardingDefault?: string[];
   period: PeriodDto | null;
   figures: EmployeeFiguresDto;
   rows: EmployeeRowDto[];
@@ -2180,4 +2202,90 @@ export async function getFeedbackMessages(page = 1): Promise<FeedbackPageDto | n
   if (status !== 200 || !json) return null;
   const body = json as { data: FeedbackMessageDto[]; meta: FeedbackPageDto["meta"] };
   return { items: body.data, meta: body.meta };
+}
+
+// ---- The team: time off, hiring, onboarding (the HR agent prepares the same as cards) ----
+
+export type AbsenceKind = "vacation" | "day_off" | "sick" | "unpaid" | "other";
+
+export type AbsenceDto = {
+  id: number;
+  employee: { id: number; name: string } | null;
+  kind: AbsenceKind;
+  kindLabel: string;
+  /** Inclusive, YYYY-MM-DD. */
+  from: string;
+  to: string;
+  days: number;
+  note: string | null;
+};
+
+export type TeamAbsencesDto = {
+  today: string;
+  absences: AbsenceDto[];
+  /** Vacation days this year by employee id. */
+  vacationDays: Record<string, number>;
+};
+
+export type OnboardingItemDto = { title: string; done: boolean };
+
+export type CandidateStage = "new" | "screening" | "interview" | "offer" | "hired" | "rejected";
+
+export type JobOpeningDto = {
+  id: number;
+  title: string;
+  description: string | null;
+  salary: string | null;
+  employment: "full_time" | "part_time" | "shift" | "freelance" | null;
+  status: "open" | "paused" | "closed";
+  createdAt: string | null;
+};
+
+export type CandidateDto = {
+  id: number;
+  openingId?: number;
+  name: string;
+  phone?: string;
+  email?: string;
+  source?: string;
+  stage: CandidateStage;
+  stageLabel: string;
+  /** "YYYY-MM-DD HH:MM", the business's local time. */
+  interviewAt?: string;
+  rating?: number;
+  notes?: string;
+  employeeId?: number;
+  updatedAt?: string;
+};
+
+export type TeamHiringDto = {
+  openings: JobOpeningDto[];
+  candidates: CandidateDto[];
+  stages: { value: CandidateStage; label: string }[];
+};
+
+/** A change of the team the HR agent prepared (the API's HrChanges), shown as a card in the chat. */
+export type HrChangeDto = {
+  id: number;
+  status: "planned" | "applied" | "undone" | "discarded";
+  title: string;
+  lines: string[];
+  /** It removes something (an absence...). */
+  deletes: boolean;
+  stale: string | null;
+  undoBlocked: string | null;
+  /** Where the result is seen in the admin. */
+  link: string;
+  appliedAt: string | null;
+  undoneAt: string | null;
+};
+
+export async function getTeamAbsences(): Promise<TeamAbsencesDto | null> {
+  const result = await adminApiFetch<TeamAbsencesDto>("/admin/team/absences");
+  return result.data;
+}
+
+export async function getTeamHiring(): Promise<TeamHiringDto | null> {
+  const result = await adminApiFetch<TeamHiringDto>("/admin/team/hiring");
+  return result.data;
 }

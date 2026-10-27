@@ -28,6 +28,7 @@ class NotificationController extends Controller
         $user = $request->user();
         $tenant = $this->context->current();
         $this->notifier->todayOrders($user, $tenant);
+        $this->notifier->teamToday($user, $tenant);
 
         $visible = fn () => AdminNotification::query()->visibleTo($user, $tenant);
 

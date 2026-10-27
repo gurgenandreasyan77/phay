@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\V1\Admin\FeatureFlagController as AdminFeatureFlagC
 use App\Http\Controllers\Api\V1\Admin\FeedbackController as AdminFeedbackController;
 use App\Http\Controllers\Api\V1\Admin\FinanceController as AdminFinanceController;
 use App\Http\Controllers\Api\V1\Admin\GoogleCalendarController as AdminGoogleCalendarController;
+use App\Http\Controllers\Api\V1\Admin\HrChangeController as AdminHrChangeController;
 use App\Http\Controllers\Api\V1\Admin\LeadController as AdminLeadController;
 use App\Http\Controllers\Api\V1\Admin\ModulePriceController as AdminModulePriceController;
 use App\Http\Controllers\Api\V1\Admin\NotificationController as AdminNotificationController;
@@ -54,9 +55,10 @@ use App\Http\Controllers\Api\V1\Admin\SocialController as AdminSocialController;
 use App\Http\Controllers\Api\V1\Admin\SubscriptionController as AdminSubscriptionController;
 use App\Http\Controllers\Api\V1\Admin\SupportController as AdminSupportController;
 use App\Http\Controllers\Api\V1\Admin\TableAnalyticsController as AdminTableAnalyticsController;
-use App\Http\Controllers\Api\V1\Admin\TableReshapeController as AdminTableReshapeController;
 use App\Http\Controllers\Api\V1\Admin\TableChangeController as AdminTableChangeController;
+use App\Http\Controllers\Api\V1\Admin\TableReshapeController as AdminTableReshapeController;
 use App\Http\Controllers\Api\V1\Admin\TaskPageController as AdminTaskPageController;
+use App\Http\Controllers\Api\V1\Admin\TeamController as AdminTeamController;
 use App\Http\Controllers\Api\V1\Admin\TenantAgentController as AdminTenantAgentController;
 use App\Http\Controllers\Api\V1\Admin\TenantController as AdminTenantController;
 use App\Http\Controllers\Api\V1\Admin\TenantFeatureController as AdminTenantFeatureController;
@@ -397,6 +399,22 @@ Route::prefix('v1')->group(function () {
                 Route::get('/employees/{employee}', [AdminEmployeeController::class, 'show']);
                 Route::patch('/employees/{employee}', [AdminEmployeeController::class, 'update']);
                 Route::delete('/employees/{employee}', [AdminEmployeeController::class, 'destroy']);
+                // Time off and hiring (the HR agent prepares the same as cards).
+                Route::get('/team/absences', [AdminTeamController::class, 'absences']);
+                Route::post('/team/absences', [AdminTeamController::class, 'storeAbsence']);
+                Route::delete('/team/absences/{absence}', [AdminTeamController::class, 'destroyAbsence']);
+                Route::get('/team/hiring', [AdminTeamController::class, 'hiring']);
+                Route::post('/team/openings', [AdminTeamController::class, 'storeOpening']);
+                Route::patch('/team/openings/{opening}', [AdminTeamController::class, 'updateOpening']);
+                Route::delete('/team/openings/{opening}', [AdminTeamController::class, 'destroyOpening']);
+                Route::post('/team/candidates', [AdminTeamController::class, 'storeCandidate']);
+                Route::patch('/team/candidates/{candidate}', [AdminTeamController::class, 'updateCandidate']);
+                Route::delete('/team/candidates/{candidate}', [AdminTeamController::class, 'destroyCandidate']);
+                // Changes of the team the HR agent prepared: the owner applies, discards or undoes them.
+                Route::get('/hr-changes/{hrChange}', [AdminHrChangeController::class, 'show']);
+                Route::post('/hr-changes/{hrChange}/apply', [AdminHrChangeController::class, 'apply'])->middleware('throttle:30,1');
+                Route::post('/hr-changes/{hrChange}/undo', [AdminHrChangeController::class, 'undo'])->middleware('throttle:30,1');
+                Route::post('/hr-changes/{hrChange}/discard', [AdminHrChangeController::class, 'discard'])->middleware('throttle:30,1');
                 // Groups of employees and the managers who lead them.
                 Route::post('/employee-groups', [AdminEmployeeGroupController::class, 'store']);
                 Route::patch('/employee-groups/{employeeGroup}', [AdminEmployeeGroupController::class, 'update']);

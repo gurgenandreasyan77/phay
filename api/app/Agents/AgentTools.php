@@ -14,6 +14,7 @@ use App\Models\AssistantAttachment;
 use App\Models\BrandAsset;
 use App\Models\BrandProfile;
 use App\Models\User;
+use App\Team\HrTools;
 use App\Tenancy\TenantContext;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -29,7 +30,8 @@ use InvalidArgumentException;
  * the owner sends (read_link); the designers also make pictures
  * (render_designs, get_design), the video editors cut the owner's clips
  * (edit_video), the table agent prepares changes of the tables
- * (TableEditTools). Everything stays inside the current business.
+ * (TableEditTools), the HR agent the team's records (HrTools).
+ * Everything stays inside the current business.
  */
 class AgentTools implements ToolSet
 {
@@ -54,6 +56,7 @@ class AgentTools implements ToolSet
         private readonly LinkReader $links,
         private readonly VideoStudio $videos,
         private readonly TableEditTools $tableEdits,
+        private readonly HrTools $hr,
     ) {}
 
     /** Counts renders, links and videos afresh, and forgets the pictures of an earlier question. */
@@ -90,7 +93,11 @@ class AgentTools implements ToolSet
     {
         $allowed = $this->agent()->tools();
         $shared = array_values(array_filter(
-            [...$this->tools->definitions(), ...($this->tableEdits->available() ? $this->tableEdits->definitions() : [])],
+            [
+                ...$this->tools->definitions(),
+                ...($this->tableEdits->available() ? $this->tableEdits->definitions() : []),
+                ...($this->hr->available() ? $this->hr->definitions() : []),
+            ],
             fn (array $definition) => in_array($definition['name'], $allowed, true),
         ));
 
@@ -218,6 +225,10 @@ class AgentTools implements ToolSet
 
         if (in_array($name, TableEditTools::NAMES, true)) {
             return $this->tableEdits->run($name, $input);
+        }
+
+        if (in_array($name, HrTools::NAMES, true)) {
+            return $this->hr->run($name, $input);
         }
 
         return $this->tools->run($name, $input);

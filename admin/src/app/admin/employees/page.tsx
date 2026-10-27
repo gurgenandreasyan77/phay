@@ -1,12 +1,13 @@
 import Link from "next/link";
-import { Bot, Users } from "lucide-react";
+import { Bot, BriefcaseBusiness, TreePalm, Users } from "lucide-react";
 import { requirePermission } from "@/lib/adminAuth";
-import { getAgents, getEmployeeGroups, getEmployees } from "@/lib/adminApi";
+import { getAgents, getEmployeeGroups, getEmployees, getTeamAbsences, getTeamHiring } from "@/lib/adminApi";
 import { EmptyCard, PageHeader, SectionCard, cn } from "@/ui";
 import { AgentCard } from "../_components/agents/AgentCard";
 import { BrandAssets } from "../_components/agents/BrandAssets";
 import { BrandProfileForm } from "../_components/agents/BrandProfileForm";
 import { EmployeesList, GroupsManager, NewEmployeeForm } from "./EmployeesManager";
+import { AbsencesManager, HiringBoard } from "./TeamManager";
 
 export const dynamic = "force-dynamic";
 
@@ -16,32 +17,55 @@ export const dynamic = "force-dynamic";
  * name; the figures by day, week, month… are on the orders page. Employees
  * may work in groups, each led by a manager (one manager, several groups).
  *
+ * ?tab=absences: vacations, days off, sick days. ?tab=hiring: job openings
+ * and candidates by stage. The HR agent Անյա prepares the same in the chat.
+ *
  * ?tab=agents: the AI staff next to the people: the agents the business
  * has and the ones it can add, and the brand profile they learn from.
  */
 export default async function AdminEmployeesPage(props: PageProps<"/admin/employees">) {
   await requirePermission("settings");
   const { tab } = await props.searchParams;
-  const agentsTab = tab === "agents";
+  const current = tab === "agents" || tab === "absences" || tab === "hiring" ? tab : "people";
+  const agentsTab = current === "agents";
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Աշխատակիցներ"
         description={
-          agentsTab
-            ? "AI աշխատակիցները աշխատում են ձեր թիմի կողքին. խորհուրդ են տալիս, գրում են տեքստեր, սցենարներ և պլաններ՝ սովորելով հենց ձեր բիզնեսը։"
-            : "Ավելացրեք ձեր աշխատակիցներին, և պատվերների աղյուսակի «Կատարող» դաշտում ընտրեք, թե ով է կատարել պատվերը։ Աշխատակցի անունին սեղմելով կտեսնեք նրա պատվերները։"
+          current === "absences"
+            ? "Արձակուրդներ, հանգստյան և հիվանդության օրեր։ Բացակաները երևում են օրացույցում, իսկ թիմը ծանուցում է ստանում նախորդ օրը։"
+            : current === "hiring"
+              ? "Ում եք փնտրում և ով է արձագանքել։ Անյան՝ HR AI աշխատակիցը, կգրի հայտարարությունները և կօգնի հարցազրույցներով։"
+              : agentsTab
+                ? "AI աշխատակիցները աշխատում են ձեր թիմի կողքին. խորհուրդ են տալիս, գրում են տեքստեր, սցենարներ և պլաններ՝ սովորելով հենց ձեր բիզնեսը։"
+                : "Ավելացրեք ձեր աշխատակիցներին, և պատվերների աղյուսակի «Կատարող» դաշտում ընտրեք, թե ով է կատարել պատվերը։ Աշխատակցի անունին սեղմելով կտեսնեք նրա պատվերները։"
         }
       />
 
-      <nav className="segmented inline-flex rounded-lg border border-border bg-surface p-1" aria-label="Աշխատակիցների տեսակները">
+      <nav
+        className="segmented inline-flex max-w-full overflow-x-auto rounded-lg border border-border bg-surface p-1"
+        aria-label="Աշխատակիցների տեսակները"
+      >
         {[
           {
             href: "/admin/employees",
             label: "Մարդիկ",
             icon: Users,
-            current: !agentsTab,
+            current: current === "people",
+          },
+          {
+            href: "/admin/employees?tab=absences",
+            label: "Բացակայություններ",
+            icon: TreePalm,
+            current: current === "absences",
+          },
+          {
+            href: "/admin/employees?tab=hiring",
+            label: "Հավաքագրում",
+            icon: BriefcaseBusiness,
+            current: current === "hiring",
           },
           {
             href: "/admin/employees?tab=agents",
@@ -55,7 +79,7 @@ export default async function AdminEmployeesPage(props: PageProps<"/admin/employ
             href={item.href}
             aria-current={item.current ? "page" : undefined}
             className={cn(
-              "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
+              "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 py-1.5 text-sm transition-colors",
               item.current ? "bg-primary text-primary-foreground" : "text-ink-muted hover:bg-surface-secondary hover:text-ink",
             )}
           >
@@ -65,7 +89,15 @@ export default async function AdminEmployeesPage(props: PageProps<"/admin/employ
         ))}
       </nav>
 
-      {agentsTab ? <AgentsTab /> : <PeopleTab />}
+      {agentsTab ? (
+        <AgentsTab />
+      ) : current === "absences" ? (
+        <AbsencesTab />
+      ) : current === "hiring" ? (
+        <HiringTab />
+      ) : (
+        <PeopleTab />
+      )}
     </div>
   );
 }
@@ -89,6 +121,24 @@ async function PeopleTab() {
       </SectionCard>
     </>
   );
+}
+
+async function AbsencesTab() {
+  const [data, employees] = await Promise.all([getTeamAbsences(), getEmployees()]);
+  if (!data) {
+    return <EmptyCard>Չհաջողվեց բեռնել բացակայությունները։ Թարմացրեք էջը։</EmptyCard>;
+  }
+
+  return <AbsencesManager data={data} employees={employees} />;
+}
+
+async function HiringTab() {
+  const data = await getTeamHiring();
+  if (!data) {
+    return <EmptyCard>Չհաջողվեց բեռնել հավաքագրումը։ Թարմացրեք էջը։</EmptyCard>;
+  }
+
+  return <HiringBoard data={data} />;
 }
 
 async function AgentsTab() {
