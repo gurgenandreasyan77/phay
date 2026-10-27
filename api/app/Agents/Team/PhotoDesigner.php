@@ -62,6 +62,11 @@ class PhotoDesigner extends Agent
         return 'Նոր լուսանկարներ չի ստեղծում. նկարները կառուցում է տեքստից, գույներից, ձեր լոգոյից և ձեր ուղարկած լուսանկարներից։';
     }
 
+    public function specialty(): string
+    {
+        return 'pictures and the brand\'s look: posters, posts and stories as pictures, banners, flyers, the colour palette, photo shoot plans, prompts for image-generation tools';
+    }
+
     public function instructions(): string
     {
         return <<<'TEXT'

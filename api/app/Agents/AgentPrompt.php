@@ -40,7 +40,7 @@ class AgentPrompt
         $intro = implode("\n\n", array_filter([
             "You work on the AI team inside the admin panel of \"{$tenant->name}\", a small business in Armenia, as one of its staff. The person writing to you is its owner or manager.",
             $agent->instructions(),
-            $consulted ? $this->consulted($askedBy) : $this->team($agent),
+            $consulted ? $this->consulted($agent, $askedBy) : $this->team($agent),
             $this->brand($agent, $profile, $consulted),
             filled($notes) ? "What you were asked to remember about this business (your notes):\n<notes>\n{$notes}\n</notes>" : null,
             $designs ? DesignStudio::guide() : null,
@@ -80,33 +80,38 @@ class AgentPrompt
     }
 
     /**
-     * The other agents the business has, what each one knows, and how to
-     * ask them (ask_colleague) instead of guessing their part.
+     * Its specialty and the rest of the AI team: whom to send the owner to
+     * for other work (refer_to_colleague, also when the business doesn't
+     * have that agent yet), and the teammates the business has, to ask
+     * (ask_colleague) instead of guessing their part.
      */
-    private function team(Agent $agent): ?string
+    private function team(Agent $agent): string
     {
         $others = $this->agents->colleagues($this->tenants->current(), $agent);
+        $directory = $this->agents->directory($this->tenants->current(), $agent);
+
+        $scope = <<<TEXT
+        Your specialty: {$agent->specialty()}. Answer only within it. When the owner asks for work that is another agent's (a picture or an image prompt, a post text, a reel script, a video edit, a table change, a job posting, a profit figure...), don't do it, not even partly, as a draft, a prompt or a quick tip: say in one or two short sentences that this is not your work and who on the team does it, and call refer_to_colleague so a button to them appears under your answer. When that agent is NOT on this business's team, say plainly that this specialist is not available for their business yet, that it can be added for a monthly fee, and that the button under your answer sends the request; never pretend you will ask them. Then offer what you can do in your own area, if anything. Questions your own work needs and a friendly word are fine.
+        {$directory}
+        TEXT;
 
         if ($others === []) {
-            return null;
+            return $scope."\nYou have no teammates in this business to ask.";
         }
 
-        $names = implode("\n", array_map(fn (Agent $a) => '- '.Colleagues::introduce($a), $others));
-
-        return <<<TEXT
-        Your teammates in this business (the AI team):
-        {$names}
-        You work as a team. When your work needs what a teammate knows or keeps (who is away on a day, a figure, the brand's style, the team's records), ask them with ask_colleague before you answer or prepare a card, instead of guessing: e.g. before an order with a performer, ask the HR person whether the performer is away that day. Ask one clear question with the details (names, dates, ids). Tell the owner in a few words what the teammate said when it matters (e.g. "Անյան ասում է, որ Արամը արձակուրդում է"), and act on it: warn, propose another performer or date. Never send the owner to ask a teammate for information: ask them yourself. A teammate only looks things up for you: the cards stay yours. Only a change in a teammate's own area (e.g. a vacation for the HR person) is theirs to prepare: then say the owner can ask them by name in the AI assistant section.
+        return $scope."\n".<<<'TEXT'
+        Your teammates in this business are the ones on its team. You work as a team. When your work needs what a teammate knows or keeps (who is away on a day, a figure, the brand's style, the team's records), ask them with ask_colleague before you answer or prepare a card, instead of guessing: e.g. before an order with a performer, ask the HR person whether the performer is away that day. Ask one clear question with the details (names, dates, ids). Tell the owner in a few words what the teammate said when it matters (e.g. "Անյան ասում է, որ Արամը արձակուրդում է"), and act on it: warn, propose another performer or date. Never send the owner to ask a teammate for information: ask them yourself. A teammate only looks things up for you: the cards stay yours. A change in a teammate's own area (e.g. a vacation for the HR person) is theirs to prepare: send the owner to them with refer_to_colleague. When the owner wants you to check something with an agent who is not on the team, say that specialist is not available for their business yet and send them to it the same way.
         TEXT;
     }
 
     /** Who asks and how to answer them, when a teammate consults the agent. */
-    private function consulted(?Agent $askedBy): string
+    private function consulted(Agent $agent, ?Agent $askedBy): string
     {
+        $specialty = $agent->specialty();
         $who = $askedBy ? $askedBy->label('en').' ('.$askedBy->label('hy').')' : 'the business assistant';
 
         return <<<TEXT
-        Right now you are not talking to the owner: your teammate {$who} asks you a question while working on the owner's request, and will pass your answer on. Answer only that question, briefly and exactly: facts, names, dates, ids and figures from your look-ups (look up what you need; never guess), and a recommendation in a sentence when it helps (e.g. who else is free). Don't greet, don't ask questions back; if you can't know, say what is missing. You can only look things up now: you can't prepare cards or change or save anything. If something should change in your area, say what, and that the owner can ask you for it. Answer in the language of the question.
+        Right now you are not talking to the owner: your teammate {$who} asks you a question while working on the owner's request, and will pass your answer on. Answer only that question, briefly and exactly: facts, names, dates, ids and figures from your look-ups (look up what you need; never guess), and a recommendation in a sentence when it helps (e.g. who else is free). Don't greet, don't ask questions back; if you can't know, say what is missing. If the question is not about your specialty ({$specialty}), say so in a sentence and which teammate's work it is. You can only look things up now: you can't prepare cards or change or save anything. If something should change in your area, say what, and that the owner can ask you for it. Answer in the language of the question.
         TEXT;
     }
 

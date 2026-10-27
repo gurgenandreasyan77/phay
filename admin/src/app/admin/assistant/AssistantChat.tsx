@@ -151,6 +151,8 @@ export function AssistantChat({
   initialConversation = null,
   agent = null,
   brandComplete = true,
+  team = [],
+  canRequest = false,
 }: {
   suggestions?: string[];
   configured: boolean;
@@ -168,6 +170,10 @@ export function AssistantChat({
   agent?: AgentDto | null;
   /** The brand profile has what the agents need. */
   brandComplete?: boolean;
+  /** Every AI agent with whether the business has it: the cards that send the owner to one. */
+  team?: AgentDto[];
+  /** May ask the platform for an agent. */
+  canRequest?: boolean;
 }) {
   const [messages, setMessages] = useState<Message[]>(() => initialConversation?.messages.map(toMessage) ?? []);
   const [conversationId, setConversationId] = useState<number | null>(initialConversation?.id ?? null);
@@ -455,7 +461,7 @@ export function AssistantChat({
                     }
                   />
                   <VideoList videos={message.videos ?? []} />
-                  <AnswerActions actions={message.actions ?? []} />
+                  <AnswerActions actions={message.actions ?? []} team={team} canRequest={canRequest} />
                 </AgentBubble>
               ) : (
                 <div key={i} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
@@ -474,7 +480,7 @@ export function AssistantChat({
                       <>
                         <Consultations actions={message.actions ?? []} />
                         <Formatted text={message.content} />
-                        <AnswerActions actions={message.actions ?? []} />
+                        <AnswerActions actions={message.actions ?? []} team={team} canRequest={canRequest} />
                       </>
                     )}
                   </div>

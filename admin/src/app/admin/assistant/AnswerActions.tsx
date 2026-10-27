@@ -1,19 +1,28 @@
 "use client";
 
 import { Download, FileSpreadsheet } from "lucide-react";
-import type { AssistantActionDto } from "@/lib/adminApi";
+import type { AgentDto, AssistantActionDto } from "@/lib/adminApi";
 import { buttonClasses } from "@/ui";
 import { actionDownloadHref } from "../_components/downloads/downloads";
 import { ChangeCard } from "../_components/tables/ChangeCard";
 import { ReshapeCard } from "../_components/tables/Reshape";
 import { HrCard } from "../_components/team/HrCard";
+import { ReferCard } from "./ReferCard";
 
 /**
  * Cards under an answer: a reshape or a change of tables the AI prepared
- * (applied only with its button) and files to download. The AI never changes the tables
- * itself.
+ * (applied only with its button), files to download, and the agent whose
+ * work the question is. The AI never changes the tables itself.
  */
-export function AnswerActions({ actions: all }: { actions: AssistantActionDto[] }) {
+export function AnswerActions({
+  actions: all,
+  team = [],
+  canRequest = false,
+}: {
+  actions: AssistantActionDto[];
+  team?: AgentDto[];
+  canRequest?: boolean;
+}) {
   // Teammates consulted show above the answer (Consultations).
   const actions = all.filter((action) => action.type !== "consult");
   if (actions.length === 0) return null;
@@ -27,6 +36,13 @@ export function AnswerActions({ actions: all }: { actions: AssistantActionDto[] 
           <ChangeCard key={`c-${action.id}`} id={action.id} />
         ) : action.type === "hr" ? (
           <HrCard key={`h-${action.id}`} id={action.id} />
+        ) : action.type === "refer" ? (
+          <ReferCard
+            key={`a-${action.agent}-${i}`}
+            action={action}
+            agent={team.find((a) => a.key === action.agent) ?? null}
+            canRequest={canRequest}
+          />
         ) : (
           <div key={`d-${i}`} className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface p-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-success-light text-success">

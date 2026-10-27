@@ -67,6 +67,23 @@ class Agents
     }
 
     /**
+     * Every agent of the platform but the asker, what each one's work is
+     * and whether this business has it: whom an agent or the business
+     * assistant sends the owner to (Colleagues).
+     */
+    public function directory(Tenant $tenant, ?Agent $asker = null): string
+    {
+        $active = $this->activeKeys($tenant);
+        $lines = array_map(
+            fn (Agent $agent) => '- '.Colleagues::introduce($agent).'. Their work: '.$agent->specialty().'. '
+                .(in_array($agent->key(), $active, true) ? 'On this business\'s team.' : 'NOT on this business\'s team (not purchased).'),
+            Colleagues::others($asker),
+        );
+
+        return "The AI team of the platform, who does what:\n".implode("\n", $lines);
+    }
+
+    /**
      * Turns an agent on or off for a business (super admin). On: the
      * business is told in its chat and the bell, with a link to the agent.
      */

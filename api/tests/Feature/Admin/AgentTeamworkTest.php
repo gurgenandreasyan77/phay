@@ -183,8 +183,11 @@ class AgentTeamworkTest extends TestCase
             }
             $this->fail('Not refused.');
         };
-        // The analyst isn't on this team.
-        $this->assertStringContainsString('No such teammate', $refused(['colleague' => 'analyst', 'question' => 'Revenue?']));
+        // The analyst isn't on this team: nobody is asked, the owner gets the card to request him.
+        $missing = $tools->run(Colleagues::TOOL, ['colleague' => 'analyst', 'question' => 'Revenue?']);
+        $this->assertFalse($missing['available']);
+        $this->assertSame([], $this->client->calls);
+        $this->assertStringContainsString('No such teammate', $refused(['colleague' => 'nobody', 'question' => 'Revenue?']));
 
         $tools->run(Colleagues::TOOL, ['colleague' => 'hr', 'question' => 'Who is away today?']);
         $tools->run(Colleagues::TOOL, ['colleague' => 'tables', 'question' => 'Which tables are there?']);
@@ -199,7 +202,7 @@ class AgentTeamworkTest extends TestCase
         $this->postJson('/api/v1/admin/assistant', ['question' => 'Ո՞վ է բացակա այսօր'])->assertOk();
 
         $this->assertContains(Colleagues::TOOL, array_column($this->client->toolDefinitions, 'name'));
-        $this->assertStringContainsString('AI team of agents', $this->client->system);
+        $this->assertStringContainsString('The AI team of the platform', $this->client->system);
     }
 
     private function ordersTable(): DataTable
