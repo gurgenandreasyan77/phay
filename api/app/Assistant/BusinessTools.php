@@ -416,7 +416,7 @@ class BusinessTools implements ToolSet
             ->values()
             ->all()]);
 
-        return DataTableRow::query()
+        return DataTableRow::query()->counted()
             ->whereIn('data_table_id', $tables->pluck('id'))
             // occurred_at is the business's local time, like the dates asked.
             ->when($from, fn ($q) => $q->where('occurred_at', '>=', $from.' 00:00:00'))

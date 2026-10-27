@@ -100,7 +100,7 @@ final class Home
             $sections[] = [
                 'section' => $section->value,
                 'tables' => count($ids),
-                'rows' => $ids === [] ? 0 : DataTableRow::query()->whereIn('data_table_id', $ids)->count(),
+                'rows' => $ids === [] ? 0 : DataTableRow::query()->counted()->whereIn('data_table_id', $ids)->count(),
                 'hasAmount' => $hasAmount,
                 ...$figures,
                 'lastAt' => $last ? substr((string) $last, 0, 16) : null,
@@ -142,7 +142,7 @@ final class Home
             return ['count' => 0, 'amount' => $withAmount ? 0 : null];
         }
 
-        $row = DataTableRow::query()
+        $row = DataTableRow::query()->counted()
             ->whereIn('data_table_id', $ids)
             ->where('occurred_at', '>=', $from->format('Y-m-d 00:00:00'))
             ->where('occurred_at', '<=', $to->format('Y-m-d 23:59:59'))
@@ -197,7 +197,7 @@ final class Home
             ->filter(fn (DataTable $t) => $t->dateColumn() !== null)
             ->keyBy('id');
 
-        $rowsQuery = DataTableRow::query()
+        $rowsQuery = DataTableRow::query()->counted()
             ->whereIn('data_table_id', $tables->keys()->all())
             ->where('occurred_at', '>=', $today->format('Y-m-d 00:00:00'))
             ->where('occurred_at', '<', $until->format('Y-m-d 00:00:00'));

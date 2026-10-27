@@ -233,6 +233,7 @@ export function DayPanel({
                 </Link>
                 {entry.status ? <Badge>{entry.status}</Badge> : null}
                 {entry.source === "google" ? <Badge tone="info">Google</Badge> : null}
+                <CopyBadges copies={entry.copies} possible={entry.possibleDuplicate} />
               </p>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1">
@@ -345,6 +346,7 @@ export function DayPanel({
                       {entry.table.name}
                     </Link>
                     {entry.status ? <Badge>{entry.status}</Badge> : null}
+                    <CopyBadges copies={entry.copies} possible={entry.possibleDuplicate} />
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
@@ -714,5 +716,26 @@ function NewOrderForm({
         </div>
       )}
     </form>
+  );
+}
+
+/**
+ * «Also in 2 other tables» (counted once) or «may be a copy» (the owner is
+ * asked on the duplicates page).
+ */
+function CopyBadges({ copies, possible }: { copies?: number; possible?: string | null }) {
+  return (
+    <>
+      {copies ? (
+        <Link href="/admin/duplicates" title="Նույն գրառումը կա նաև այլ աղյուսակներում․ հաշվվում է մեկ անգամ">
+          <Badge>+{copies} աղյուսակում</Badge>
+        </Link>
+      ) : null}
+      {possible ? (
+        <Link href="/admin/duplicates" title="Գուցե նույն գրառումն է այլ աղյուսակում․ ստուգեք">
+          <Badge tone="warning">Գուցե կրկնություն</Badge>
+        </Link>
+      ) : null}
+    </>
   );
 }

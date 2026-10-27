@@ -58,7 +58,7 @@ class Team
      */
     public function ordersOn(Employee $employee, string $from, string $to): array
     {
-        return DataTableRow::query()
+        return DataTableRow::query()->counted()
             ->where('employee_id', $employee->id)
             ->where('occurred_at', '>=', $from.' 00:00:00')
             ->where('occurred_at', '<=', $to.' 23:59:59')

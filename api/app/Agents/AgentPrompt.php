@@ -166,6 +166,7 @@ class AgentPrompt
             'list_tables' => 'list_tables shows the business\'s own tables and their columns',
             'find_rows' => 'find_rows finds rows by dates and words',
             'table_rows' => 'table_rows reads one table\'s rows with their ids and its columns',
+            'find_duplicates' => 'find_duplicates finds the same record written in several tables',
             'team_overview' => 'team_overview shows the employees, who is away and onboarding',
             'list_absences' => 'list_absences the vacations, days off and sick leave of some days',
             'list_hiring' => 'list_hiring the job openings and candidates',

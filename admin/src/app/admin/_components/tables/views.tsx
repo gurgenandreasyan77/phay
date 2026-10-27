@@ -11,6 +11,7 @@ import {
   getDataTable,
   getDataTableRows,
   getDataTables,
+  getDuplicates,
   getEmployeeStats,
   getLeads,
   getTableReshape,
@@ -20,6 +21,7 @@ import {
 import { buttonClasses, Card, EmptyCard, PageHeader } from "@/ui";
 import { RowsGrid } from "./RowsGrid";
 import { TablesList } from "./TablesList";
+import { DuplicatesNotice } from "./Duplicates";
 import { ImportWizard } from "./ImportWizard";
 import { NewTableForm } from "./NewTableForm";
 import { TableDesigner } from "./TableDesigner";
@@ -88,13 +90,14 @@ export async function TablesListView({
   const current = periodFromParams(searchParams);
   // Just split or joined (?reshape=): what was made, and undo.
   const reshapeId = Number(first(searchParams.reshape));
-  const [tables, site, performers, reshape] = await Promise.all([
+  const [tables, site, performers, reshape, duplicates] = await Promise.all([
     getDataTables(section),
     section === "orders" ? siteOrders() : null,
     can(me, "insights") && section !== "expenses"
       ? getEmployeeStats({ section, ...(current ? { period: current.kind, date: current.date } : {}) })
       : null,
     Number.isInteger(reshapeId) && reshapeId > 0 ? getTableReshape(reshapeId) : null,
+    getDuplicates(section),
   ]);
   const canDesign = can(me, SECTIONS[section].design);
 
@@ -120,6 +123,7 @@ export async function TablesListView({
       {intro}
       {reshape && reshape.section === section ? <ReshapeBanner key={reshape.id} reshape={reshape} /> : null}
       {site ? <SiteOrdersCard {...site} /> : null}
+      <DuplicatesNotice count={duplicates?.groups.length ?? 0} />
       {tables.length === 0 ? (
         <EmptyCard>
           {canDesign
@@ -184,7 +188,7 @@ export async function TableView({
                 Սյունակներ և կարգավորումներ
               </Link>
             ) : null}
-            {siblings && table.source !== "google" ? (
+            {siblings ? (
               <ReshapeTableButton section={section} table={table} tables={siblings.filter((t) => !t.archivedAt)} />
             ) : null}
             {canDesign ? <DownloadLinks href={(format) => tableDownloadHref(table.id, format)} label="Ներբեռնել աղյուսակը" size="md" /> : null}

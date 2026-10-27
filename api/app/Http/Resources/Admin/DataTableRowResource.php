@@ -21,6 +21,8 @@ class DataTableRowResource extends JsonResource
             // Where the row is filed: its year, quarter, month, ISO week and day.
             'period' => ($at = $this->resource->getRawOriginal('occurred_at')) ? Period::tags($at) : null,
             'employeeId' => $this->employee_id,
+            // A copy of that row of another table: counted once, there.
+            'duplicateOf' => $this->duplicate_of_id,
             'createdAt' => $this->created_at?->toIso8601String(),
             'updatedAt' => $this->updated_at?->toIso8601String(),
         ];

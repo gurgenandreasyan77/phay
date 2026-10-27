@@ -51,7 +51,7 @@ class AgentTools implements ToolSet
     public const READS = [
         'list_tables', 'find_rows', 'group_rows', 'finance_report', 'expenses_report', 'site_orders',
         ...SocialTools::NAMES,
-        TableEditTools::ROWS,
+        TableEditTools::ROWS, TableEditTools::DUPLICATES,
         HrTools::TEAM, HrTools::ABSENCES, HrTools::HIRING,
         self::VIEW_ASSETS,
         LinkReader::TOOL,

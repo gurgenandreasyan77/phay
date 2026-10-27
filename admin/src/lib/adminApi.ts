@@ -367,9 +367,11 @@ export type AssistantActionDto =
 export type AdminDataTableRowDto = {
   id: number;
   values: Record<string, DataCellValue>;
-  source: "manual" | "import";
+  source: "manual" | "import" | "google";
   period: PeriodTagsDto | null;
   employeeId: number | null;
+  /** A copy of that row of another table: counted once, there. */
+  duplicateOf?: number | null;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -1585,7 +1587,43 @@ export type CalendarRowDto = {
   values: Record<string, DataCellValue>;
   /** "google": made from a Google Calendar event; "manual", "import". */
   source: string;
+  /** The same order is in that many other tables too: shown and counted once. */
+  copies?: number;
+  /** May be the same as a row of another table (the owner is asked): the group's key. */
+  possibleDuplicate?: string | null;
 };
+
+/** One row of a group of rows that are, or may be, one record (see /admin/duplicates). */
+export type DuplicateRowDto = {
+  id: number;
+  tableId: number;
+  table: string;
+  time: string | null;
+  amount: number | null;
+  source: string;
+  /** Values by column label (the date aside). */
+  values: Record<string, DataCellValue>;
+  /** Left out of the counts as a copy of that row. */
+  copyOf: number | null;
+  /** Labels of fields another row of the group has and this one lacks. */
+  missing: string[];
+};
+
+export type DuplicateGroupDto = {
+  key: string;
+  section: "orders" | "sales" | "expenses";
+  day: string;
+  /** exact: every filled field is the same (counted once); near: one lacks a field (both count). */
+  kind: "exact" | "near";
+  rows: DuplicateRowDto[];
+};
+
+export async function getDuplicates(section?: string): Promise<{ groups: DuplicateGroupDto[]; copies: number } | null> {
+  const result = await adminApiFetch<{ groups: DuplicateGroupDto[]; copies: number }>(
+    `/admin/duplicates${section ? `?section=${section}` : ""}`,
+  );
+  return result.data;
+}
 
 /** An event of a synced Google calendar, not turned into a table row yet. */
 export type CalendarGoogleEventDto = {
@@ -1633,6 +1671,8 @@ export type CalendarDto = {
   absences?: AbsenceDto[];
   /** Interviews with candidates (only for those who manage the team). */
   interviews?: CalendarInterviewDto[];
+  /** Groups of rows of this range that are, or may be, one record. */
+  duplicates?: number;
 };
 
 export type CalendarInterviewDto = {
@@ -1648,6 +1688,8 @@ export type CalendarInterviewDto = {
 export type GoogleTablePreviewDto = {
   /** The current table made from the calendars, if any. */
   table: { id: number; name: string; createdAt: string | null } | null;
+  /** The table was split into these (a month's each): new events go to their month's, changes update rows in place. */
+  spread?: { id: number; name: string }[];
   events: number;
   new: number;
   changed: number;

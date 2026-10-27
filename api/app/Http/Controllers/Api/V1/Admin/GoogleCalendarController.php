@@ -101,7 +101,7 @@ class GoogleCalendarController extends Controller
     public function makeTable(Request $request): JsonResponse
     {
         $preview = $this->tables->preview();
-        abort_if($preview['table'] === null && $preview['events'] === 0, 422, 'There are no synced events yet.');
+        abort_if($preview['table'] === null && $preview['spread'] === [] && $preview['events'] === 0, 422, 'There are no synced events yet.');
 
         $result = $this->tables->make($request->user());
 
@@ -109,6 +109,7 @@ class GoogleCalendarController extends Controller
             'table' => (new DataTableResource($result['table']->loadCount('rows')))->resolve($request),
             'created' => $result['created'],
             'previous' => $result['previous'] ? ['id' => $result['previous']->id, 'name' => $result['previous']->name] : null,
+            'spread' => $result['spread'],
             'counts' => collect($result)->only(['events', 'new', 'changed', 'removed', 'keptEdited', 'upToDate']),
         ]], $result['created'] ? 201 : 200);
     }
@@ -161,6 +162,8 @@ class GoogleCalendarController extends Controller
                 'name' => $preview['table']->name,
                 'createdAt' => $preview['table']->created_at?->toIso8601String(),
             ] : null,
+            // The Google table was split into these (a month's each): events sync into them.
+            'spread' => $preview['spread'],
             ...collect($preview)->only(['events', 'new', 'changed', 'removed', 'keptEdited', 'upToDate'])->all(),
         ];
     }

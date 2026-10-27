@@ -4,6 +4,8 @@ namespace App\Google;
 
 use App\DataTables\DataColumn;
 use App\DataTables\DataTableSchema;
+use App\DataTables\Duplicates\RowDuplicates;
+use App\DataTables\PeriodTables;
 use App\DataTables\RowMetrics;
 use App\Enums\ColumnRole;
 use App\Enums\DataColumnType;
@@ -32,6 +34,12 @@ use Illuminate\Support\Facades\DB;
  * - rows added by hand, and columns added to the table, are carried over.
  *
  * Nothing changed: no new table.
+ *
+ * When the table was split into periods (a month's table each, see
+ * TableReshaper), its rows keep their events there: a changed or deleted
+ * event updates or drops its row in that table, in place (unless edited by
+ * hand), and a new event goes to the table of its date's period (made like
+ * the others when there is none). No Google table is made again then.
  */
 class CalendarTables
 {
@@ -58,9 +66,27 @@ class CalendarTables
     public function preview(): array
     {
         $table = $this->current();
-        $plan = $this->plan($table, $this->columns($table), $this->events());
+        $events = $this->events();
+        $spread = $this->spread($table, $events);
+        $plan = $this->plan($table, $this->columns($table), $events->reject(fn (GoogleEvent $e) => isset($spread['tracked'][$e->event_id])));
 
-        return ['table' => $table, ...$plan['counts']];
+        return ['table' => $table, 'spread' => $spread['tables'], ...$this->counts($plan['counts'], $spread)];
+    }
+
+    /**
+     * The counts of the Google table's plan and of the rows kept in period
+     * tables, together. Without a Google table but with period tables, new
+     * events go to the period tables (not counted twice).
+     */
+    private function counts(array $plan, array $spread): array
+    {
+        $counts = $plan;
+        foreach (['changed', 'removed', 'keptEdited'] as $key) {
+            $counts[$key] += $spread['counts'][$key];
+        }
+        $counts['upToDate'] = $counts['new'] === 0 && $counts['changed'] === 0 && $counts['removed'] === 0;
+
+        return $counts;
     }
 
     /**
@@ -70,16 +96,32 @@ class CalendarTables
      */
     public function make(User $user): array
     {
-        return DB::transaction(function () use ($user) {
+        $result = RowDuplicates::paused(fn () => DB::transaction(function () use ($user) {
             // One at a time per business: two quick clicks make one version.
             Tenant::query()->whereKey($this->tenants->id())->lockForUpdate()->first();
 
             $previous = $this->current();
             $columns = $this->columns($previous);
-            $plan = $this->plan($previous, $columns, $this->events());
+            $events = $this->events();
+            $spread = $this->spread($previous, $events);
+            $plan = $this->plan($previous, $columns, $events->reject(fn (GoogleEvent $e) => isset($spread['tracked'][$e->event_id])));
+            $counts = $this->counts($plan['counts'], $spread);
+
+            if ($counts['upToDate'] && ($previous !== null || $spread['anchor'] !== null)) {
+                return ['table' => $previous ?? $spread['anchor'], 'created' => false, 'previous' => null, 'spread' => $spread['tables'], ...$counts];
+            }
+
+            $this->applySpread($spread, $user);
+
+            // Split into periods and no Google table: new events go to the period tables.
+            if ($previous === null && $spread['anchor'] !== null) {
+                $this->addToPeriods($spread['anchor'], $plan['rows'], $user);
+
+                return ['table' => $spread['anchor'], 'created' => false, 'previous' => null, 'spread' => $spread['tables'], ...$counts];
+            }
 
             if ($previous !== null && $plan['counts']['upToDate']) {
-                return ['table' => $previous, 'created' => false, 'previous' => null, ...$plan['counts']];
+                return ['table' => $previous, 'created' => false, 'previous' => null, 'spread' => $spread['tables'], ...$counts];
             }
 
             $table = DataTable::create([
@@ -98,8 +140,122 @@ class CalendarTables
 
             $previous?->forceFill(['archived_at' => now(), 'replaced_by_id' => $table->id])->save();
 
-            return ['table' => $table, 'created' => true, 'previous' => $previous, ...$plan['counts']];
-        });
+            return ['table' => $table, 'created' => true, 'previous' => $previous, 'spread' => $spread['tables'], ...$counts];
+        }));
+
+        app(RowDuplicates::class)->refresh();
+
+        return $result;
+    }
+
+    /**
+     * The rows made from events in the business's other current order
+     * tables (a Google table split into months): what syncing them changes,
+     * in place.
+     *
+     * @param  Collection<int, GoogleEvent>  $events
+     * @return array{tracked: array<string, true>, tables: list<array{id: int, name: string}>, anchor: ?DataTable, updates: list<array>, deletes: list<int>, counts: array{changed: int, removed: int, keptEdited: int}}
+     */
+    private function spread(?DataTable $google, Collection $events): array
+    {
+        $tables = DataTable::query()
+            ->where('section', DataTableSection::Orders)
+            ->when($google, fn ($q) => $q->whereKeyNot($google->id))
+            ->get()
+            ->keyBy('id');
+        $rows = $tables->isEmpty() ? collect() : DataTableRow::query()
+            ->whereIn('data_table_id', $tables->keys()->all())
+            ->whereNotNull('external_id')
+            ->orderBy('occurred_at')
+            ->orderBy('id')
+            ->get();
+
+        $byEvent = $events->keyBy('event_id');
+        $result = ['tracked' => [], 'tables' => [], 'anchor' => null, 'updates' => [], 'deletes' => [], 'counts' => ['changed' => 0, 'removed' => 0, 'keptEdited' => 0]];
+        $columns = [];
+
+        foreach ($rows as $row) {
+            $table = $tables[$row->data_table_id];
+            $columns[$table->id] ??= $this->syncedColumns($table);
+            $result['tracked'][$row->external_id] = true;
+            $result['tables'][$table->id] = ['id' => $table->id, 'name' => $table->name];
+            // New events go next to the latest one.
+            $result['anchor'] = $table;
+
+            $data = $row->data ?? [];
+            $edited = self::hash($columns[$table->id], $data) !== $row->external_hash;
+            $event = $byEvent->get($row->external_id);
+
+            if ($event === null) {
+                if ($edited) {
+                    $result['counts']['keptEdited']++;
+                } else {
+                    $result['counts']['removed']++;
+                    $result['deletes'][] = $row->id;
+                }
+
+                continue;
+            }
+
+            $fresh = $this->values($columns[$table->id], $event);
+            $freshHash = self::hash($columns[$table->id], $fresh);
+            if ($freshHash === $row->external_hash) {
+                continue;
+            }
+            if ($edited) {
+                $result['counts']['keptEdited']++;
+
+                continue;
+            }
+            $result['counts']['changed']++;
+            $result['updates'][] = ['row' => $row, 'data' => [...$data, ...$fresh], 'hash' => $freshHash];
+        }
+
+        $result['tables'] = array_values($result['tables']);
+
+        return $result;
+    }
+
+    private function applySpread(array $spread, User $user): void
+    {
+        foreach ($spread['updates'] as $update) {
+            $update['row']->forceFill(['data' => $update['data'], 'source' => DataTableRow::SOURCE_GOOGLE, 'external_hash' => $update['hash']])->save();
+        }
+        if ($spread['deletes'] !== []) {
+            DataTableRow::query()->whereIn('id', $spread['deletes'])->delete();
+        }
+    }
+
+    /**
+     * New events into the tables of their dates' periods, like the calendar
+     * adds an order (PeriodTables::forDate), made like the anchor table.
+     *
+     * @param  list<array{data: array, source: string, external_id: ?string, external_hash: ?string, created_by_id: ?int}>  $rows  the plan's rows (only new events: there is no Google table)
+     */
+    private function addToPeriods(DataTable $anchor, array $rows, User $user): void
+    {
+        $anchorColumns = $this->syncedColumns($anchor);
+        $events = GoogleEvent::query()->whereIn('event_id', array_filter(array_column($rows, 'external_id')))->get()->keyBy('event_id');
+
+        foreach ($rows as $planned) {
+            $event = $events->get($planned['external_id']);
+            if ($event === null) {
+                continue;
+            }
+            $values = $this->values($anchorColumns, $event);
+            $date = $anchor->dateColumn() ? ($values[$anchor->dateColumn()->key] ?? null) : null;
+            [$table] = is_string($date) ? PeriodTables::forDate($anchor, $date) : [$anchor];
+            $columns = $this->syncedColumns($table);
+            $fresh = $this->values($columns, $event);
+
+            $table->rows()->make([
+                'data' => $fresh,
+                'source' => DataTableRow::SOURCE_GOOGLE,
+                'external_id' => $event->event_id,
+                'external_hash' => self::hash($columns, $fresh),
+                'created_by_id' => $user->id,
+            ])->setRelation('table', $table)->save();
+        }
     }
 
     /**

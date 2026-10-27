@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\DataTables\Duplicates\RowDuplicates;
 use App\DataTables\Import\ColumnMatcher;
 use App\DataTables\Import\DataImporter;
 use App\DataTables\Import\FileReader;
@@ -161,6 +162,7 @@ class DataImportController extends Controller
         }
 
         $dataImport->rows()->delete();
+        app(RowDuplicates::class)->refresh();
         $dataImport->update(['status' => DataImport::STATUS_UNDONE]);
 
         return response()->json(['data' => $this->summary($dataImport->fresh('user'))]);

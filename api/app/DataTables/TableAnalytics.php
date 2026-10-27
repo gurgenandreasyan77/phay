@@ -59,7 +59,7 @@ class TableAnalytics
         $ids = $tables->pluck('id')->all();
         $read = $this->rowReader($tables);
 
-        $current = DataTableRow::query()
+        $current = DataTableRow::query()->counted()
             ->whereIn('data_table_id', $ids)
             ->where('occurred_at', '>=', $start->format('Y-m-d H:i:s'))
             ->where('occurred_at', '<=', $end->format('Y-m-d H:i:s'))
@@ -68,7 +68,7 @@ class TableAnalytics
             ->get(['data_table_id', 'occurred_at', 'amount', 'data'])
             ->map($read);
 
-        $previous = DataTableRow::query()
+        $previous = DataTableRow::query()->counted()
             ->whereIn('data_table_id', $ids)
             ->where('occurred_at', '>=', $previousStart->format('Y-m-d H:i:s'))
             ->where('occurred_at', '<', $start->format('Y-m-d H:i:s'))
@@ -371,7 +371,7 @@ class TableAnalytics
     {
         $byId = $tables->keyBy('id');
 
-        return DataTableRow::query()
+        return DataTableRow::query()->counted()
             ->whereIn('data_table_id', $tables->pluck('id'))
             ->whereNotNull('occurred_at')
             ->orderByDesc('occurred_at')
@@ -577,7 +577,7 @@ class TableAnalytics
     private function months(array $ids, CarbonImmutable $now, bool $hasAmount, ?CarbonImmutable $firstAt): array
     {
         $from = $now->startOfMonth()->subMonthsNoOverflow(11);
-        $rows = DataTableRow::query()
+        $rows = DataTableRow::query()->counted()
             ->whereIn('data_table_id', $ids)
             ->where('occurred_at', '>=', $from->format('Y-m-d H:i:s'))
             ->where('occurred_at', '<=', $now->endOfDay()->format('Y-m-d H:i:s'))

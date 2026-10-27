@@ -5,6 +5,7 @@ namespace App\DataTables\Reshape;
 use App\DataTables\DataColumn;
 use App\DataTables\DataTableSchema;
 use App\DataTables\Decimal;
+use App\DataTables\Duplicates\RowDuplicates;
 use App\DataTables\MonthTables;
 use App\DataTables\Period;
 use App\DataTables\PeriodTables;
@@ -99,7 +100,7 @@ final class TableReshaper
             throw new ReshapeRefused('Ընտրեք գոնե մեկ աղյուսակ։');
         }
 
-        return DB::transaction(function () use ($sources, $kind, $undated, $user) {
+        return $this->settled(fn () => DB::transaction(function () use ($sources, $kind, $undated, $user) {
             $this->lock();
             $reshape = TableReshape::create([
                 'user_id' => $user?->id,
@@ -111,13 +112,13 @@ final class TableReshaper
             ]);
 
             return $this->execute($reshape);
-        });
+        }));
     }
 
     /** Applies a kept reshape, on the tables as they are now. */
     public function apply(TableReshape $reshape): TableReshape
     {
-        return DB::transaction(function () use ($reshape) {
+        return $this->settled(fn () => DB::transaction(function () use ($reshape) {
             $this->lock();
             $reshape = TableReshape::query()->lockForUpdate()->findOrFail($reshape->id);
             if ($reshape->status !== TableReshape::PLANNED) {
@@ -125,7 +126,7 @@ final class TableReshaper
             }
 
             return $this->execute($reshape);
-        });
+        }));
     }
 
     /**
@@ -135,7 +136,7 @@ final class TableReshaper
      */
     public function undo(TableReshape $reshape): TableReshape
     {
-        return DB::transaction(function () use ($reshape) {
+        return $this->settled(fn () => DB::transaction(function () use ($reshape) {
             $this->lock();
             $reshape = TableReshape::query()->lockForUpdate()->findOrFail($reshape->id);
             if ($reshape->status !== TableReshape::APPLIED) {
@@ -156,7 +157,7 @@ final class TableReshaper
             $reshape->update(['status' => TableReshape::UNDONE, 'undone_at' => now()]);
 
             return $reshape;
-        });
+        }));
     }
 
     /** Why an applied reshape can't be undone any more; null when it can. */
@@ -343,9 +344,6 @@ final class TableReshaper
         }
         if ($sources->contains(fn (DataTable $t) => $t->archived_at !== null)) {
             throw new ReshapeRefused('Հին (արխիվացված) տարբերակը չի կարելի բաժանել կամ միավորել։');
-        }
-        if (($google = $sources->first(fn (DataTable $t) => $t->source === DataTable::SOURCE_GOOGLE)) !== null) {
-            throw new ReshapeRefused("«{$google->name}» աղյուսակը թարմացվում է Google օրացույցից, այն չի կարելի բաժանել կամ միավորել։");
         }
 
         $sources = PeriodTables::infer($sources->values())
@@ -639,5 +637,14 @@ final class TableReshaper
             'addedColumns' => $plan['added'],
             'conflicts' => $plan['conflicts']->map(fn (DataTable $t) => ['id' => $t->id, 'name' => $t->name, 'period' => $t->period()?->label()])->all(),
         ];
+    }
+
+    /** A bulk change of rows or tables, then which rows are copies (RowDuplicates) once. */
+    private function settled(\Closure $change): mixed
+    {
+        $result = RowDuplicates::paused($change);
+        app(RowDuplicates::class)->refresh();
+
+        return $result;
     }
 }

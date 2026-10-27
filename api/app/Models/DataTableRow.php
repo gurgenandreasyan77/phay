@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\DataTables\Duplicates\RowDuplicates;
 use App\DataTables\RowMetrics;
 use App\Models\Concerns\BelongsToTenant;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -24,6 +26,7 @@ class DataTableRow extends Model
         'data' => 'array',
         'amount' => 'float',
         'employee_id' => 'integer',
+        'duplicate_of_id' => 'integer',
     ];
 
     protected static function booted(): void
@@ -34,6 +37,30 @@ class DataTableRow extends Model
                 $row->forceFill(RowMetrics::for($row->getRelationValue('table'))($row->data ?? []));
             }
         });
+
+        // The same record in another table is counted once (RowDuplicates).
+        static::saved(function (DataTableRow $row) {
+            if ($row->wasRecentlyCreated || $row->wasChanged(['data', 'occurred_at', 'amount', 'data_table_id'])) {
+                app(RowDuplicates::class)->touched($row);
+            }
+        });
+        static::deleted(fn (DataTableRow $row) => app(RowDuplicates::class)->touched($row));
+    }
+
+    /**
+     * Rows that count: not a copy of a row of another table (the same
+     * order written twice, see RowDuplicates). The calendar, analytics,
+     * finance and the AI read only these; a table's own page shows all.
+     */
+    public function scopeCounted(Builder $query): void
+    {
+        $query->whereNull($query->qualifyColumn('duplicate_of_id'));
+    }
+
+    /** The row of another table this one is a copy of. */
+    public function duplicateOf(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'duplicate_of_id');
     }
 
     public function table(): BelongsTo

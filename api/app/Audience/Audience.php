@@ -47,7 +47,7 @@ class Audience
         $age = $keys(ColumnRole::Age);
         $ids = $channel->keys()->merge($gender->keys())->merge($age->keys())->unique()->values()->all();
 
-        $rows = $ids === [] ? collect() : DataTableRow::query()
+        $rows = $ids === [] ? collect() : DataTableRow::query()->counted()
             ->whereIn('data_table_id', $ids)
             ->where('occurred_at', '>=', $start->format('Y-m-d H:i:s'))
             ->where('occurred_at', '<=', $now->endOfDay()->format('Y-m-d H:i:s'))

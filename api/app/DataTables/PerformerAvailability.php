@@ -186,7 +186,7 @@ final class PerformerAvailability
     {
         $tables = DataTable::query()->where('section', DataTableSection::Orders)->get()->keyBy('id');
 
-        return DataTableRow::query()
+        return DataTableRow::query()->counted()
             ->whereIn('data_table_id', $tables->keys())
             ->whereNotNull('employee_id')
             ->when($ignoreRow, fn ($q) => $q->whereKeyNot($ignoreRow))
