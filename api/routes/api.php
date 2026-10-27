@@ -335,6 +335,8 @@ Route::prefix('v1')->group(function () {
                 Route::post('/assistant', [AdminAssistantController::class, 'store'])->middleware('throttle:assistant');
                 // Each person's kept conversations with the assistant.
                 Route::get('/assistant/conversations', [AdminAssistantController::class, 'conversations']);
+                // The latest chats for the header and reopening the last one.
+                Route::get('/assistant/recent', [AdminAssistantController::class, 'recent']);
                 // Files attached to a question: uploaded first, sent with it by id.
                 Route::post('/assistant/attachments', [AdminAssistantAttachmentController::class, 'store'])->middleware('throttle:assistant-uploads');
                 Route::get('/assistant/attachments/{assistantAttachment}/file', [AdminAssistantAttachmentController::class, 'file']);
@@ -360,6 +362,7 @@ Route::prefix('v1')->group(function () {
                 });
                 Route::get('/assistant/conversations/{assistantConversation}', [AdminAssistantController::class, 'conversation']);
                 Route::patch('/assistant/conversations/{assistantConversation}', [AdminAssistantController::class, 'rename']);
+                Route::post('/assistant/conversations/{assistantConversation}/read', [AdminAssistantController::class, 'read']);
                 Route::delete('/assistant/conversations/{assistantConversation}', [AdminAssistantController::class, 'destroy']);
             });
 

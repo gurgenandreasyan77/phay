@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use Anthropic\Core\Exceptions\APIException;
 use Anthropic\Core\Exceptions\APIStatusException;
+use App\Agents\Agent;
 use App\Agents\AgentCatalog;
 use App\Agents\Agents;
 use App\Assistant\AssistantFailure;
 use App\Assistant\Attachments;
 use App\Assistant\BusinessAssistant;
+use App\Assistant\RecentChats;
 use App\Assistant\ReplyActions;
 use App\Http\Controllers\Controller;
 use App\Media\DesignStudio;
@@ -22,6 +24,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
@@ -46,6 +49,10 @@ use Illuminate\Validation\ValidationException;
  * of the answer and come back with it ("designs"); videos it cuts
  * (VideoStudio) render for a minute or two after the answer: they come
  * back as "videos" and the chat asks about each (video) until it is ready.
+ *
+ * While a question is answered it is "asking" (RecentChats), and the answer
+ * is kept even when the person leaves the page meanwhile: the header then
+ * shows it as unread until they open the chat (recent, read).
  */
 class AssistantController extends Controller
 {
@@ -65,8 +72,11 @@ class AssistantController extends Controller
         ]]);
     }
 
-    public function store(Request $request, BusinessAssistant $assistant, Agents $agents, TenantContext $tenants, Attachments $attachments, ReplyActions $actions, DesignStudio $studio, VideoStudio $videoStudio): JsonResponse
+    public function store(Request $request, BusinessAssistant $assistant, Agents $agents, TenantContext $tenants, Attachments $attachments, ReplyActions $actions, DesignStudio $studio, VideoStudio $videoStudio, RecentChats $recent): JsonResponse
     {
+        // Leaving the page mid-answer doesn't lose the answer: it is kept and shown as new.
+        ignore_user_abort(true);
+
         $validated = $request->validate([
             // One of the business's AI agents, for a new conversation.
             'agent' => ['nullable', 'string', Rule::in(AgentCatalog::keys())],
@@ -134,6 +144,37 @@ class AssistantController extends Controller
         }
 
         $actions->reset();
+        $asking = $kept ? $recent->begin($request->user(), $agent?->key(), $conversation, $question) : null;
+        try {
+            return $this->answer($request, $assistant, $attachments, $actions, $studio, $videoStudio, $messages, $agent, $kept, $conversation, $question ?? '', $files);
+        } finally {
+            if ($asking) {
+                $recent->end($request->user(), $asking);
+            }
+        }
+    }
+
+    /**
+     * Asks the model and keeps the question and the answer.
+     *
+     * @param  list<array<string, mixed>>  $messages
+     * @param  SupportCollection<int, AssistantAttachment>  $files
+     */
+    private function answer(
+        Request $request,
+        BusinessAssistant $assistant,
+        Attachments $attachments,
+        ReplyActions $actions,
+        DesignStudio $studio,
+        VideoStudio $videoStudio,
+        array $messages,
+        ?Agent $agent,
+        bool $kept,
+        ?AssistantConversation $conversation,
+        string $question,
+        SupportCollection $files,
+    ): JsonResponse
+    {
         try {
             $reply = $assistant->ask($attachments->forModel($messages), $agent, $request->user());
         } catch (APIException $e) {
@@ -183,6 +224,8 @@ class AssistantController extends Controller
                     AssistantAttachment::query()->whereIn('id', VideoJob::query()->whereKey($videos->pluck('id'))->whereNotNull('attachment_id')->select('attachment_id'))
                         ->update(['assistant_message_id' => $answer->id]);
                 }
+                // Answered: new for its person until they see it (read).
+                $conversation->forceFill(['answered_at' => now()])->save();
                 $conversation->touch();
 
                 return $conversation;
@@ -227,9 +270,11 @@ class AssistantController extends Controller
     }
 
     /** One conversation with its questions and answers, to read or continue. */
-    public function conversation(Request $request, AssistantConversation $assistantConversation): JsonResponse
+    public function conversation(Request $request, AssistantConversation $assistantConversation, RecentChats $recent): JsonResponse
     {
         $conversation = $this->own($request, $assistantConversation)->loadCount('messages');
+        // Opened: its answers are seen, and it is the chat to come back to.
+        $recent->markRead($conversation);
 
         return response()->json(['data' => [
             ...$this->summary($conversation),
@@ -245,6 +290,25 @@ class AssistantController extends Controller
                 'createdAt' => $m->created_at?->toIso8601String(),
             ])->values(),
         ]]);
+    }
+
+    /**
+     * The person's latest chats in this business, with what was asked and
+     * answered, which answers are new and which questions are being answered
+     * now: for the header (a floating button on a phone) and for reopening
+     * the last chat.
+     */
+    public function recent(Request $request, RecentChats $recent): JsonResponse
+    {
+        return response()->json(['data' => $recent->for($request->user())]);
+    }
+
+    /** The chat's answer was seen as it came (the chat was open). */
+    public function read(Request $request, AssistantConversation $assistantConversation, RecentChats $recent): Response
+    {
+        $recent->markRead($this->own($request, $assistantConversation));
+
+        return response()->noContent();
     }
 
     public function rename(Request $request, AssistantConversation $assistantConversation): JsonResponse

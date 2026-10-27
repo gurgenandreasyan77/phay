@@ -93,7 +93,7 @@ export function AgentPool({
           return (
             <li key={key ?? "assistant"}>
               <Link
-                href={key ? `/admin/assistant?agent=${key}` : "/admin/assistant"}
+                href={key ? `/admin/assistant?agent=${key}` : "/admin/assistant?new=1"}
                 className={cn(
                   styles.tile,
                   "flex h-full min-h-11 flex-col items-center gap-1 rounded-xl border px-2 pt-2 pb-2.5 text-center outline-none",
@@ -130,7 +130,7 @@ export function AgentPool({
             return (
               <li key={key ?? "assistant"} className={styles.lane}>
                 <Link
-                  href={key ? `/admin/assistant?agent=${key}` : "/admin/assistant"}
+                  href={key ? `/admin/assistant?agent=${key}` : "/admin/assistant?new=1"}
                   className={cn(styles.laneLink, "flex h-full flex-col items-center px-3 pt-5 pb-4 text-center outline-none")}
                   data-selected={isSelected}
                   aria-current={isSelected ? "true" : undefined}

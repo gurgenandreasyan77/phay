@@ -610,6 +610,42 @@ export type AssistantConversationDetailDto = Omit<AssistantConversationDto, "mes
   messages: AssistantMessageDto[];
 };
 
+/** One of the person's latest chats, for coming back to it (header, assistant page). */
+export type RecentChatDto = {
+  id: number;
+  title: string;
+  /** The AI agent (AgentDto.key); null: the assistant. */
+  agent: string | null;
+  /** «Արամ» and «Վերլուծաբան», or the assistant's. */
+  name: string;
+  role: string;
+  /** The last question and the opening words of the last answer, plain. */
+  question: string | null;
+  answer: string | null;
+  /** An answer came after the person last saw the chat. */
+  unread: boolean;
+  answeredAt: string | null;
+  /** The later of the last answer and of the last time it was opened. */
+  activeAt: string | null;
+};
+
+/** A question being answered right now (a new chat has no id yet). */
+export type AskingChatDto = {
+  agent: string | null;
+  name: string;
+  role: string;
+  conversationId: number | null;
+  question: string;
+  startedAt: string;
+};
+
+export type RecentChatsDto = {
+  chats: RecentChatDto[];
+  asking: AskingChatDto[];
+  /** Chats with an answer not seen yet. */
+  unread: number;
+};
+
 /** One AI agent of the platform, with what this business has of it. */
 export type AgentDto = {
   key: string;
@@ -1364,6 +1400,12 @@ export async function getAssistantConversations(agent?: string | null): Promise<
 /** The business's AI team: every agent, the brand profile and what the person may do. */
 export async function getAgents(): Promise<AgentTeamDto | null> {
   const result = await adminApiFetch<AgentTeamDto>("/admin/agents");
+  return result.data;
+}
+
+/** The person's latest chats, new answers and questions being answered. */
+export async function getRecentChats(): Promise<RecentChatsDto | null> {
+  const result = await adminApiFetch<RecentChatsDto>("/admin/assistant/recent");
   return result.data;
 }
 

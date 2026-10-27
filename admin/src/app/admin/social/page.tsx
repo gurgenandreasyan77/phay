@@ -29,7 +29,7 @@ export default async function AdminSocialPage(props: PageProps<"/admin/social">)
         title="Սոցցանցեր"
         description="Ձեր Instagram-ը և Facebook էջը՝ հետևորդներ, ընդգրկում, լավագույն գրառումներ, և մրցակիցների հրապարակային թվերը։ AI օգնականը տեսնում է նույն տվյալները և խորհուրդ է տալիս, թե ինչ հրապարակել և երբ։"
         actions={
-          <Link href="/admin/assistant" className={buttonClasses("secondary", "sm")}>
+          <Link href="/admin/assistant?new=1" className={buttonClasses("secondary", "sm")}>
             <Sparkles className="h-4 w-4" />
             Հարցնել AI օգնականին
           </Link>

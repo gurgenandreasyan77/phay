@@ -5,13 +5,15 @@ import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, KeyRound, LogOut, Menu } from "lucide-react";
 import type { FeatureFlags } from "@/lib/api";
-import type { AdminUserDto } from "@/lib/adminApi";
+import type { AdminUserDto, RecentChatsDto } from "@/lib/adminApi";
 import { findActiveNavItem, showsPlatformLevel } from "./nav";
 import { TenantSwitcher } from "./TenantSwitcher";
 import { HeaderSearch } from "./header/HeaderSearch";
 import { NotificationBell } from "./header/NotificationBell";
 import { PremiumChip } from "./header/PremiumChip";
+import { AgentChats } from "./header/AgentChats";
 import { cn } from "@/ui";
+import { can } from "@/lib/roles";
 
 const EXTRA_SEGMENT_LABELS: Record<string, string> = {
   new: "Նոր",
@@ -37,14 +39,22 @@ function useBreadcrumbs(pathname: string) {
   return crumbs;
 }
 
+/** Whoever may use the AI assistant, inside a business. */
+export function talksToAgents(me: AdminUserDto | null, pathname: string): boolean {
+  return Boolean(me?.currentTenant) && can(me, "insights") && !showsPlatformLevel(me!, pathname);
+}
+
 export function Topbar({
   onOpenMobileNav,
   me,
   features,
+  recentChats,
 }: {
   onOpenMobileNav: () => void;
   me: AdminUserDto | null;
   features: FeatureFlags;
+  /** The person's latest chats with the AI team (null: none, or not theirs to have). */
+  recentChats: RecentChatsDto | null;
 }) {
   const adminEmail = me?.email;
   const pathname = usePathname();
@@ -117,6 +127,10 @@ export function Topbar({
           ) : null}
           {/* An invitation for a business not on premium; not on the platform level. */}
           {me?.subscription && me.subscription.premium === false && !showsPlatformLevel(me, pathname) ? <PremiumChip /> : null}
+          {/* The agent last talked to; on a phone it floats at the bottom right instead (AdminShell). */}
+          <div className="hidden md:block">
+            <AgentChats data={recentChats} variant="header" />
+          </div>
           <HeaderSearch features={features} me={me} />
           <NotificationBell enabled={me !== null} />
 

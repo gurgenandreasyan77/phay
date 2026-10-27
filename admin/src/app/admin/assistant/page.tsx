@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { requirePermission } from "@/lib/adminAuth";
 import { can, isPlatformStaff } from "@/lib/roles";
 import {
@@ -7,18 +8,27 @@ import {
   getAssistantStatus,
   getDataTables,
   getFeatureFlagsAdmin,
+  getRecentChats,
 } from "@/lib/adminApi";
 import { PageHeader } from "@/ui";
 import { AgentPool } from "../_components/agents/AgentPool";
 import { AgentLocked } from "./AgentLocked";
 import { AssistantChat } from "./AssistantChat";
+import { lastChatHref } from "./lastChat";
 import { SOCIAL_SUGGESTION, SUGGESTIONS } from "./suggestions";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminAssistantPage(props: PageProps<"/admin/assistant">) {
   const admin = await requirePermission("insights");
-  const { c, agent: agentKey } = await props.searchParams;
+  const { c, agent: agentKey, new: fresh } = await props.searchParams;
+  const recent = await getRecentChats();
+  // Coming back (the menu, the address alone): the chat the person was in.
+  // ?new=1 is the assistant's own new chat.
+  if (c === undefined && agentKey === undefined && fresh === undefined) {
+    const last = lastChatHref(recent);
+    if (last) redirect(last);
+  }
   // ?c=<id> reopens one of the person's earlier chats; ?agent=<key> talks to an AI agent.
   const openId = typeof c === "string" && /^\d+$/.test(c) ? Number(c) : null;
   const wanted = typeof agentKey === "string" && /^[a-z_-]{1,40}$/.test(agentKey) ? agentKey : null;
@@ -32,6 +42,10 @@ export default async function AdminAssistantPage(props: PageProps<"/admin/assist
   // A reopened chat stays with its own agent, whatever the address says.
   const agent = team?.agents.find((a) => a.key === (opened ? opened.agent : wanted)) ?? null;
   const conversations = await getAssistantConversations(agent?.key ?? null);
+  // A question of this chat still being answered (asked before the person left the page).
+  const asking =
+    recent?.asking.findLast((a) => (a.agent ?? null) === (agent?.key ?? null) && a.conversationId === (opened?.id ?? null)) ??
+    null;
   const canAsk = can(admin, "settings") && !isPlatformStaff(admin);
   // A shop that keeps only sales gets questions about sales.
   const salesOnly = tables.some((t) => t.section === "sales") && !tables.some((t) => t.section === "orders");
@@ -74,11 +88,12 @@ export default async function AdminAssistantPage(props: PageProps<"/admin/assist
           initialConversations={conversations}
           // Key: another ?c= gives the chat its own state.
           initialConversation={opened}
+          asking={asking}
           agent={agent}
           brandComplete={team?.profile.complete ?? true}
           team={team?.agents ?? []}
           canRequest={team?.canRequest ?? false}
-          key={`${agent?.key ?? "assistant"}-${opened?.id ?? "new"}`}
+          key={`${agent?.key ?? "assistant"}-${opened?.id ?? "new"}-${asking?.startedAt ?? ""}`}
         />
       )}
     </div>

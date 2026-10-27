@@ -9,7 +9,9 @@ import { isPlatformStaff } from "@/lib/roles";
 import { showsPlatformLevel } from "./nav";
 import { Sidebar } from "./Sidebar";
 import { SubscriptionBanner } from "./subscription/SubscriptionBanner";
-import { Topbar } from "./Topbar";
+import { Topbar, talksToAgents } from "./Topbar";
+import { AgentChats } from "./header/AgentChats";
+import { useRecentChats } from "./header/recentChats";
 
 /** Sign-in pages and the 2FA setup that comes before everything: no menu. */
 const BARE_PATHS = [
@@ -33,6 +35,8 @@ export function AdminShell({
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [lastPathname, setLastPathname] = useState(pathname);
+  const agentChats = talksToAgents(me, pathname);
+  const { data: recentChats } = useRecentChats(agentChats);
 
   if (pathname !== lastPathname) {
     setLastPathname(pathname);
@@ -97,7 +101,12 @@ export function AdminShell({
         </div>
       ) : null}
 
-      <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} me={me} features={features} />
+      <Topbar
+        onOpenMobileNav={() => setMobileNavOpen(true)}
+        me={me}
+        features={features}
+        recentChats={agentChats ? recentChats : null}
+      />
       {me?.subscription && (me.subscription.ending || me.subscription.locked) && !isPlatformStaff(me) && !showsPlatformLevel(me, pathname) ? (
         <SubscriptionBanner subscription={me.subscription} />
       ) : null}
@@ -112,6 +121,8 @@ export function AdminShell({
       >
         <div className="sm:px-2 lg:px-4">{children}</div>
       </main>
+      {/* Phones: the agent last talked to, at hand at the bottom right. */}
+      {agentChats ? <AgentChats data={recentChats} variant="fab" /> : null}
     </div>
   );
 }

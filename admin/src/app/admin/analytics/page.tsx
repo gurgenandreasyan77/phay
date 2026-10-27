@@ -106,7 +106,7 @@ export default async function AdminAnalyticsPage(props: {
         description="Կառուցվում է ձեր պատվերներից և վաճառքներից՝ միայն այն թվերը, որոնք կան ձեր աղյուսակներում։ Գին ունեցող աղյուսակը ցույց կտա եկամուտ և միջին չեկ, քանակով և միավորով աղյուսակը՝ կիլոգրամներ կամ հատեր, իսկ միայն ամսաթվով աղյուսակը՝ պատվերների քանակը օրերով և ամիսներով։"
         actions={
           empty ? null : (
-            <Link href="/admin/assistant" className={buttonClasses("secondary")}>
+            <Link href="/admin/assistant?new=1" className={buttonClasses("secondary")}>
               <Sparkles className="h-4 w-4" />
               Հարցնել AI օգնականին
             </Link>
