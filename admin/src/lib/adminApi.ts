@@ -331,6 +331,8 @@ export type TableChangeDto = {
   tables: { id: number; name: string; rows: number }[] | null;
   /** What changes in the table itself, a line each. */
   changes: string[];
+  /** While planned: performers away on their row's day. */
+  warnings: string[];
   columns: { key: string; label: string; type: AdminDataColumnDto["type"] }[];
   /** Rows added, edited (with the old values and the changed keys) or deleted; the first ones. */
   rows: { id?: number; values: Record<string, DataCellValue>; before?: Record<string, DataCellValue>; changed?: string[] }[];

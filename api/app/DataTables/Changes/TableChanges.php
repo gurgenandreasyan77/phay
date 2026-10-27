@@ -14,10 +14,13 @@ use App\Enums\TablePeriod;
 use App\Http\Controllers\Api\V1\Admin\DataTableController;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
+use App\Models\Employee;
+use App\Models\EmployeeAbsence;
 use App\Models\TableChange;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -195,23 +198,112 @@ class TableChanges
     }
 
     /**
+     * Who could take an away performer's row that day: active employees not
+     * away then, the performer's own group first, a few names.
+     *
+     * @param  Collection<int, Employee>  $employees
+     * @return list<string>
+     */
+    private function freeOn(Collection $employees, Employee $away, string $day): array
+    {
+        $absent = EmployeeAbsence::query()->overlapping($day, $day)->pluck('employee_id')->all();
+
+        return $employees
+            ->filter(fn (Employee $e) => $e->is_active !== false && $e->id !== $away->id && ! in_array($e->id, $absent, true))
+            ->sortBy(fn (Employee $e) => $away->group_id !== null && $e->group_id === $away->group_id ? 0 : 1)
+            ->take(5)
+            ->pluck('name')
+            ->values()
+            ->all();
+    }
+
+    /**
      * Rows to add: each an object of values by column label or key. A row
-     * without a date gets today's, as in the admin.
+     * without a date gets today's, as in the admin. Columns the rows need
+     * and the table lacks (an address, a phone the owner dictated) come
+     * with them: added on apply, removed again on undo.
      *
      * @param  list<array<string, mixed>>  $rows
+     * @param  list<array<string, mixed>>  $newColumns  {label, type, role?, options?}
      */
-    public function planAdd(DataTable $table, array $rows, ?User $user): TableChange
+    public function planAdd(DataTable $table, array $rows, ?User $user, array $newColumns = []): TableChange
     {
         $this->ensureEditable($table);
+        $columns = $table->columns;
+        $after = null;
+        if ($newColumns !== []) {
+            $all = array_map(fn (DataColumn $c) => $c->toArray(), $table->columnDefinitions());
+            foreach ($newColumns as $column) {
+                $all[] = $this->columnInput((array) $column);
+            }
+            $this->validate(['columns' => $all], DataTableSchema::rules());
+            $after = $this->schema(fn () => DataTableSchema::columns($all, $table));
+            // The rows are read as the table will be, nothing is saved.
+            $table = (clone $table)->setAttribute('columns', $after);
+        }
         $parsed = $this->parseRows($table, $rows);
         if ($parsed === []) {
             throw new ChangeRefused('Տողեր չկան։');
         }
 
-        return $this->keep(TableChange::ADD_ROWS, $table->section, $table, [
-            'columns' => $table->columns,
+        return $this->keep(TableChange::ADD_ROWS, $table->section, $table, array_filter([
+            'columns' => $columns,
+            'after_columns' => $after,
             'rows' => $parsed,
-        ], $user);
+        ], fn ($value) => $value !== null), $user);
+    }
+
+    /**
+     * Performers of the rows a change adds or edits who are away that day
+     * (a vacation, a day off...), one line each for the card and the AI.
+     *
+     * @return list<string>
+     */
+    public function performersAway(TableChange $change): array
+    {
+        if (! in_array($change->kind, [TableChange::ADD_ROWS, TableChange::UPDATE_ROWS], true) || ! $table = $change->table()) {
+            return [];
+        }
+        $table = isset($change->payload['after_columns']) ? (clone $table)->setAttribute('columns', $change->payload['after_columns']) : $table;
+        $performer = $table->performerColumn();
+        $date = $table->dateColumn();
+        if (! $performer || ! $date) {
+            return [];
+        }
+
+        $rows = $change->kind === TableChange::ADD_ROWS ? $change->payload['rows'] : array_column($change->payload['rows'], 'after');
+        $employees = Employee::query()->get(['id', 'name', 'group_id', 'is_active']);
+        $lines = [];
+        foreach ($rows as $data) {
+            $name = is_string($data[$performer->key] ?? null) ? Employee::normalize($data[$performer->key]) : '';
+            $day = substr((string) ($data[$date->key] ?? ''), 0, 10);
+            if ($name === '' || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) {
+                continue;
+            }
+            // The full name, or a first name only one employee has.
+            $named = $employees->filter(fn (Employee $e) => Employee::normalize($e->name) === $name);
+            if ($named->isEmpty()) {
+                $named = $employees->filter(fn (Employee $e) => explode(' ', Employee::normalize($e->name))[0] === $name);
+            }
+            if ($named->count() !== 1) {
+                continue;
+            }
+            $absence = EmployeeAbsence::query()->where('employee_id', $named->first()->id)->overlapping($day, $day)->first();
+            if ($absence) {
+                $free = $this->freeOn($employees, $named->first(), $day);
+                $lines[] = sprintf(
+                    '%s %s-ին բացակա է՝ %s (%s–%s)։ %s',
+                    $named->first()->name,
+                    CarbonImmutable::parse($day)->format('d.m.Y'),
+                    mb_strtolower($absence->kind->label()),
+                    $absence->starts_on->format('d.m.Y'),
+                    $absence->ends_on->format('d.m.Y'),
+                    $free === [] ? 'Ընտրեք ուրիշ կատարող կամ օր։' : 'Այդ օրը ազատ են՝ '.implode(', ', $free).'։',
+                );
+            }
+        }
+
+        return array_values(array_unique($lines));
     }
 
     /**
@@ -326,6 +418,10 @@ class TableChanges
                     break;
                 case TableChange::ADD_ROWS:
                     $table->rows()->whereIn('id', $result['rows'] ?? [])->delete();
+                    // The columns it added go too, unless the table was changed since.
+                    if (isset($change->payload['after_columns']) && $table->columns == $change->payload['after_columns']) {
+                        $table->forceFill(['columns' => $change->payload['columns']])->save();
+                    }
                     break;
                 case TableChange::UPDATE_ROWS:
                     $this->doUpdate($change, 'before');
@@ -453,7 +549,7 @@ class TableChanges
             TableChange::CREATE_TABLE => $payload['table']['columns'],
             TableChange::EDIT_TABLE => $payload['after']['columns'],
             TableChange::DELETE_TABLES => [],
-            TableChange::ADD_ROWS => $payload['columns'],
+            TableChange::ADD_ROWS => $payload['after_columns'] ?? $payload['columns'],
             default => $table?->columns ?? [],
         };
 
@@ -478,6 +574,8 @@ class TableChanges
             'table' => $table ? ['id' => $table->id, 'name' => $table->name, 'archived' => $table->archived_at !== null] : null,
             'tables' => $change->kind === TableChange::DELETE_TABLES ? $payload['tables'] : null,
             'changes' => $this->lines($change),
+            // Performers away on their day: only while it can still be changed.
+            'warnings' => $change->status === TableChange::PLANNED ? $this->performersAway($change) : [],
             'columns' => array_map(fn ($c) => ['key' => $c['key'], 'label' => $c['label'], 'type' => $c['type']], $columns),
             'rows' => array_slice($rows, 0, self::SHOWN_ROWS),
             'rowsTotal' => count($rows),
@@ -529,6 +627,15 @@ class TableChanges
 
         if ($change->kind === TableChange::DELETE_TABLES) {
             return array_map(fn ($t) => "«{$t['name']}»՝ {$t['rows']} տող", $payload['tables']);
+        }
+
+        if ($change->kind === TableChange::ADD_ROWS && isset($payload['after_columns'])) {
+            $had = array_column($payload['columns'], 'key');
+
+            return array_values(array_map(
+                fn ($c) => 'Նոր սյունակ «'.$c['label'].'»՝ '.$this->columnLabel($c, $section),
+                array_filter($payload['after_columns'], fn ($c) => ! in_array($c['key'], $had, true)),
+            ));
         }
 
         if ($change->kind !== TableChange::EDIT_TABLE) {
@@ -650,7 +757,12 @@ class TableChanges
 
     private function doAdd(TableChange $change): array
     {
-        return ['rows' => $this->insertRows($change->table(), $change->payload['rows'], $change->user_id)];
+        $table = $change->table();
+        if (isset($change->payload['after_columns'])) {
+            $table->forceFill(['columns' => $change->payload['after_columns']])->save();
+        }
+
+        return ['rows' => $this->insertRows($table, $change->payload['rows'], $change->user_id)];
     }
 
     /** Writes the rows' "after" values (apply) or their "before" ones (undo). */

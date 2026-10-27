@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Pencil, Rows3, TableProperties, Trash2, Undo2 } from "lucide-react";
+import { Pencil, Rows3, TableProperties, Trash2, TriangleAlert, Undo2 } from "lucide-react";
 import type { DataCellValue, TableChangeDto } from "@/lib/adminApi";
 import { friendlyApiError, readApiError } from "@/lib/apiError";
 import { Badge, Button, cn, type BadgeTone } from "@/ui";
@@ -202,6 +202,17 @@ export function ChangeCard({ id }: { id: number }) {
       ) : null}
 
       {change ? <ChangeRows change={change} /> : null}
+
+      {change && change.warnings.length > 0 ? (
+        <ul className="space-y-1 rounded-md bg-warning-light px-3 py-2 text-sm text-ink">
+          {change.warnings.map((line, i) => (
+            <li key={i} className="flex gap-2">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+              <span className="min-w-0 break-words">{line}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       {change?.stale && change.status === "planned" ? <p className="text-sm text-warning">{change.stale}</p> : null}
       {error ? <p className="text-sm whitespace-pre-line text-danger">{error}</p> : null}
