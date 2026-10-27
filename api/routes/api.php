@@ -276,6 +276,8 @@ Route::prefix('v1')->group(function () {
                 Route::get('/calendar', AdminCalendarController::class);
                 // An order added on a day goes to the table of its month (made when missing).
                 Route::post('/calendar/rows', [AdminCalendarRowController::class, 'store']);
+                // While it's typed in: is the performer free, which number it gets.
+                Route::post('/calendar/rows/check', [AdminCalendarRowController::class, 'check']);
 
                 // Each person's Google Calendar, read only: connect, choose calendars, sync.
                 Route::get('/google', [AdminGoogleCalendarController::class, 'show']);

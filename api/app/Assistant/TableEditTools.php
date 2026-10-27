@@ -153,7 +153,7 @@ class TableEditTools
             ],
             [
                 'name' => self::ADD,
-                'description' => 'Prepares adding rows to a table (up to '.TableChanges::MAX_ROWS.'), e.g. orders or expenses the owner dictated, pasted or attached as a file. A row without a date gets today\'s. Every detail the owner gave goes in, contacts too (client\'s name, phone, address: as dictated): when the table has no column for one, add it with new_columns in the same card, never drop it. An order with a performer comes back with "performersAway" when the performer is off that day.',
+                'description' => 'Prepares adding rows to a table (up to '.TableChanges::MAX_ROWS.'), e.g. orders or expenses the owner dictated, pasted or attached as a file. A row without a date gets today\'s. Every detail the owner gave goes in, contacts too (client\'s name, phone, address: as dictated): when the table has no column for one, add it with new_columns in the same card, never drop it. Orders and sales go to the table of their date\'s period, like the calendar does: a November order given for the October table lands in November\'s table, made like October\'s when there is none (the card says so); rows of different periods are refused, so send one add_rows per period. Leave the order number empty unless the owner gave one: the next number is put in. An order with a performer comes back with "performersAway" when the performer isn\'t free then (away that day, or on another order at that time, an order lasting its duration or an hour): tell the owner and offer who is free.',
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => [

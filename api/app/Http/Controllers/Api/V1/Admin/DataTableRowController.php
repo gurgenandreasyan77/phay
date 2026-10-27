@@ -3,19 +3,20 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\DataTables\DataTableSchema;
+use App\DataTables\OrderNumbers;
 use App\DataTables\Period;
 use App\Enums\DataColumnType;
 use App\Enums\TablePeriod;
-use Illuminate\Validation\Rule;
-use App\Tenancy\TenantContext;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\DataTableRowResource;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -57,8 +58,12 @@ class DataTableRowController extends Controller
     {
         DataTableController::ensureReachable($dataTable);
 
+        $request->validate(['values' => ['present', 'array']]);
+        // An empty order number gets the next one, as from the calendar.
+        $values = OrderNumbers::fill($dataTable, [(array) $request->input('values', [])])[0];
+
         $row = $dataTable->rows()->make([
-            'data' => $this->validatedData($request, $dataTable, fillDate: true),
+            'data' => self::parseValues($dataTable, $values, fillDate: true),
             'source' => DataTableRow::SOURCE_MANUAL,
             'created_by_id' => $request->user()->id,
         ]);

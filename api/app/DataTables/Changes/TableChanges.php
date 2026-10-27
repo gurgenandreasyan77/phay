@@ -4,6 +4,9 @@ namespace App\DataTables\Changes;
 
 use App\DataTables\DataColumn;
 use App\DataTables\DataTableSchema;
+use App\DataTables\MonthTables;
+use App\DataTables\OrderNumbers;
+use App\DataTables\PerformerAvailability;
 use App\DataTables\Period;
 use App\DataTables\PeriodTables;
 use App\DataTables\RowMetrics;
@@ -14,13 +17,10 @@ use App\Enums\TablePeriod;
 use App\Http\Controllers\Api\V1\Admin\DataTableController;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
-use App\Models\Employee;
-use App\Models\EmployeeAbsence;
 use App\Models\TableChange;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\TenantContext;
-use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -198,30 +198,16 @@ class TableChanges
     }
 
     /**
-     * Who could take an away performer's row that day: active employees not
-     * away then, the performer's own group first, a few names.
-     *
-     * @param  Collection<int, Employee>  $employees
-     * @return list<string>
-     */
-    private function freeOn(Collection $employees, Employee $away, string $day): array
-    {
-        $absent = EmployeeAbsence::query()->overlapping($day, $day)->pluck('employee_id')->all();
-
-        return $employees
-            ->filter(fn (Employee $e) => $e->is_active !== false && $e->id !== $away->id && ! in_array($e->id, $absent, true))
-            ->sortBy(fn (Employee $e) => $away->group_id !== null && $e->group_id === $away->group_id ? 0 : 1)
-            ->take(5)
-            ->pluck('name')
-            ->values()
-            ->all();
-    }
-
-    /**
      * Rows to add: each an object of values by column label or key. A row
      * without a date gets today's, as in the admin. Columns the rows need
      * and the table lacks (an address, a phone the owner dictated) come
      * with them: added on apply, removed again on undo.
+     *
+     * Orders and sales go where the calendar puts them: to the table of
+     * their date's period (PeriodTables), a new one like this table when
+     * there is none yet (made on apply, deleted again on undo). Rows of
+     * several periods are refused: one card per table. An empty order
+     * number gets the next one (OrderNumbers).
      *
      * @param  list<array<string, mixed>>  $rows
      * @param  list<array<string, mixed>>  $newColumns  {label, type, role?, options?}
@@ -246,16 +232,74 @@ class TableChanges
             throw new ChangeRefused('Տողեր չկան։');
         }
 
+        $newTable = null;
+        if (in_array($table->section, [DataTableSection::Orders, DataTableSection::Sales], true) && $table->dateColumn()) {
+            [$target, $period] = $this->periodTarget($table, $parsed);
+            if ($target) {
+                // Read again by the other table's columns: the same labels, maybe other keys.
+                return $this->planAdd($target, $rows, $user, $newColumns);
+            }
+            if ($period) {
+                $original = DataTable::query()->findOrFail($table->id);
+                PeriodTables::infer(collect([$original]));
+                $newTable = [
+                    'name' => PeriodTables::nameFor($original, $original->period(), $period),
+                    'period' => $period->kind->value,
+                    'period_start' => $period->start->toDateString(),
+                    'label' => $period->label(),
+                ];
+            }
+        }
+
         return $this->keep(TableChange::ADD_ROWS, $table->section, $table, array_filter([
             'columns' => $columns,
             'after_columns' => $after,
-            'rows' => $parsed,
+            'new_table' => $newTable,
+            'rows' => OrderNumbers::fill($table, $parsed),
         ], fn ($value) => $value !== null), $user);
     }
 
     /**
-     * Performers of the rows a change adds or edits who are away that day
-     * (a vacation, a day off...), one line each for the card and the AI.
+     * Where rows of this table go by their dates: another existing table, a
+     * new table of a period, or (both null) this table itself.
+     *
+     * @param  list<array<string, mixed>>  $parsed
+     * @return array{0: ?DataTable, 1: ?Period}
+     */
+    private function periodTarget(DataTable $table, array $parsed): array
+    {
+        $date = $table->dateColumn();
+        $chosen = DataTable::query()->findOrFail($table->id);
+        $groups = [];
+        foreach ($parsed as $data) {
+            $day = substr((string) ($data[$date->key] ?? ''), 0, 10);
+            [$found, $period] = PeriodTables::locate($chosen, $day);
+            $key = $found ? 't'.$found->id : 'p'.$period->key();
+            $groups[$key] ??= ['table' => $found, 'period' => $period, 'rows' => 0];
+            $groups[$key]['rows']++;
+        }
+
+        if (count($groups) > 1) {
+            $list = array_map(fn (array $g) => $g['table']
+                ? "«{$g['table']->name}»՝ {$g['rows']} տող"
+                : "նոր աղյուսակ «{$g['period']->label()}»՝ {$g['rows']} տող", $groups);
+
+            throw new ChangeRefused('Տողերը տարբեր ժամանակահատվածների են, և պետք է գնան տարբեր աղյուսակներ՝ '
+                .implode(', ', $list).'։ Պատրաստեք առանձին քարտ յուրաքանչյուր աղյուսակի համար (add_rows ամեն ժամանակահատվածի տողերով)։');
+        }
+
+        $only = reset($groups);
+        if ($only['table'] && $only['table']->is($chosen)) {
+            return [null, null];
+        }
+
+        return [$only['table'], $only['period']];
+    }
+
+    /**
+     * Performers of the rows a change adds or edits who aren't free then:
+     * away that day (a vacation, a day off...) or on another order at that
+     * time (PerformerAvailability), one line each for the card and the AI.
      *
      * @return list<string>
      */
@@ -265,41 +309,19 @@ class TableChanges
             return [];
         }
         $table = isset($change->payload['after_columns']) ? (clone $table)->setAttribute('columns', $change->payload['after_columns']) : $table;
-        $performer = $table->performerColumn();
-        $date = $table->dateColumn();
-        if (! $performer || ! $date) {
+        if (! $table->performerColumn() || ! $table->dateColumn()) {
             return [];
         }
 
-        $rows = $change->kind === TableChange::ADD_ROWS ? $change->payload['rows'] : array_column($change->payload['rows'], 'after');
-        $employees = Employee::query()->get(['id', 'name', 'group_id', 'is_active']);
+        $adding = $change->kind === TableChange::ADD_ROWS;
+        $rows = $adding ? $change->payload['rows'] : array_column($change->payload['rows'], 'after');
         $lines = [];
-        foreach ($rows as $data) {
-            $name = is_string($data[$performer->key] ?? null) ? Employee::normalize($data[$performer->key]) : '';
-            $day = substr((string) ($data[$date->key] ?? ''), 0, 10);
-            if ($name === '' || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) {
-                continue;
-            }
-            // The full name, or a first name only one employee has.
-            $named = $employees->filter(fn (Employee $e) => Employee::normalize($e->name) === $name);
-            if ($named->isEmpty()) {
-                $named = $employees->filter(fn (Employee $e) => explode(' ', Employee::normalize($e->name))[0] === $name);
-            }
-            if ($named->count() !== 1) {
-                continue;
-            }
-            $absence = EmployeeAbsence::query()->where('employee_id', $named->first()->id)->overlapping($day, $day)->first();
-            if ($absence) {
-                $free = $this->freeOn($employees, $named->first(), $day);
-                $lines[] = sprintf(
-                    '%s %s-ին բացակա է՝ %s (%s–%s)։ %s',
-                    $named->first()->name,
-                    CarbonImmutable::parse($day)->format('d.m.Y'),
-                    mb_strtolower($absence->kind->label()),
-                    $absence->starts_on->format('d.m.Y'),
-                    $absence->ends_on->format('d.m.Y'),
-                    $free === [] ? 'Ընտրեք ուրիշ կատարող կամ օր։' : 'Այդ օրը ազատ են՝ '.implode(', ', $free).'։',
-                );
+        foreach ($rows as $i => $data) {
+            // Rows added together can't share a performer's hour either.
+            $others = $adding ? array_values(array_diff_key($rows, [$i => true])) : [];
+            $ignore = $adding ? null : $change->payload['rows'][$i]['id'];
+            foreach (PerformerAvailability::check($table, $data, $others, $ignore) as $conflict) {
+                $lines[] = $conflict['message'];
             }
         }
 
@@ -418,6 +440,11 @@ class TableChanges
                     break;
                 case TableChange::ADD_ROWS:
                     $table->rows()->whereIn('id', $result['rows'] ?? [])->delete();
+                    // The period's table made for them goes too, when nothing else is in it.
+                    if (isset($result['created_table']) && $table->id === $result['created_table'] && ! $table->rows()->exists()) {
+                        $table->delete();
+                        break;
+                    }
                     // The columns it added go too, unless the table was changed since.
                     if (isset($change->payload['after_columns']) && $table->columns == $change->payload['after_columns']) {
                         $table->forceFill(['columns' => $change->payload['columns']])->save();
@@ -598,7 +625,9 @@ class TableChanges
             TableChange::CREATE_TABLE => "Նոր աղյուսակ՝ «{$name}»".(($payload['rows'] ?? []) !== [] ? ', '.$count($payload['rows']).' տողով' : ''),
             TableChange::EDIT_TABLE => "«{$name}» աղյուսակի փոփոխություն",
             TableChange::DELETE_TABLES => 'Ջնջել '.$count($payload['tables']).' աղյուսակ',
-            TableChange::ADD_ROWS => "Ավելացնել {$count($payload['rows'])} տող «{$name}»-ում",
+            TableChange::ADD_ROWS => isset($payload['new_table']) && $change->status === TableChange::PLANNED
+                ? "Ավելացնել {$count($payload['rows'])} տող նոր «{$payload['new_table']['name']}» աղյուսակում"
+                : "Ավելացնել {$count($payload['rows'])} տող «{$name}»-ում",
             TableChange::UPDATE_ROWS => "Փոխել {$count($payload['rows'])} տող «{$name}»-ում",
             TableChange::DELETE_ROWS => "Ջնջել {$count($payload['rows'])} տող «{$name}»-ից",
             default => $change->kind,
@@ -629,13 +658,19 @@ class TableChanges
             return array_map(fn ($t) => "«{$t['name']}»՝ {$t['rows']} տող", $payload['tables']);
         }
 
-        if ($change->kind === TableChange::ADD_ROWS && isset($payload['after_columns'])) {
+        if ($change->kind === TableChange::ADD_ROWS) {
             $had = array_column($payload['columns'], 'key');
+            $from = $change->status === TableChange::PLANNED ? $change->table()?->name : null;
 
-            return array_values(array_map(
-                fn ($c) => 'Նոր սյունակ «'.$c['label'].'»՝ '.$this->columnLabel($c, $section),
-                array_filter($payload['after_columns'], fn ($c) => ! in_array($c['key'], $had, true)),
-            ));
+            return array_values(array_filter([
+                isset($payload['new_table'])
+                    ? "Նոր աղյուսակ «{$payload['new_table']['name']}» ({$payload['new_table']['label']})".($from ? "՝ «{$from}»-ի սյունակներով" : '').'։ Տողերի ամսաթիվը այս ժամանակահատվածում է։'
+                    : null,
+                ...array_map(
+                    fn ($c) => 'Նոր սյունակ «'.$c['label'].'»՝ '.$this->columnLabel($c, $section),
+                    array_filter($payload['after_columns'] ?? [], fn ($c) => ! in_array($c['key'], $had, true)),
+                ),
+            ]));
         }
 
         if ($change->kind !== TableChange::EDIT_TABLE) {
@@ -758,11 +793,26 @@ class TableChanges
     private function doAdd(TableChange $change): array
     {
         $table = $change->table();
+        $created = null;
+        if (isset($change->payload['new_table'])) {
+            // The period's table, made now (or found, when made since like this one).
+            $period = Period::of(TablePeriod::from($change->payload['new_table']['period']), $change->payload['new_table']['period_start']);
+            [$found] = PeriodTables::locate($table, $period->start->toDateString());
+            if ($found && $found->isNot($table) && MonthTables::keys($found) !== MonthTables::keys($table)) {
+                throw new ChangeRefused("«{$found->name}» աղյուսակն արդեն կա, բայց այլ սյունակներով։ Խնդրեք նորից։");
+            }
+            $table = $found && $found->isNot($table) ? $found : PeriodTables::make($table, $period);
+            $created = $found ? null : $table->id;
+            $change->forceFill(['data_table_id' => $table->id]);
+        }
         if (isset($change->payload['after_columns'])) {
             $table->forceFill(['columns' => $change->payload['after_columns']])->save();
         }
 
-        return ['rows' => $this->insertRows($table, $change->payload['rows'], $change->user_id)];
+        return array_filter([
+            'rows' => $this->insertRows($table, $change->payload['rows'], $change->user_id),
+            'created_table' => $created,
+        ], fn ($value) => $value !== null);
     }
 
     /** Writes the rows' "after" values (apply) or their "before" ones (undo). */

@@ -51,6 +51,19 @@ final class PeriodTables
      */
     public static function forDate(DataTable $chosen, string $date): array
     {
+        [$table, $target] = self::locate($chosen, $date);
+
+        return $table ? [$table, false] : [self::make($chosen, $target), true];
+    }
+
+    /**
+     * Like forDate(), without making anything: the table, or the period a
+     * new table would be made for.
+     *
+     * @return array{0: DataTable, 1: null}|array{0: null, 1: Period}
+     */
+    public static function locate(DataTable $chosen, string $date): array
+    {
         $tables = self::infer(
             DataTable::query()
                 ->where('section', $chosen->section)
@@ -63,7 +76,7 @@ final class PeriodTables
 
         $period = $chosen->period();
         if ($period === null || $period->contains($date)) {
-            return [$chosen, false];
+            return [$chosen, null];
         }
 
         $target = Period::of($period->kind, $date);
@@ -74,12 +87,21 @@ final class PeriodTables
             // A table built like the chosen one first: the form's fields fit it as they are.
             $keys = MonthTables::keys($chosen);
 
-            return [$candidates->first(fn (DataTable $t) => MonthTables::keys($t) === $keys) ?? $candidates->first(), false];
+            return [$candidates->first(fn (DataTable $t) => MonthTables::keys($t) === $keys) ?? $candidates->first(), null];
         }
 
+        return [null, $target];
+    }
+
+    /** A new table of the period, with the chosen table's columns (see locate()). */
+    public static function make(DataTable $chosen, Period $target): DataTable
+    {
+        if ($chosen->period === null && $chosen->inferredMonth === null) {
+            self::infer(collect([$chosen]));
+        }
         $table = DataTable::create([
             'section' => $chosen->section,
-            'name' => self::nameFor($chosen, $period, $target),
+            'name' => self::nameFor($chosen, $chosen->period(), $target),
             'description' => $chosen->description,
             'columns' => $chosen->columns,
             'period' => $target->kind,
@@ -88,7 +110,7 @@ final class PeriodTables
         ]);
         $table->inferredMonth = null;
 
-        return [$table, true];
+        return $table;
     }
 
     /**

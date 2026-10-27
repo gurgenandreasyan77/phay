@@ -509,11 +509,14 @@ export function CellInput({
   section,
   value,
   onChange,
+  placeholder,
 }: {
   column: Column;
   section?: DataTableSection;
   value: string;
   onChange: (value: string) => void;
+  /** Shown in an empty text field, e.g. the number an empty order number gets. */
+  placeholder?: string;
 }) {
   if (column.role === "performer" && column.type === "text") {
     return <PerformerInput value={value} onChange={onChange} />;
@@ -565,6 +568,6 @@ export function CellInput({
         />
       );
     default:
-      return <Input value={value} onChange={(e) => onChange(e.target.value)} />;
+      return <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />;
   }
 }
