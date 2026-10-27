@@ -568,7 +568,12 @@ export function AssistantChat({
                     }
                   />
                   <VideoList videos={message.videos ?? []} />
-                  <AnswerActions actions={message.actions ?? []} team={team} canRequest={canRequest} />
+                  <AnswerActions
+                    actions={message.actions ?? []}
+                    team={team}
+                    canRequest={canRequest}
+                    onContinue={!pending && !limitReached ? ask : undefined}
+                  />
                 </AgentBubble>
               ) : (
                 <UserBubble key={i}>

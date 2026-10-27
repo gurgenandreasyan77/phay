@@ -45,7 +45,8 @@ abstract class Agent
     /**
      * What is its work and nobody else's, in a line (English, for the
      * model): it answers only within it, and every agent and the business
-     * assistant send the owner to it for this (Colleagues::directory).
+     * assistant hand this work to it, or offer it when the business lacks
+     * it (Colleagues::directory).
      */
     abstract public function specialty(): string;
 

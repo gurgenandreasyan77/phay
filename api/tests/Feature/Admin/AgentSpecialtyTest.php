@@ -5,7 +5,6 @@ namespace Tests\Feature\Admin;
 use App\Agents\AgentCatalog;
 use App\Agents\Colleagues;
 use App\Assistant\AssistantClient;
-use App\Models\AssistantMessage;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\TenantContext;
@@ -17,10 +16,11 @@ use Tests\TestCase;
 
 /**
  * Every agent keeps to its specialty: work of another one it doesn't do
- * but sends the owner to that agent (refer_to_colleague), a card with a
- * button to its chat, or, when the business doesn't have that agent, to
- * request it. Asked to check with an agent the business doesn't have, it
- * says the specialist isn't available instead of guessing.
+ * itself. A teammate the business has gets the work handed over
+ * (AgentDelegationTest); one it doesn't have is offered with
+ * refer_to_colleague, a card to request it. Asked to check with an agent
+ * the business doesn't have, it says the specialist isn't available
+ * instead of guessing.
  */
 class AgentSpecialtyTest extends TestCase
 {
@@ -86,26 +86,18 @@ class AgentSpecialtyTest extends TestCase
         // Sona: pictures and prompts are never hers.
         $this->assertStringContainsString('Pictures, image prompts, post texts and scripts are never yours', $system);
 
+        // Only agents the business lacks are offered to request; the ones it has get the work.
         $refer = collect($this->client->toolDefinitions)->firstWhere('name', Colleagues::REFER);
         $this->assertNotNull($refer);
         $this->assertSame(
-            array_values(array_diff(AgentCatalog::keys(), ['tables'])),
+            array_values(array_diff(AgentCatalog::keys(), ['tables', 'designer'])),
             $refer['inputSchema']['properties']['colleague']['enum'],
         );
-        // Only teammates the business has can be asked.
+        $this->assertStringContainsString('never send the owner to them', $system);
+        $this->assertStringContainsString('come back to this chat', $system);
+        // Only teammates the business has can be asked or handed work.
         $this->assertSame(['designer'], collect($this->client->toolDefinitions)->firstWhere('name', Colleagues::TOOL)['inputSchema']['properties']['colleague']['enum']);
-    }
-
-    public function test_sona_sends_an_image_prompt_to_mariam_with_a_button_to_her_chat(): void
-    {
-        $reply = $this->ask([[Colleagues::REFER, ['colleague' => 'designer', 'task' => 'Բազմոցի «առաջ-հետո» նկար']]]);
-
-        $this->assertTrue($this->client->toolResults[0]['available']);
-        $this->assertSame('Mariam · Visual designer', $this->client->toolResults[0]['colleague']);
-
-        $card = ['type' => 'refer', 'agent' => 'designer', 'name' => 'Մարիամ', 'role' => 'Վիզուալ դիզայներ', 'task' => 'Բազմոցի «առաջ-հետո» նկար'];
-        $this->assertSame([$card], $reply['actions']);
-        $this->assertSame([$card], AssistantMessage::query()->where('role', 'assistant')->sole()->actions);
+        $this->assertSame(['designer'], collect($this->client->toolDefinitions)->firstWhere('name', Colleagues::DELEGATE)['inputSchema']['properties']['colleague']['enum']);
     }
 
     public function test_an_agent_the_business_lacks_is_offered_to_request(): void
@@ -116,6 +108,7 @@ class AgentSpecialtyTest extends TestCase
         $this->assertFalse($result['available']);
         $this->assertStringContainsString('not available', $result['note']);
         $this->assertStringContainsString('monthly fee', $result['note']);
+        $this->assertStringContainsString('come back to this chat', $result['note']);
         $this->assertSame([['type' => 'refer', 'agent' => 'content', 'name' => 'Լիլիթ', 'role' => AgentCatalog::find('content')->role()['hy']]], $reply['actions']);
 
         // The card's button asks Phay for her, in the business's chat.
@@ -141,11 +134,18 @@ class AgentSpecialtyTest extends TestCase
 
     public function test_the_business_assistant_keeps_the_figures_and_routes_the_rest(): void
     {
-        $reply = $this->ask([[Colleagues::REFER, ['colleague' => 'designer']]], agent: null);
+        $reply = $this->ask([[Colleagues::DELEGATE, ['colleague' => 'designer', 'task' => 'Բազմոցի նկար']]], agent: null);
 
         $this->assertStringContainsString('Your own work is the business\'s figures', $this->client->system);
         $this->assertStringContainsString('The AI team of the platform', $this->client->system);
-        $this->assertSame(AgentCatalog::keys(), collect($this->client->toolDefinitions)->firstWhere('name', Colleagues::REFER)['inputSchema']['properties']['colleague']['enum']);
+        $this->assertSame(
+            array_values(array_diff(AgentCatalog::keys(), ['tables', 'designer'])),
+            collect($this->client->toolDefinitions)->firstWhere('name', Colleagues::REFER)['inputSchema']['properties']['colleague']['enum'],
+        );
+        $this->assertSame(['tables', 'designer'], collect($this->client->toolDefinitions)->firstWhere('name', Colleagues::DELEGATE)['inputSchema']['properties']['colleague']['enum']);
+        $this->assertStringContainsString('hand the work to them right away', $this->client->system);
+        // The designer is on the team: no card to her chat, she is handed the work.
+        $this->assertSame('delegate', $reply['actions'][0]['type']);
         $this->assertSame('designer', $reply['actions'][0]['agent']);
     }
 

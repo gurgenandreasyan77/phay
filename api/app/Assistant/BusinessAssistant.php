@@ -87,7 +87,9 @@ class BusinessAssistant
     public function ask(array $messages, ?Agent $agent = null, ?User $user = null): AssistantReply
     {
         $this->agentTools->newQuestion();
-        $this->colleagues->newQuestion();
+        // A teammate handed work sees what the owner wrote (with its files).
+        $last = collect($messages)->last(fn (array $message) => $message['role'] === 'user');
+        $this->colleagues->newQuestion($last['content'] ?? null);
         $reply = $agent
             ? $this->client->reply($this->agentPrompt->build($agent, $this), $messages, $this->colleagues->around($this->agentTools->for($agent, $user), $agent, $this, $user))
             : $this->client->reply($this->systemPrompt(), $messages, $this->colleagues->around($this->tools, null, $this, $user));
