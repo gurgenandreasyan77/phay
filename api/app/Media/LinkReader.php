@@ -122,10 +122,21 @@ class LinkReader
     }
 
     /**
+     * A public file (a table, a spreadsheet's export), with the same checks
+     * as a page: public addresses only, redirects checked, size capped.
+     *
+     * @return array{0: array{body: string, type: ?string, disposition: ?string}, 1: string} the response and the final URL
+     */
+    public function download(string $url, int $limit): array
+    {
+        return $this->fetch(trim($url), $limit);
+    }
+
+    /**
      * The body (at most $limit bytes) and type of a public URL, following
      * redirects that stay public.
      *
-     * @return array{0: array{body: string, type: ?string}, 1: string} the response and the final URL
+     * @return array{0: array{body: string, type: ?string, disposition: ?string}, 1: string} the response and the final URL
      */
     private function fetch(string $url, int $limit): array
     {
@@ -169,7 +180,7 @@ class LinkReader
                 throw new InvalidArgumentException("The site answered {$response->status()}: the page is missing or closed to visitors.");
             }
 
-            return [['body' => $response->body(), 'type' => $response->header('Content-Type') ?: null], $url];
+            return [['body' => $response->body(), 'type' => $response->header('Content-Type') ?: null, 'disposition' => $response->header('Content-Disposition') ?: null], $url];
         }
 
         throw new InvalidArgumentException('The link redirects too many times.');

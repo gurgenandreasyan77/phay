@@ -565,7 +565,7 @@ export type AssistantConversationDto = {
 /** A file attached to a question in the AI chat; read through /api/admin/assistant/attachments/{id}/file. */
 export type AssistantAttachmentDto = {
   id: number;
-  kind: "image" | "pdf" | "text" | "video";
+  kind: "image" | "pdf" | "text" | "video" | "sheet";
   name: string;
   mime: string;
   size: number;

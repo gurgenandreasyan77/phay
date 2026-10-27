@@ -63,7 +63,7 @@ class TableChanges
      *
      * @param  array<string, mixed>  $input
      */
-    public function planCreate(array $input, ?User $user): TableChange
+    public function planCreate(array $input, ?User $user, int $maxRows = self::MAX_ROWS, bool $dateToday = true): TableChange
     {
         $section = DataTableSection::tryFrom((string) ($input['section'] ?? ''))
             ?? throw new ChangeRefused('Ընտրեք բաժինը՝ orders, sales կամ expenses։');
@@ -84,7 +84,7 @@ class TableChanges
 
         // The rows are read by the new columns, as the table will read them.
         $draft = new DataTable(['section' => $section, 'name' => $name, 'columns' => $columns]);
-        $rows = $this->parseRows($draft, (array) ($input['rows'] ?? []));
+        $rows = $this->parseRows($draft, (array) ($input['rows'] ?? []), $maxRows, $dateToday);
 
         return $this->keep(TableChange::CREATE_TABLE, $section, null, [
             'table' => [
@@ -894,10 +894,14 @@ class TableChanges
      * @param  list<mixed>  $rows  values by column label or key
      * @return list<array<string, mixed>> parsed data
      */
-    private function parseRows(DataTable $table, array $rows): array
+    /**
+     * @param  int  $max  rows at most (a table copied from a file or a link takes more)
+     * @param  bool  $dateToday  a row without a date gets today's (not in a copy: it stays as it was)
+     */
+    private function parseRows(DataTable $table, array $rows, int $max = self::MAX_ROWS, bool $dateToday = true): array
     {
-        if (count($rows) > self::MAX_ROWS) {
-            throw new ChangeRefused('Մեկ անգամից կարելի է ավելացնել առավելագույնը '.self::MAX_ROWS.' տող։');
+        if (count($rows) > $max) {
+            throw new ChangeRefused('Մեկ անգամից կարելի է ավելացնել առավելագույնը '.$max.' տող։');
         }
 
         $columns = $table->columnDefinitions();
@@ -908,7 +912,7 @@ class TableChanges
 
         foreach (array_values($rows) as $n => $values) {
             $values = $this->byKey($columns, (array) $values, $errors, (string) ($n + 1));
-            if ($date && trim((string) ($values[$date->key] ?? '')) === '') {
+            if ($dateToday && $date && trim((string) ($values[$date->key] ?? '')) === '') {
                 $values[$date->key] = $today->format($date->type === DataColumnType::DateTime ? 'Y-m-d H:i' : 'Y-m-d');
             }
             [$data, $rowErrors] = DataTableSchema::parseRow($table, $values);
