@@ -6,6 +6,7 @@ import { buttonClasses } from "@/ui";
 import { actionDownloadHref } from "../_components/downloads/downloads";
 import { ChangeCard } from "../_components/tables/ChangeCard";
 import { ReshapeCard } from "../_components/tables/Reshape";
+import { HrCard } from "../_components/team/HrCard";
 
 /**
  * Cards under an answer: a reshape or a change of tables the AI prepared
@@ -22,6 +23,8 @@ export function AnswerActions({ actions }: { actions: AssistantActionDto[] }) {
           <ReshapeCard key={`r-${action.id}`} id={action.id} />
         ) : action.type === "change" ? (
           <ChangeCard key={`c-${action.id}`} id={action.id} />
+        ) : action.type === "hr" ? (
+          <HrCard key={`h-${action.id}`} id={action.id} />
         ) : (
           <div key={`d-${i}`} className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface p-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-success-light text-success">

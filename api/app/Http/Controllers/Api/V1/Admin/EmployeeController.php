@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\DataTables\EmployeeStats;
-use App\DataTables\Period;
 use App\DataTables\Performers;
+use App\DataTables\Period;
 use App\Enums\ColumnRole;
 use App\Enums\DataTableSection;
 use App\Enums\TablePeriod;
@@ -13,6 +13,7 @@ use App\Models\DataTable;
 use App\Models\DataTableRow;
 use App\Models\Employee;
 use App\Models\EmployeeGroup;
+use App\Team\Team;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -117,6 +118,7 @@ class EmployeeController extends Controller
         return response()->json([
             'data' => [
                 'employee' => self::toArray(self::loaded($employee)),
+                'onboardingDefault' => Team::defaultOnboarding(),
                 'period' => $period?->toArray(),
                 'figures' => $figures,
                 'rows' => collect($rows->items())->map(function (DataTableRow $row) use ($tables, $cost, $text, $money) {
@@ -162,7 +164,25 @@ class EmployeeController extends Controller
             'phone' => ['sometimes', 'nullable', 'string', 'max:50'],
             'isActive' => ['sometimes', 'boolean'],
             'groupId' => ['sometimes', 'nullable', 'integer'],
+            'email' => ['sometimes', 'nullable', 'email', 'max:150'],
+            'hiredOn' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+            'birthDate' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+            // What a new employee still has to go through: the whole list.
+            'onboarding' => ['sometimes', 'nullable', 'array', 'max:30'],
+            'onboarding.*.title' => ['required', 'string', 'max:200'],
+            'onboarding.*.done' => ['sometimes', 'boolean'],
         ]);
+
+        foreach (['hiredOn' => 'hired_on', 'birthDate' => 'birth_date'] as $from => $to) {
+            if (array_key_exists($from, $validated)) {
+                $validated[$to] = $validated[$from];
+                unset($validated[$from]);
+            }
+        }
+        if (array_key_exists('onboarding', $validated)) {
+            $validated['onboarding'] = $validated['onboarding'] === null ? null
+                : array_map(fn (array $i) => ['title' => trim($i['title']), 'done' => (bool) ($i['done'] ?? false)], array_values($validated['onboarding']));
+        }
 
         if (array_key_exists('name', $validated)) {
             $validated['name'] = preg_replace('/\s+/u', ' ', trim($validated['name']));
@@ -208,6 +228,10 @@ class EmployeeController extends Controller
             'position' => $employee->position,
             'phone' => $employee->phone,
             'isActive' => $employee->is_active,
+            'email' => $employee->email,
+            'hiredOn' => $employee->hired_on?->toDateString(),
+            'birthDate' => $employee->birth_date?->toDateString(),
+            'onboarding' => $employee->onboarding ? Team::onboarding($employee) : null,
             // The group they work in, with its manager.
             'group' => $group ? [
                 'id' => $group->id,

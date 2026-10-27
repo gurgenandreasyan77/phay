@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, TreePalm, UserSearch } from "lucide-react";
 import { requirePermission } from "@/lib/adminAuth";
 import { can, isPlatformStaff } from "@/lib/roles";
 import { getCalendar, getGoogleState } from "@/lib/adminApi";
@@ -9,7 +9,7 @@ import { bucketTitle, weekdayShort } from "../_components/analytics/BarChart";
 import { formatMoney, SECTIONS, tablePath } from "../_components/tables/shared";
 import { DayView } from "./DayView";
 import { addDays, addMonths, isDay, today, visibleDays, type CalendarView } from "./dates";
-import { GOOGLE_DOT, groupByDay, markShape, tableColor, type CalendarDay } from "./entries";
+import { AWAY_DOT, GOOGLE_DOT, groupByDay, markShape, tableColor, type CalendarDay } from "./entries";
 import { GoogleSync } from "./GoogleSync";
 import styles from "./calendar.module.css";
 
@@ -114,7 +114,8 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
                   const info = byDay.get(d);
                   const services = info?.totals.services.count ?? 0;
                   const sales = info?.totals.sales.count ?? 0;
-                  const count = services + sales + (info?.google.length ?? 0);
+                  const team = (info?.away.length ?? 0) + (info?.interviews.length ?? 0);
+                  const count = services + sales + (info?.google.length ?? 0) + team;
                   const outside = view === "month" && d.slice(0, 7) !== day.slice(0, 7);
 
                   return (
@@ -169,6 +170,23 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
                               </span>
                             </li>
                           ))}
+                          {info?.away.map((a) => (
+                            <li key={`away-${a.id}`} className="flex items-start gap-1">
+                              <span className={cn("mt-1 h-1.5 w-1.5 shrink-0 rounded-full", AWAY_DOT)} />
+                              <span className="min-w-0 break-words text-ink-muted">
+                                {a.employee?.name} · {a.kindLabel.toLowerCase()}
+                              </span>
+                            </li>
+                          ))}
+                          {info?.interviews.map((v) => (
+                            <li key={`interview-${v.id}`} className="flex items-start gap-1">
+                              <UserSearch className="mt-0.5 h-3 w-3 shrink-0 text-[#8b5cf6]" />
+                              <span className="min-w-0 break-words text-ink">
+                                <span className="text-ink-muted">{v.time} </span>
+                                {v.name}
+                              </span>
+                            </li>
+                          ))}
                           {info?.google.map((g) => (
                             <li key={`google-${g.id}`} className="flex items-start gap-1">
                               <span className={cn("mt-1 h-1.5 w-1.5 shrink-0 rounded-full", GOOGLE_DOT)} />
@@ -195,6 +213,28 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
                           ) : null}
                           {info && info.amount > 0 ? (
                             <span className="hidden text-xs text-ink-muted sm:block">{formatMoney(info.amount)}</span>
+                          ) : null}
+                          {team > 0 ? (
+                            <span
+                              className="flex items-center gap-1 text-xs text-[#7c3aed]"
+                              title={[
+                                ...(info?.away.map((a) => `${a.employee?.name}՝ ${a.kindLabel.toLowerCase()}`) ?? []),
+                                ...(info?.interviews.map((v) => `${v.time} հարցազրույց՝ ${v.name}`) ?? []),
+                              ].join("\n")}
+                            >
+                              {info?.away.length ? (
+                                <span className="inline-flex items-center gap-0.5">
+                                  <TreePalm className="h-3 w-3" />
+                                  {info.away.length}
+                                </span>
+                              ) : null}
+                              {info?.interviews.length ? (
+                                <span className="inline-flex items-center gap-0.5">
+                                  <UserSearch className="h-3 w-3" />
+                                  {info.interviews.length}
+                                </span>
+                              ) : null}
+                            </span>
                           ) : null}
                           <span className="mt-auto flex flex-wrap gap-0.5">
                             {info?.services.slice(0, 8).map((e, j) => (
@@ -254,6 +294,18 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
                   Google օրացույց (դեռ աղյուսակում չէ)
                 </span>
               ) : null}
+              {(data.absences?.length ?? 0) > 0 ? (
+                <Link href="/admin/employees?tab=absences" className="inline-flex items-center gap-1.5 hover:text-ink">
+                  <TreePalm className="h-3 w-3 text-[#7c3aed]" />
+                  Բացականեր
+                </Link>
+              ) : null}
+              {(data.interviews?.length ?? 0) > 0 ? (
+                <Link href="/admin/employees?tab=hiring" className="inline-flex items-center gap-1.5 hover:text-ink">
+                  <UserSearch className="h-3 w-3 text-[#7c3aed]" />
+                  Հարցազրույցներ
+                </Link>
+              ) : null}
               {data.truncated ? <span className="text-warning">Ցուցադրված են ոչ բոլոր տողերը. ընտրեք շաբաթը։</span> : null}
             </div>
           </div>
@@ -269,6 +321,8 @@ export default async function AdminCalendarPage(props: PageProps<"/admin/calenda
             sales={byDay.get(day)?.sales ?? []}
             leads={byDay.get(day)?.leads ?? []}
             google={byDay.get(day)?.google ?? []}
+            away={byDay.get(day)?.away ?? []}
+            interviews={byDay.get(day)?.interviews ?? []}
             colors={Object.fromEntries(data.tables.map((t) => [t.id, tableColor(data, t.id)]))}
             canDesign={can(me, "catalog")}
           />

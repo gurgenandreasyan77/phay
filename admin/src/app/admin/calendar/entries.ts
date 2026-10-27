@@ -1,9 +1,11 @@
 // What the calendar shows of a row: read by the columns' roles, whatever
 // the business called them. Shared by its server and client components.
 import type {
+  AbsenceDto,
   AdminDataTableDto,
   CalendarDto,
   CalendarGoogleEventDto,
+  CalendarInterviewDto,
   CalendarLeadDto,
   CalendarRowDto,
   ColumnRole,
@@ -33,6 +35,9 @@ export type CalendarDay = {
   leads: CalendarLeadDto[];
   /** Events of the synced Google calendars, not in a table yet. */
   google: CalendarGoogleEventDto[];
+  /** Employees away that day (a vacation spans its days), and interviews with candidates. */
+  away: AbsenceDto[];
+  interviews: CalendarInterviewDto[];
   /** Money of the day's rows and completed site orders. */
   amount: number;
   totals: { services: SectionTotal; sales: SectionTotal };
@@ -77,6 +82,8 @@ function emptyDay(): CalendarDay {
     sales: [],
     leads: [],
     google: [],
+    away: [],
+    interviews: [],
     amount: 0,
     totals: { services: { count: 0, amount: 0 }, sales: { count: 0, amount: 0 } },
   };
@@ -108,9 +115,29 @@ export function groupByDay(data: CalendarDto): Map<string, CalendarDay> {
     day.totals.services.count += 1;
   }
   for (const event of data.google ?? []) dayOf(event.date).google.push(event);
+  for (const absence of data.absences ?? []) {
+    for (const date of daysBetween(absence.from, absence.to)) dayOf(date).away.push(absence);
+  }
+  for (const interview of data.interviews ?? []) dayOf(interview.date).interviews.push(interview);
 
   return days;
 }
+
+/** Every date from..to, inclusive (at most a year of them). */
+function daysBetween(from: string, to: string): string[] {
+  const out: string[] = [];
+  const day = new Date(`${from}T00:00:00Z`);
+  while (out.length < 366) {
+    const date = day.toISOString().slice(0, 10);
+    if (date > to) break;
+    out.push(date);
+    day.setUTCDate(day.getUTCDate() + 1);
+  }
+  return out;
+}
+
+/** An absence's mark: violet, apart from orders (greens), sales (ambers) and the site (blue). */
+export const AWAY_DOT = "bg-[#8b5cf6]";
 
 /**
  * The colours of the tables, so a day shows which table a row is in:

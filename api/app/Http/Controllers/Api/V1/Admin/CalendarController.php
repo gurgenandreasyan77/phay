@@ -3,15 +3,20 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\DataTables\PeriodTables;
+use App\Enums\BusinessRole;
 use App\Enums\ColumnRole;
 use App\Enums\DataColumnType;
 use App\Enums\DataTableSection;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\DataTableResource;
+use App\Models\Candidate;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
+use App\Models\EmployeeAbsence;
 use App\Models\GoogleEvent;
 use App\Models\Lead;
+use App\Team\Team;
+use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -99,7 +104,30 @@ class CalendarController extends Controller
             ->reject(fn (GoogleEvent $event) => $inTables->has($event->event_id))
             ->values();
 
+        // Who is away (everyone working with orders plans around it), and the
+        // interviews with candidates (only those who manage the team).
+        $absences = EmployeeAbsence::query()->with('employee:id,name')
+            ->overlapping($from->toDateString(), $to->toDateString())
+            ->orderBy('starts_on')->orderBy('id')
+            ->get();
+        $team = $request->user()->businessRole(app(TenantContext::class)->current())?->can(BusinessRole::SETTINGS);
+        $interviews = $team ? Candidate::query()->with('opening:id,title')
+            ->whereNotNull('interview_at')
+            ->where('interview_at', '>=', $from->format('Y-m-d H:i:s'))
+            ->where('interview_at', '<', $to->addDay()->format('Y-m-d H:i:s'))
+            ->orderBy('interview_at')
+            ->get() : collect();
+
         return response()->json(['data' => [
+            'absences' => $absences->map(fn (EmployeeAbsence $a) => Team::absence($a))->values(),
+            'interviews' => $interviews->map(fn (Candidate $c) => [
+                'id' => $c->id,
+                'date' => substr($c->interviewTime(), 0, 10),
+                'time' => substr($c->interviewTime(), 11, 5),
+                'name' => $c->name,
+                'opening' => $c->opening?->title,
+                'stage' => $c->stage->value,
+            ])->values(),
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
             'tables' => DataTableResource::collection($tables),

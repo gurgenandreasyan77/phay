@@ -3,8 +3,14 @@
 import { useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ExternalLink, MapPin, Phone, Plus, ShoppingBag, Trash2, Wrench } from "lucide-react";
-import type { AdminDataTableDto, CalendarGoogleEventDto, CalendarLeadDto } from "@/lib/adminApi";
+import { ExternalLink, MapPin, Phone, Plus, ShoppingBag, Trash2, TreePalm, UserSearch, Wrench } from "lucide-react";
+import type {
+  AbsenceDto,
+  AdminDataTableDto,
+  CalendarGoogleEventDto,
+  CalendarInterviewDto,
+  CalendarLeadDto,
+} from "@/lib/adminApi";
 import { Badge, Button, buttonClasses, Card, cn, FieldLabel, Select } from "@/ui";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_TONES } from "../_components/leadStatus";
 import { CellInput, fromDraft, toDraft, type Draft } from "../_components/tables/RowsGrid";
@@ -36,6 +42,9 @@ export type DayPanelProps = {
   sales: CalendarEntry[];
   leads: CalendarLeadDto[];
   google: CalendarGoogleEventDto[];
+  /** Who of the team is away that day, and interviews with candidates. */
+  away?: AbsenceDto[];
+  interviews?: CalendarInterviewDto[];
   colors: Record<number, string>;
   canDesign: boolean;
 };
@@ -53,6 +62,8 @@ export function DayPanel({
   sales,
   leads,
   google,
+  away = [],
+  interviews = [],
   colors,
   canDesign,
   onClose,
@@ -171,6 +182,8 @@ export function DayPanel({
           </div>
         </div>
       ) : null}
+
+      {away.length > 0 || interviews.length > 0 ? <TeamDay away={away} interviews={interviews} /> : null}
 
       {tables.length === 0 ? (
         <p className="rounded-md bg-surface-secondary px-3 py-2 text-sm text-ink-muted">
@@ -357,6 +370,48 @@ export function DayPanel({
         </p>
       ) : null}
     </Wrapper>
+  );
+}
+
+/** The team that day: who is away (and till when), and the interviews. */
+function TeamDay({ away, interviews }: { away: AbsenceDto[]; interviews: CalendarInterviewDto[] }) {
+  const months = ["հունվարի", "փետրվարի", "մարտի", "ապրիլի", "մայիսի", "հունիսի", "հուլիսի", "օգոստոսի", "սեպտեմբերի", "հոկտեմբերի", "նոյեմբերի", "դեկտեմբերի"];
+  const until = (date: string) => `${months[Number(date.slice(5, 7)) - 1]} ${Number(date.slice(8, 10))}`;
+
+  return (
+    <div className="space-y-1.5 rounded-md border border-[#8b5cf6]/25 bg-[#8b5cf6]/5 px-3 py-2">
+      {away.map((a) => (
+        <Link
+          key={`away-${a.id}`}
+          href="/admin/employees?tab=absences"
+          className="flex items-start gap-2 text-sm hover:text-primary"
+        >
+          <TreePalm className="mt-0.5 h-4 w-4 shrink-0 text-[#7c3aed]" />
+          <span className="min-w-0">
+            <span className="font-medium text-ink">{a.employee?.name}</span>
+            <span className="text-ink-muted">
+              {" "}
+              · {a.kindLabel.toLowerCase()}
+              {a.from !== a.to ? `, մինչև ${until(a.to)}` : ""}
+            </span>
+          </span>
+        </Link>
+      ))}
+      {interviews.map((v) => (
+        <Link
+          key={`interview-${v.id}`}
+          href="/admin/employees?tab=hiring"
+          className="flex items-start gap-2 text-sm hover:text-primary"
+        >
+          <UserSearch className="mt-0.5 h-4 w-4 shrink-0 text-[#7c3aed]" />
+          <span className="min-w-0">
+            <span className="text-ink-muted">{v.time} </span>
+            <span className="font-medium text-ink">Հարցազրույց՝ {v.name}</span>
+            {v.opening ? <span className="text-ink-muted"> · {v.opening}</span> : null}
+          </span>
+        </Link>
+      ))}
+    </div>
   );
 }
 

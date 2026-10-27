@@ -6,6 +6,7 @@ use App\Agents\Team\Accountant;
 use App\Agents\Team\Analyst;
 use App\Agents\Team\ContentCreator;
 use App\Agents\Team\PhotoDesigner;
+use App\Agents\Team\Recruiter;
 use App\Agents\Team\ReelMaker;
 use App\Agents\Team\TableKeeper;
 use App\Agents\Team\VideoEditor;
@@ -25,6 +26,7 @@ final class AgentCatalog
         Analyst::class,
         Accountant::class,
         TableKeeper::class,
+        Recruiter::class,
         ContentCreator::class,
         ReelMaker::class,
         VideoEditor::class,

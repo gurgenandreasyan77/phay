@@ -13,6 +13,7 @@ const TINTS: Record<string, AgentTint> = {
     bg: "#e7eff4",
   },
   tables: { tint: "#4f7a4a", soft: "rgba(79, 122, 74, 0.22)", bg: "#ebf3e8" },
+  hr: { tint: "#7a5aa6", soft: "rgba(122, 90, 166, 0.22)", bg: "#f1ecf7" },
   content: { tint: "#b4507a", soft: "rgba(180, 80, 122, 0.2)", bg: "#f7e9ef" },
   reels: { tint: "#b47a2b", soft: "rgba(185, 130, 50, 0.22)", bg: "#f8efe0" },
   editor: { tint: "#5a6788", soft: "rgba(90, 103, 136, 0.22)", bg: "#ecedf4" },
@@ -136,6 +137,30 @@ const LOOKS: Record<string, Look> = {
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+      </g>
+    ),
+  },
+  // Anya: long hair with a flower clip; a person's card under a magnifier.
+  hr: {
+    skin: "#f0d0b8",
+    hair: "#6b4430",
+    back: LONG_BACK,
+    front: LONG_FRONT,
+    extra: (tint) => (
+      <g fill={tint}>
+        {[0, 72, 144, 216, 288].map((a) => (
+          <circle key={a} cx={80 + 3.2 * Math.cos((a * Math.PI) / 180)} cy={33 + 3.2 * Math.sin((a * Math.PI) / 180)} r="2.4" />
+        ))}
+        <circle cx="80" cy="33" r="1.8" fill="#fff" />
+      </g>
+    ),
+    badge: (tint) => (
+      <g>
+        <rect x="83" y="88" width="17" height="15" rx="2.5" fill={tint} />
+        <circle cx="89" cy="93.5" r="2.4" fill="#fff" fillOpacity="0.9" />
+        <path d="M85.2 100.5c.6-2.4 2-3.6 3.8-3.6s3.2 1.2 3.8 3.6" fill="#fff" fillOpacity="0.9" />
+        <circle cx="100" cy="88" r="4.4" fill="#fff" stroke={tint} strokeWidth="1.6" />
+        <path d="m103.2 91.2 3 3" stroke={tint} strokeWidth="2" strokeLinecap="round" />
       </g>
     ),
   },

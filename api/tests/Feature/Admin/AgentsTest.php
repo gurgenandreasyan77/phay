@@ -269,9 +269,9 @@ class AgentsTest extends TestCase
 
         Sanctum::actingAs($this->owner);
         $this->getJson('/api/v1/admin/agents')->assertOk()
-            ->assertJsonPath('data.agents.4.key', 'reels')
-            ->assertJsonPath('data.agents.4.included', true)
-            ->assertJsonPath('data.agents.4.price', 4500);
+            ->assertJsonPath('data.agents.5.key', 'reels')
+            ->assertJsonPath('data.agents.5.included', true)
+            ->assertJsonPath('data.agents.5.price', 4500);
     }
 
     public function test_the_owner_asks_for_an_agent_in_the_chat_with_the_platform(): void

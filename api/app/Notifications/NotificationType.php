@@ -24,4 +24,7 @@ enum NotificationType: string
 
     /** An AI agent joined the business's team. */
     case Agent = 'agent';
+
+    /** Who is away today or from tomorrow, today's interviews and birthdays. */
+    case Team = 'team';
 }

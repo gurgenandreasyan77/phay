@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-export type NotificationType = "new_lead" | "feedback" | "support_message" | "subscription" | "today_orders" | "social" | "agent";
+export type NotificationType =
+  | "new_lead"
+  | "feedback"
+  | "support_message"
+  | "subscription"
+  | "today_orders"
+  | "social"
+  | "agent"
+  | "team";
 
 export type AdminNotificationDto = {
   id: number;
