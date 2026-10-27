@@ -14,6 +14,7 @@ use App\Models\AssistantAttachment;
 use App\Models\BrandAsset;
 use App\Models\BrandProfile;
 use App\Models\User;
+use App\Social\SocialTools;
 use App\Team\HrTools;
 use App\Tenancy\TenantContext;
 use Illuminate\Validation\ValidationException;
@@ -32,6 +33,9 @@ use InvalidArgumentException;
  * (edit_video), the table agent prepares changes of the tables
  * (TableEditTools), the HR agent the team's records (HrTools).
  * Everything stays inside the current business.
+ *
+ * When a teammate consults an agent (Colleagues) it only looks things up
+ * (readOnly()): no cards, no saving, no pictures or videos.
  */
 class AgentTools implements ToolSet
 {
@@ -43,7 +47,19 @@ class AgentTools implements ToolSet
 
     public const VIEW_ASSETS = 'view_brand_assets';
 
+    /** What an agent may do while a teammate consults it: look-ups only. */
+    public const READS = [
+        'list_tables', 'find_rows', 'group_rows', 'finance_report', 'expenses_report', 'site_orders',
+        ...SocialTools::NAMES,
+        TableEditTools::ROWS,
+        HrTools::TEAM, HrTools::ABSENCES, HrTools::HIRING,
+        self::VIEW_ASSETS,
+        LinkReader::TOOL,
+    ];
+
     private ?Agent $agent = null;
+
+    private bool $readOnly = false;
 
     private ?User $user = null;
 
@@ -70,13 +86,13 @@ class AgentTools implements ToolSet
     /** Whether this agent makes pictures here (its role, and the media service is connected). */
     public function designs(): bool
     {
-        return $this->agent()->designs() && $this->studio->available();
+        return ! $this->readOnly && $this->agent()->designs() && $this->studio->available();
     }
 
     /** Whether this agent cuts videos here (its role, and the media service is connected). */
     public function edits(): bool
     {
-        return $this->agent()->edits() && $this->videos->available();
+        return ! $this->readOnly && $this->agent()->edits() && $this->videos->available();
     }
 
     /** The same tools for another agent, saving as the given person. */
@@ -85,11 +101,36 @@ class AgentTools implements ToolSet
         $tools = clone $this;
         $tools->agent = $agent;
         $tools->user = $user;
+        $tools->readOnly = false;
 
         return $tools;
     }
 
+    /** The same agent's look-ups only, for answering a teammate. */
+    public function readOnly(): self
+    {
+        $tools = clone $this;
+        $tools->readOnly = true;
+
+        return $tools;
+    }
+
+    public function isReadOnly(): bool
+    {
+        return $this->readOnly;
+    }
+
     public function definitions(): array
+    {
+        if ($this->readOnly) {
+            return array_values(array_filter($this->all(), fn (array $definition) => in_array($definition['name'], self::READS, true)));
+        }
+
+        return $this->all();
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function all(): array
     {
         $allowed = $this->agent()->tools();
         $shared = array_values(array_filter(
@@ -170,6 +211,10 @@ class AgentTools implements ToolSet
     public function run(string $name, array $input): array|ToolOutput
     {
         $tenant = $this->tenants->current();
+
+        if ($this->readOnly && ! in_array($name, self::READS, true)) {
+            throw new InvalidArgumentException('A teammate asked you: you can only look things up now. Say what should change instead.');
+        }
 
         if ($name === self::SAVE_ASSET) {
             return $this->saveAsset($input);

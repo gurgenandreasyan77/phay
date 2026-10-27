@@ -36,8 +36,9 @@ class AnthropicAssistantClient implements AssistantClient
         return filled($this->apiKey);
     }
 
-    public function reply(string $system, array $messages, ?ToolSet $tools = null): AssistantReply
+    public function reply(string $system, array $messages, ?ToolSet $tools = null, ?int $timeBudget = null): AssistantReply
     {
+        $budget = min(self::TIME_BUDGET, $timeBudget ?? self::TIME_BUDGET);
         $client = new Client(apiKey: $this->apiKey, requestOptions: ['timeout' => 60, 'maxRetries' => 1]);
         $started = microtime(true);
         $input = 0;
@@ -46,7 +47,7 @@ class AnthropicAssistantClient implements AssistantClient
 
         for ($round = 0; ; $round++) {
             // The last round (or out of time) answers with what it has.
-            $mayUseTools = $tools !== null && $round < self::MAX_TOOL_ROUNDS && microtime(true) - $started < self::TIME_BUDGET;
+            $mayUseTools = $tools !== null && $round < self::MAX_TOOL_ROUNDS && microtime(true) - $started < $budget;
 
             $message = $this->create($client, $system, $messages, $tools, $mayUseTools);
 

@@ -9,6 +9,11 @@ use App\Assistant\ToolSet;
 /**
  * The model in tests: answers "Fake answer", and first runs the look-ups
  * set in `toolCalls` the way the model would, keeping what they returned.
+ *
+ * A teammate consulted while answering (ask_colleague) is a call inside
+ * the call: it runs `colleagueToolCalls` and answers the next of
+ * `colleagueAnswers`. The fields above stay the owner's call; `calls`
+ * keeps every call, the teammates' too.
  */
 class FakeAssistantClient implements AssistantClient
 {
@@ -26,6 +31,17 @@ class FakeAssistantClient implements AssistantClient
 
     public ?array $toolDefinitions = null;
 
+    /** @var list<array{0: string, 1: array<string, mixed>}> look-ups of a consulted teammate */
+    public array $colleagueToolCalls = [];
+
+    /** @var list<string> what consulted teammates answer, in turn */
+    public array $colleagueAnswers = [];
+
+    /** @var list<array{system: string, messages: array, tools: list<string>, results: array, timeBudget: int|null}> */
+    public array $calls = [];
+
+    private int $depth = 0;
+
     /** Thrown instead of answering, like a failed API call. */
     public ?\Throwable $throw = null;
 
@@ -34,20 +50,44 @@ class FakeAssistantClient implements AssistantClient
         return $this->configured;
     }
 
-    public function reply(string $system, array $messages, ?ToolSet $tools = null): AssistantReply
+    public function reply(string $system, array $messages, ?ToolSet $tools = null, ?int $timeBudget = null): AssistantReply
     {
-        $this->system = $system;
-        $this->messages = $messages;
-        $this->toolDefinitions = $tools?->definitions();
+        $nested = $this->depth > 0;
+        $definitions = $tools?->definitions();
+        if (! $nested) {
+            $this->system = $system;
+            $this->messages = $messages;
+            $this->toolDefinitions = $definitions;
+        }
 
         if ($this->throw) {
             throw $this->throw;
         }
 
-        foreach ($this->toolCalls as [$name, $input]) {
-            $this->toolResults[] = $tools->run($name, $input);
+        $calls = $nested ? $this->colleagueToolCalls : $this->toolCalls;
+        $results = [];
+        $this->depth++;
+        try {
+            foreach ($calls as [$name, $input]) {
+                $results[] = $result = $tools->run($name, $input);
+                if (! $nested) {
+                    $this->toolResults[] = $result;
+                }
+            }
+        } finally {
+            $this->depth--;
         }
 
-        return new AssistantReply('Fake answer', 120, 30, toolsUsed: array_column($this->toolCalls, 0));
+        $this->calls[] = [
+            'system' => $system,
+            'messages' => $messages,
+            'tools' => array_column($definitions ?? [], 'name'),
+            'results' => $results,
+            'timeBudget' => $timeBudget,
+        ];
+
+        $text = $nested ? (array_shift($this->colleagueAnswers) ?? 'Fake colleague answer') : 'Fake answer';
+
+        return new AssistantReply($text, 120, 30, toolsUsed: array_column($calls, 0));
     }
 }

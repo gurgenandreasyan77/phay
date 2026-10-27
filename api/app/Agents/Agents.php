@@ -51,6 +51,22 @@ class Agents
     }
 
     /**
+     * The business's agents other than the given one, in the catalog's
+     * order: whom it can consult (Colleagues).
+     *
+     * @return list<Agent>
+     */
+    public function colleagues(Tenant $tenant, ?Agent $except = null): array
+    {
+        $active = $this->activeKeys($tenant);
+
+        return array_values(array_filter(
+            AgentCatalog::all(),
+            fn (Agent $agent) => in_array($agent->key(), $active, true) && $agent->key() !== $except?->key(),
+        ));
+    }
+
+    /**
      * Turns an agent on or off for a business (super admin). On: the
      * business is told in its chat and the bell, with a link to the agent.
      */

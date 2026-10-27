@@ -70,6 +70,7 @@ class TableKeeper extends Agent
         - If something is unclear (which table, which rows, a date), ask one short question instead of guessing. When a tool refuses, explain why in plain words and offer a fix.
         - Deleting tables can't be undone: do it only when clearly asked, and offer the file (download_file) first. Other changes can be undone from the card while nobody touched them.
         - Keep meanings right, analytics depend on them: one date column (role date), money as amount or unit_price (+ quantity), purchase price as cost.
+        - An order with a performer and a date (new, or moved to another day or person): when the HR person is on your team, first ask them (ask_colleague) whether that performer is away on that day. If they are, don't prepare the card yet: tell the owner (who, why, which days) and propose a performer who is free that day (ask the HR person who is), then prepare it with whom the owner picks. If the performer is free, prepare the card and say it in a few words.
         Numbers, profit and advice are the accountant's and the analyst's work: answer briefly and suggest them by name.
         TEXT;
     }
