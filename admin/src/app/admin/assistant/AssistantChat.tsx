@@ -1,9 +1,10 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Paperclip, Send, Sparkles } from "lucide-react";
 import type {
   AgentDto,
+  AskingChatDto,
   AssistantActionDto,
   AssistantAttachmentDto,
   AssistantConversationDetailDto,
@@ -12,10 +13,11 @@ import type {
   AssistantPlanOfferDto,
   AssistantUsageDto,
   AssistantVideoDto,
+  RecentChatsDto,
 } from "@/lib/adminApi";
 import { Button, Card, cn, Textarea } from "@/ui";
-import { AgentAvatar, agentTintStyle } from "../_components/agents/AgentAvatar";
-import agentStyles from "../_components/agents/agents.module.css";
+import { AgentAvatar, AssistantOrb, agentTintStyle } from "../_components/agents/AgentAvatar";
+import { announceAssistantActivity, setOpenChat } from "../_components/header/recentChats";
 import { AssistantHistory } from "./AssistantHistory";
 import { AssistantLimitReached, AssistantQuotaBar } from "./AssistantQuota";
 import {
@@ -33,6 +35,7 @@ import { VideoList } from "./Videos";
 import { SUGGESTIONS } from "./suggestions";
 import { AnswerActions } from "./AnswerActions";
 import { Consultations } from "./Consultations";
+import styles from "./chat.module.css";
 
 /** A question with its files, or an answer with the pictures the agent made. */
 type Message = {
@@ -71,6 +74,16 @@ function chosenDesign(message: Message | undefined): number | null {
   const match = message?.role === "user" ? message.content.match(/design #(\d+)/) : null;
   return match ? Number(match[1]) : null;
 }
+
+/** The answer came while the chat was open and in sight: it isn't new for the header. */
+function markRead(id: number) {
+  fetch(`/api/admin/assistant/conversations/${id}/read`, { method: "POST" })
+    .catch(() => null)
+    .finally(announceAssistantActivity);
+}
+
+/** How often a chat reopened mid-answer looks whether the answer is in. */
+const RESUME_POLL_MS = 3000;
 
 /** ?c=<id> keeps the open conversation on reload and in a shared link to oneself. */
 function rememberInUrl(id: number | null) {
@@ -153,6 +166,7 @@ export function AssistantChat({
   brandComplete = true,
   team = [],
   canRequest = false,
+  asking = null,
 }: {
   suggestions?: string[];
   configured: boolean;
@@ -174,6 +188,8 @@ export function AssistantChat({
   team?: AgentDto[];
   /** May ask the platform for an agent. */
   canRequest?: boolean;
+  /** A question of this chat still being answered: asked before the person left the page. */
+  asking?: AskingChatDto | null;
 }) {
   const [messages, setMessages] = useState<Message[]>(() => initialConversation?.messages.map(toMessage) ?? []);
   const [conversationId, setConversationId] = useState<number | null>(initialConversation?.id ?? null);
@@ -187,12 +203,108 @@ export function AssistantChat({
   // Files in the question box: uploaded as soon as they are picked, sent by id.
   const [files, setFiles] = useState<ShownFile[]>([]);
   const [dragging, setDragging] = useState(false);
+  // The question asked before the person left, shown with the agent "thinking" until it is answered.
+  const [resuming, setResuming] = useState<AskingChatDto | null>(asking);
   const endRef = useRef<HTMLDivElement>(null);
   const pickerRef = useRef<HTMLInputElement>(null);
+  const mountedRef = useRef(true);
+  // An answer that came while the tab was hidden: read once it is in sight.
+  const unseenRef = useRef<number | null>(null);
+  const agentKey = agent?.key ?? null;
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, pending]);
+  }, [messages, pending, resuming]);
+
+  // The header doesn't offer the chat that is open here.
+  useEffect(() => {
+    setOpenChat({ agent: agentKey, conversationId });
+  }, [agentKey, conversationId]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    function onVisible() {
+      if (document.visibilityState !== "visible" || unseenRef.current === null) return;
+      markRead(unseenRef.current);
+      unseenRef.current = null;
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      mountedRef.current = false;
+      document.removeEventListener("visibilitychange", onVisible);
+      setOpenChat(null);
+    };
+  }, []);
+
+  /** A kept chat, as the API has it now. */
+  const load = useCallback(async (id: number) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/assistant/conversations/${id}`);
+      const json = await response.json().catch(() => null);
+      if (!response.ok || !json?.data) {
+        setError("Չհաջողվեց բացել զրույցը։ Փորձեք կրկին։");
+        return;
+      }
+      const conversation = json.data as AssistantConversationDetailDto;
+      setMessages(conversation.messages.map(toMessage));
+      setConversationId(conversation.id);
+      setDraft("");
+      rememberInUrl(conversation.id);
+      // A chat answered while the person was away goes to the top of the history.
+      setConversations((list) => {
+        const summary = { ...conversation, messages: conversation.messages.length };
+        return list.some((c) => c.id === conversation.id)
+          ? list.map((c) => (c.id === conversation.id ? summary : c))
+          : [summary, ...list];
+      });
+    } catch {
+      setError("Կապի սխալ։ Ստուգեք ինտերնետը և փորձեք կրկին։");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Reopened mid-answer: wait for the answer, then show the chat as it is kept.
+  useEffect(() => {
+    if (!resuming) return;
+    let stopped = false;
+    const started = Date.parse(resuming.startedAt);
+    const timer = setInterval(async () => {
+      try {
+        const response = await fetch("/api/admin/assistant/recent", { cache: "no-store" });
+        const json = (await response.json().catch(() => null)) as { data?: RecentChatsDto } | null;
+        const recent = json?.data;
+        if (stopped || !recent) return;
+        const still = recent.asking.some(
+          (a) =>
+            a.startedAt === resuming.startedAt && (a.agent ?? null) === agentKey && a.conversationId === resuming.conversationId,
+        );
+        if (still) return;
+        clearInterval(timer);
+        const answered =
+          resuming.conversationId ??
+          recent.chats.find((c) => (c.agent ?? null) === agentKey && Date.parse(c.answeredAt ?? "") >= started - 1000)?.id ??
+          null;
+        setResuming(null);
+        if (answered) {
+          await load(answered);
+          announceAssistantActivity();
+        } else {
+          // Not answered (an error): the question goes back to the box.
+          setDraft(resuming.question);
+          setError("Չհաջողվեց ստանալ պատասխան։ Փորձեք կրկին։");
+        }
+      } catch {
+        // The next look will tell.
+      }
+    }, RESUME_POLL_MS);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [resuming, agentKey, load]);
 
   if (!configured) {
     return (
@@ -274,32 +386,14 @@ export function AssistantChat({
   }
 
   async function openConversation(id: number) {
-    if (id === conversationId || pending) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/admin/assistant/conversations/${id}`);
-      const json = await response.json().catch(() => null);
-      if (!response.ok || !json?.data) {
-        setError("Չհաջողվեց բացել զրույցը։ Փորձեք կրկին։");
-        return;
-      }
-      const conversation = json.data as AssistantConversationDetailDto;
-      setMessages(conversation.messages.map(toMessage));
-      setConversationId(conversation.id);
-      setDraft("");
-      rememberInUrl(conversation.id);
-    } catch {
-      setError("Կապի սխալ։ Ստուգեք ինտերնետը և փորձեք կրկին։");
-    } finally {
-      setLoading(false);
-    }
+    if (id === conversationId || pending || resuming) return;
+    await load(id);
   }
 
   async function ask(question: string) {
     const text = question.trim();
     const sending = readyFiles;
-    if ((!text && sending.length === 0) || pending || limitReached || uploading) return;
+    if ((!text && sending.length === 0) || pending || resuming || limitReached || uploading) return;
 
     const next: Message[] = [...messages, { role: "user", content: text, files: sending }];
     const kept = files;
@@ -308,6 +402,8 @@ export function AssistantChat({
     setFiles([]);
     setError(null);
     setPending(true);
+    // The header shows the agent answering (another page, a phone) while this runs.
+    setTimeout(announceAssistantActivity, 600);
 
     try {
       const response = await fetch("/api/admin/assistant", {
@@ -357,6 +453,10 @@ export function AssistantChat({
       ]);
       setUsage(nextUsage);
       if (conversation) {
+        // Read here and now, unless the person left the page or the tab meanwhile: then it is new in the header.
+        if (mountedRef.current && document.visibilityState === "visible") markRead(conversation.id);
+        else if (mountedRef.current) unseenRef.current = conversation.id;
+        else announceAssistantActivity();
         // The asked chat goes to the top of the history.
         setConversations((list) => [conversation, ...list.filter((c) => c.id !== conversation.id)]);
         if (conversation.id !== conversationId) {
@@ -375,11 +475,15 @@ export function AssistantChat({
   }
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-[18rem_minmax(0,48rem)] lg:gap-6">
+    <div
+      className="grid items-start gap-4 lg:grid-cols-[18rem_minmax(0,48rem)] lg:gap-6"
+      // The chat wears its agent's colours (the assistant's green without one).
+      style={agentTintStyle(agentKey ?? "assistant")}
+    >
       <AssistantHistory
         conversations={conversations}
         activeId={conversationId}
-        busy={pending || loading}
+        busy={pending || loading || resuming !== null}
         onOpen={openConversation}
         onNew={startNew}
         onRenamed={(renamed) => setConversations((list) => list.map((c) => (c.id === renamed.id ? renamed : c)))}
@@ -390,11 +494,11 @@ export function AssistantChat({
       />
       <div className="flex min-w-0 flex-col gap-4">
         <AssistantQuotaBar usage={usage} />
-        <Card className="min-h-[24rem] space-y-4">
-          {agent ? <AgentHeader agent={agent} talking={pending} /> : null}
+        <Card className={cn(styles.stage, "min-h-[24rem] space-y-4")}>
+          <ChatHeader agent={agent} talking={pending || resuming !== null} />
           {loading ? (
             <p className="text-sm text-ink-muted">Բացվում է…</p>
-          ) : messages.length === 0 ? (
+          ) : messages.length === 0 && !resuming ? (
             agent ? (
               <div className="space-y-4">
                 <AgentBubble agent={agent}>
@@ -410,12 +514,10 @@ export function AssistantChat({
                       type="button"
                       onClick={() => ask(suggestion)}
                       disabled={limitReached}
-                      style={agentTintStyle(agent.key)}
                       className={cn(
-                        "rounded-md border px-3 py-2 text-left text-sm text-ink transition-colors disabled:opacity-50",
-                        suggestion === GET_ACQUAINTED
-                          ? "border-[var(--tint)] bg-[var(--tint-bg)] font-medium"
-                          : "border-border hover:border-[var(--tint)] hover:bg-[var(--tint-bg)]",
+                        styles.suggestion,
+                        "rounded-md border px-3 py-2 text-left text-sm text-ink disabled:opacity-50",
+                        suggestion === GET_ACQUAINTED && styles.suggestionMain,
                       )}
                     >
                       {suggestion}
@@ -425,10 +527,12 @@ export function AssistantChat({
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="flex items-center gap-2 text-ink-muted">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  <p className="text-sm">Սկսեք հարցով կամ ընտրեք օրինակներից մեկը։</p>
-                </div>
+                <AgentBubble agent={null}>
+                  <p className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 shrink-0 text-[var(--tint)]" />
+                    Սկսեք հարցով կամ ընտրեք օրինակներից մեկը։
+                  </p>
+                </AgentBubble>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {suggestions.map((suggestion) => (
                     <button
@@ -436,7 +540,10 @@ export function AssistantChat({
                       type="button"
                       onClick={() => ask(suggestion)}
                       disabled={limitReached}
-                      className="rounded-md border border-border px-3 py-2 text-left text-sm text-ink hover:border-primary hover:bg-primary-light disabled:opacity-50"
+                      className={cn(
+                        styles.suggestion,
+                        "rounded-md border px-3 py-2 text-left text-sm text-ink disabled:opacity-50",
+                      )}
                     >
                       {suggestion}
                     </button>
@@ -446,7 +553,7 @@ export function AssistantChat({
             )
           ) : (
             messages.map((message, i) =>
-              message.role === "assistant" && agent ? (
+              message.role === "assistant" ? (
                 <AgentBubble key={i} agent={agent} wide={(message.designs?.length ?? 0) > 1 || (message.videos?.length ?? 0) > 1}>
                   <Consultations actions={message.actions ?? []} />
                   {message.content ? <Formatted text={message.content} /> : null}
@@ -464,43 +571,27 @@ export function AssistantChat({
                   <AnswerActions actions={message.actions ?? []} team={team} canRequest={canRequest} />
                 </AgentBubble>
               ) : (
-                <div key={i} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
-                  <div
-                    className={cn(
-                      "max-w-[85%] rounded-lg px-4 py-3 text-sm",
-                      message.role === "user" ? "bg-primary text-primary-foreground" : "bg-surface-secondary text-ink",
-                    )}
-                  >
-                    {message.role === "user" ? (
-                      <div className="space-y-2">
-                        <MessageFiles files={message.files ?? []} canSaveToBrand={agent !== null} />
-                        {message.content ? <p className="whitespace-pre-line">{message.content}</p> : null}
-                      </div>
-                    ) : (
-                      <>
-                        <Consultations actions={message.actions ?? []} />
-                        <Formatted text={message.content} />
-                        <AnswerActions actions={message.actions ?? []} team={team} canRequest={canRequest} />
-                      </>
-                    )}
-                  </div>
-                </div>
+                <UserBubble key={i}>
+                  <MessageFiles files={message.files ?? []} canSaveToBrand={agent !== null} />
+                  {message.content ? <p className="whitespace-pre-line">{message.content}</p> : null}
+                </UserBubble>
               ),
             )
           )}
-          {pending ? (
-            agent ? (
-              <p className="flex items-center gap-2 text-sm text-ink-muted" style={agentTintStyle(agent.key)}>
-                <span className={cn(agentStyles.dots, "text-[var(--tint)]")} aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                </span>
-                {agent.persona.hy} · պատրաստում է պատասխանը…
-              </p>
-            ) : (
-              <p className="text-sm text-ink-muted">Օգնականը վերլուծում է ձեր տվյալները…</p>
-            )
+          {resuming ? (
+            <UserBubble>
+              <p className="whitespace-pre-line">{resuming.question}</p>
+            </UserBubble>
+          ) : null}
+          {pending || resuming ? (
+            <p className={cn(styles.typing, "text-sm")} role="status">
+              <span className={styles.dots} aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </span>
+              {agent ? `${agent.persona.hy} · պատրաստում է պատասխանը…` : "Օգնականը վերլուծում է ձեր տվյալները…"}
+            </p>
           ) : null}
           <div ref={endRef} />
         </Card>
@@ -511,6 +602,7 @@ export function AssistantChat({
         {/* On a phone the question box stays at the bottom of the screen while the answer scrolls. */}
         <form
           className={cn(
+            styles.composer,
             "sticky bottom-0 z-10 -mx-4 space-y-2 border-t border-border bg-background/95 px-4 pt-2 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none",
             dragging && "rounded-md outline-2 outline-offset-4 outline-primary outline-dashed",
           )}
@@ -585,11 +677,11 @@ export function AssistantChat({
                       ? `Գրեք ${agent.persona.hy}ին…`
                       : "Գրեք ձեր հարցը…"
               }
-              disabled={pending || limitReached}
+              disabled={pending || resuming !== null || limitReached}
             />
             <Button
               type="submit"
-              className="h-12 w-12 shrink-0 px-0 sm:h-10 sm:w-auto sm:px-4"
+              className={cn(styles.send, "h-12 w-12 shrink-0 px-0 sm:h-10 sm:w-auto sm:px-4")}
               disabled={pending || limitReached || uploading || (draft.trim() === "" && readyFiles.length === 0)}
               aria-label="Ուղարկել"
             >
@@ -610,34 +702,53 @@ export function AssistantChat({
   );
 }
 
-/** Who the chat is with: the agent, moving, with its role. */
-function AgentHeader({ agent, talking }: { agent: AgentDto; talking: boolean }) {
+/** Who the chat is with, on a band of its colours: the agent (or the assistant), moving, with its role. */
+function ChatHeader({ agent, talking }: { agent: AgentDto | null; talking: boolean }) {
   return (
-    <div className="-mx-4 -mt-4 mb-2 flex items-center gap-3 border-b border-border px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5" style={agentTintStyle(agent.key)}>
-      <AgentAvatar agentKey={agent.key} size={48} talking={talking} />
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-ink">
-          {agent.persona.hy} <span className="font-normal text-[var(--tint)]">· {agent.role.hy}</span>
+    <div className={cn(styles.header, "-mx-4 -mt-4 mb-2 flex items-center gap-3 px-4 py-3 sm:-mx-5 sm:-mt-5 sm:px-5")}>
+      <span className={cn(styles.headerFace, talking && styles.headerTalking)}>
+        {agent ? <AgentAvatar agentKey={agent.key} size={48} talking={talking} /> : <AssistantOrb size={48} />}
+      </span>
+      <div className="relative min-w-0">
+        <p className="text-sm font-semibold">
+          {agent ? agent.persona.hy : "AI օգնական"}{" "}
+          <span className="font-normal opacity-90">· {agent ? agent.role.hy : "Ընդհանուր հարցեր"}</span>
         </p>
-        <p className="truncate text-xs text-ink-muted">{agent.tagline}</p>
+        <p className="truncate text-xs opacity-85">
+          {talking ? "պատրաստում է պատասխանը…" : agent ? agent.tagline : "Վաճառքներ, պատվերներ, ծախսեր և շահույթ՝ ձեր թվերով"}
+        </p>
       </div>
     </div>
   );
 }
 
-/** An agent's words, with its face next to them; wide when it shows variants to choose from. */
-function AgentBubble({ agent, children, wide = false }: { agent: AgentDto; children: ReactNode; wide?: boolean }) {
+/** An answer, with the face of who gave it; wide when it shows variants to choose from. */
+function AgentBubble({ agent, children, wide = false }: { agent: AgentDto | null; children: ReactNode; wide?: boolean }) {
   return (
-    <div className="flex items-end gap-2" style={agentTintStyle(agent.key)}>
-      <AgentAvatar agentKey={agent.key} size={34} className="shrink-0" />
+    <div className={cn(styles.enter, "flex items-end gap-2")}>
+      {agent ? (
+        <AgentAvatar agentKey={agent.key} size={34} className="shrink-0" />
+      ) : (
+        <AssistantOrb size={34} className="shrink-0" />
+      )}
       <div
         className={cn(
-          "min-w-0 rounded-lg rounded-bl-sm border border-[var(--tint-soft)] bg-[var(--tint-bg)] px-4 py-3 text-sm text-ink",
+          styles.answer,
+          "min-w-0 rounded-lg rounded-bl-sm px-4 py-3 text-sm text-ink",
           wide ? "flex-1" : "max-w-[85%]",
         )}
       >
         {children}
       </div>
+    </div>
+  );
+}
+
+/** The person's question, in the chat's colours. */
+function UserBubble({ children }: { children: ReactNode }) {
+  return (
+    <div className={cn(styles.enter, "flex justify-end")}>
+      <div className={cn(styles.question, "max-w-[85%] space-y-2 rounded-lg rounded-br-sm px-4 py-3 text-sm")}>{children}</div>
     </div>
   );
 }

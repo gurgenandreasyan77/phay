@@ -45,6 +45,9 @@ class FakeAssistantClient implements AssistantClient
     /** Thrown instead of answering, like a failed API call. */
     public ?\Throwable $throw = null;
 
+    /** Runs while the owner's question is being answered (what others see meanwhile). */
+    public ?\Closure $whileAnswering = null;
+
     public function isConfigured(): bool
     {
         return $this->configured;
@@ -58,6 +61,9 @@ class FakeAssistantClient implements AssistantClient
             $this->system = $system;
             $this->messages = $messages;
             $this->toolDefinitions = $definitions;
+            if ($this->whileAnswering) {
+                ($this->whileAnswering)();
+            }
         }
 
         if ($this->throw) {

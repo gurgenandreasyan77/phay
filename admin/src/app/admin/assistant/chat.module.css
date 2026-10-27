@@ -1,0 +1,230 @@
+/*
+ * The chat in its agent's colours (--tint* from agentTintStyle on the chat):
+ * a band with the agent on top, answers on a light wash of its colour,
+ * the person's questions on its gradient, a soft glow drifting behind.
+ */
+
+.stage {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-color: var(--tint-soft);
+  background:
+    radial-gradient(70% 45% at 0% 100%, var(--tint-bg), transparent 70%),
+    radial-gradient(55% 35% at 100% 30%, var(--tint-bg), transparent 70%), var(--color-surface, #fff);
+}
+
+/* A slow glow of the agent's colour behind the messages. */
+.stage::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -20% -10% auto auto;
+  height: 22rem;
+  width: 22rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, var(--tint-soft), transparent 65%);
+  opacity: 0.7;
+  animation: drift 18s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+.header {
+  position: relative;
+  overflow: hidden;
+  color: #fff;
+  background: linear-gradient(110deg, var(--tint-from), var(--tint-to));
+}
+
+/* Light passing over the band now and then. */
+.header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.22) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: sheen 7s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.headerFace {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, #fff, var(--tint-bg));
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.35),
+    0 6px 16px -6px rgba(0, 0, 0, 0.35);
+}
+
+.headerTalking {
+  animation: glow 1.6s ease-in-out infinite;
+}
+
+.answer {
+  border: 1px solid var(--tint-soft);
+  background: linear-gradient(140deg, #fff 0%, var(--tint-bg) 100%);
+  box-shadow: 0 8px 20px -14px var(--tint-from);
+}
+
+.question {
+  color: #fff;
+  background: linear-gradient(135deg, var(--tint-from), var(--tint-to));
+  box-shadow: 0 10px 22px -14px var(--tint-to);
+}
+
+.enter {
+  animation: enter 0.35s ease-out both;
+}
+
+.suggestion {
+  border-color: var(--tint-soft);
+  background: rgba(255, 255, 255, 0.75);
+  transition:
+    border-color 0.2s,
+    background-color 0.2s,
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+
+.suggestionMain {
+  border-color: var(--tint);
+  background: linear-gradient(120deg, var(--tint-bg), #fff);
+  font-weight: 500;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .suggestion:not(:disabled):hover {
+    border-color: var(--tint);
+    background: linear-gradient(120deg, var(--tint-bg), #fff);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px -10px var(--tint-from);
+  }
+}
+
+/* "Writing…": a pill of the agent's colour with a light running through it. */
+.typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.875rem;
+  border-radius: 999px;
+  color: var(--tint);
+  background: linear-gradient(100deg, var(--tint-bg) 20%, #fff 50%, var(--tint-bg) 80%) 0 0 / 250% 100%;
+  animation: shimmer 2.2s linear infinite;
+}
+
+.dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.dots span {
+  height: 6px;
+  width: 6px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--tint-from), var(--tint-to));
+  animation: dot 1.2s ease-in-out infinite;
+}
+
+.dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.composer textarea:focus,
+.composer textarea:focus-visible {
+  border-color: var(--tint);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--tint-soft);
+}
+
+.send:not(:disabled) {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--tint-from), var(--tint-to));
+  color: #fff;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .send:not(:disabled):hover {
+    filter: brightness(1.08);
+  }
+}
+
+@keyframes drift {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(-40%, 60%) scale(1.25);
+  }
+}
+
+@keyframes sheen {
+  0%,
+  70% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px rgba(255, 255, 255, 0.35),
+      0 0 0 0 rgba(255, 255, 255, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(255, 255, 255, 0.5),
+      0 0 0 9px rgba(255, 255, 255, 0);
+  }
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -250% 0;
+  }
+}
+
+@keyframes dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage::before,
+  .header::after,
+  .headerTalking,
+  .enter,
+  .typing,
+  .dots span {
+    animation: none;
+  }
+
+  .header::after {
+    display: none;
+  }
+}

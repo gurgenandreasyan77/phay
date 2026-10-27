@@ -2,32 +2,31 @@ import { useId, type CSSProperties, type ReactElement } from "react";
 import { cn } from "@/ui";
 import styles from "./agents.module.css";
 
-/** Each agent's colour: its shirt and accents, a soft glow and a light wash. */
-export type AgentTint = { tint: string; soft: string; bg: string };
+/**
+ * Each agent's colour: its shirt and accents, a soft glow and a light wash;
+ * `from`/`to` are the bolder gradient of its chat (white text stays readable on both).
+ */
+export type AgentTint = { tint: string; soft: string; bg: string; from: string; to: string };
 
 const TINTS: Record<string, AgentTint> = {
-  analyst: { tint: "#3f6f62", soft: "rgba(63, 111, 98, 0.22)", bg: "#eaf2ee" },
-  accountant: {
-    tint: "#527589",
-    soft: "rgba(82, 117, 137, 0.22)",
-    bg: "#e7eff4",
-  },
-  tables: { tint: "#4f7a4a", soft: "rgba(79, 122, 74, 0.22)", bg: "#ebf3e8" },
-  hr: { tint: "#7a5aa6", soft: "rgba(122, 90, 166, 0.22)", bg: "#f1ecf7" },
-  content: { tint: "#b4507a", soft: "rgba(180, 80, 122, 0.2)", bg: "#f7e9ef" },
-  reels: { tint: "#b47a2b", soft: "rgba(185, 130, 50, 0.22)", bg: "#f8efe0" },
-  editor: { tint: "#5a6788", soft: "rgba(90, 103, 136, 0.22)", bg: "#ecedf4" },
-  designer: {
-    tint: "#3d7f86",
-    soft: "rgba(61, 127, 134, 0.22)",
-    bg: "#e4f1f2",
-  },
+  analyst: { tint: "#3f6f62", soft: "rgba(63, 111, 98, 0.22)", bg: "#eaf2ee", from: "#3f6f62", to: "#2b8370" },
+  accountant: { tint: "#527589", soft: "rgba(82, 117, 137, 0.22)", bg: "#e7eff4", from: "#527589", to: "#3b78b8" },
+  tables: { tint: "#4f7a4a", soft: "rgba(79, 122, 74, 0.22)", bg: "#ebf3e8", from: "#4f7a4a", to: "#557f25" },
+  hr: { tint: "#7a5aa6", soft: "rgba(122, 90, 166, 0.22)", bg: "#f1ecf7", from: "#7a5aa6", to: "#9c55c9" },
+  content: { tint: "#b4507a", soft: "rgba(180, 80, 122, 0.2)", bg: "#f7e9ef", from: "#b4507a", to: "#c94078" },
+  reels: { tint: "#b47a2b", soft: "rgba(185, 130, 50, 0.22)", bg: "#f8efe0", from: "#9a6420", to: "#c75a0c" },
+  editor: { tint: "#5a6788", soft: "rgba(90, 103, 136, 0.22)", bg: "#ecedf4", from: "#5a6788", to: "#5468c8" },
+  designer: { tint: "#3d7f86", soft: "rgba(61, 127, 134, 0.22)", bg: "#e4f1f2", from: "#3d7f86", to: "#13808a" },
+  // The general assistant: the orb's green.
+  assistant: { tint: "#3f6f62", soft: "rgba(63, 111, 98, 0.2)", bg: "#e9f3ee", from: "#3f6f62", to: "#2d7f5e" },
 };
 
 const FALLBACK: AgentTint = {
   tint: "#5d6a64",
   soft: "rgba(93, 106, 100, 0.2)",
   bg: "#eef0ee",
+  from: "#5d6a64",
+  to: "#4b7a6c",
 };
 
 export function agentTint(key: string): AgentTint {
@@ -41,6 +40,8 @@ export function agentTintStyle(key: string): CSSProperties {
     "--tint": t.tint,
     "--tint-soft": t.soft,
     "--tint-bg": t.bg,
+    "--tint-from": t.from,
+    "--tint-to": t.to,
   } as CSSProperties;
 }
 
