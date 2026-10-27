@@ -319,8 +319,34 @@ export type TableReshapeDto = {
   };
 
 /** A card under an answer of the AI assistant: a reshape to apply, or a file to download. */
+/** A change of the tables an AI agent prepared (the API's TableChanges), shown as a card in the chat. */
+export type TableChangeDto = {
+  id: number;
+  kind: "create_table" | "edit_table" | "delete_tables" | "add_rows" | "update_rows" | "delete_rows";
+  status: "planned" | "applied" | "undone" | "discarded";
+  section: DataTableSection;
+  /** «Ավելացնել 2 տող «Վաճառքներ»-ում» */
+  title: string;
+  table: { id: number; name: string; archived: boolean } | null;
+  tables: { id: number; name: string; rows: number }[] | null;
+  /** What changes in the table itself, a line each. */
+  changes: string[];
+  columns: { key: string; label: string; type: AdminDataColumnDto["type"] }[];
+  /** Rows added, edited (with the old values and the changed keys) or deleted; the first ones. */
+  rows: { id?: number; values: Record<string, DataCellValue>; before?: Record<string, DataCellValue>; changed?: string[] }[];
+  rowsTotal: number;
+  /** Planned but the tables changed since, and why. */
+  stale: string | null;
+  undoable: boolean;
+  /** Applied: why it can't be undone any more, null when it can. */
+  undoBlocked: string | null;
+  appliedAt: string | null;
+  undoneAt: string | null;
+};
+
 export type AssistantActionDto =
   | { type: "reshape"; id: number }
+  | { type: "change"; id: number }
   | {
       type: "download";
       kind: "tables" | "finance" | "expenses";

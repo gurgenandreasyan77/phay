@@ -7,6 +7,7 @@ use App\Agents\Team\Analyst;
 use App\Agents\Team\ContentCreator;
 use App\Agents\Team\PhotoDesigner;
 use App\Agents\Team\ReelMaker;
+use App\Agents\Team\TableKeeper;
 use App\Agents\Team\VideoEditor;
 
 /**
@@ -23,6 +24,7 @@ final class AgentCatalog
     private const AGENTS = [
         Analyst::class,
         Accountant::class,
+        TableKeeper::class,
         ContentCreator::class,
         ReelMaker::class,
         VideoEditor::class,
