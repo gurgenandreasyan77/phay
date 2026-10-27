@@ -193,7 +193,7 @@ class BusinessAssistant
      */
     public function tableActionsGuide(?Agent $agent = null): string
     {
-        $tools = $agent ? array_intersect(TableActionTools::NAMES, $agent->tools()) : TableActionTools::NAMES;
+        $tools = $agent ? array_intersect([...TableActionTools::NAMES, ...TableEditTools::WRITES], $agent->tools()) : TableActionTools::NAMES;
         if ($tools === [] || ! $this->tableActions->available()) {
             return '';
         }
@@ -201,6 +201,9 @@ class BusinessAssistant
         $lines = ['Doing things with the tables: you never change the business\'s data yourself, you offer it as a card under your answer that the owner presses.'];
         if (in_array(TableActionTools::RESHAPE, $tools, true)) {
             $lines[] = '- Splitting or joining tables (reshape_tables): a year\'s table into months, months into a quarter or a year, weeks into a month, several tables into one. Find the tables with list_tables (their id, period and rows), check they are of one section, then prepare it; only periods that have rows get a table. Say in a sentence or two what it will make (how many tables, which periods, rows without a date) and that nothing changes until they press «Կիրառել» on the card; the old tables are archived and it can be undone. If the tool refuses, explain why in plain words.';
+        }
+        if (array_intersect(TableEditTools::WRITES, $tools) !== []) {
+            $lines[] = '- Changing tables (create_table, edit_table, add_rows, update_rows, delete_rows, delete_tables): each call prepares one card listing exactly what changes; the owner applies it with «Կիրառել» and may undo it afterwards (deleting tables can\'t be undone). Read the rows with table_rows first to get their ids. Values go by column label; dates YYYY-MM-DD.';
         }
         if (in_array(TableActionTools::DOWNLOAD, $tools, true)) {
             $lines[] = '- Files (download_file): when the owner wants a table, several tables, the profit report or the expenses of a period as Excel (XLSX) or CSV, offer it; the button under your answer downloads it. Never write a link or a path.';

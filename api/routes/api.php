@@ -55,6 +55,7 @@ use App\Http\Controllers\Api\V1\Admin\SubscriptionController as AdminSubscriptio
 use App\Http\Controllers\Api\V1\Admin\SupportController as AdminSupportController;
 use App\Http\Controllers\Api\V1\Admin\TableAnalyticsController as AdminTableAnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\TableReshapeController as AdminTableReshapeController;
+use App\Http\Controllers\Api\V1\Admin\TableChangeController as AdminTableChangeController;
 use App\Http\Controllers\Api\V1\Admin\TaskPageController as AdminTaskPageController;
 use App\Http\Controllers\Api\V1\Admin\TenantAgentController as AdminTenantAgentController;
 use App\Http\Controllers\Api\V1\Admin\TenantController as AdminTenantController;
@@ -420,6 +421,11 @@ Route::prefix('v1')->group(function () {
                 Route::get('/table-reshapes/{tableReshape}', [AdminTableReshapeController::class, 'show']);
                 Route::post('/table-reshapes/{tableReshape}/apply', [AdminTableReshapeController::class, 'apply'])->middleware('throttle:20,1');
                 Route::post('/table-reshapes/{tableReshape}/undo', [AdminTableReshapeController::class, 'undo'])->middleware('throttle:20,1');
+                // Changes of the tables an AI agent prepared: the owner applies, discards or undoes them.
+                Route::get('/table-changes/{tableChange}', [AdminTableChangeController::class, 'show']);
+                Route::post('/table-changes/{tableChange}/apply', [AdminTableChangeController::class, 'apply'])->middleware('throttle:30,1');
+                Route::post('/table-changes/{tableChange}/undo', [AdminTableChangeController::class, 'undo'])->middleware('throttle:30,1');
+                Route::post('/table-changes/{tableChange}/discard', [AdminTableChangeController::class, 'discard'])->middleware('throttle:30,1');
 
                 Route::get('/products', [AdminProductController::class, 'index']);
                 Route::post('/products', [AdminProductController::class, 'store']);

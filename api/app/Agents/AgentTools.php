@@ -4,6 +4,7 @@ namespace App\Agents;
 
 use App\Assistant\Attachments;
 use App\Assistant\BusinessTools;
+use App\Assistant\TableEditTools;
 use App\Assistant\ToolOutput;
 use App\Assistant\ToolSet;
 use App\Media\DesignStudio;
@@ -27,7 +28,8 @@ use InvalidArgumentException;
  * later conversations (view_brand_assets). Every agent can open a link
  * the owner sends (read_link); the designers also make pictures
  * (render_designs, get_design), the video editors cut the owner's clips
- * (edit_video). Everything stays inside the current business.
+ * (edit_video), the table agent prepares changes of the tables
+ * (TableEditTools). Everything stays inside the current business.
  */
 class AgentTools implements ToolSet
 {
@@ -51,6 +53,7 @@ class AgentTools implements ToolSet
         private readonly DesignStudio $studio,
         private readonly LinkReader $links,
         private readonly VideoStudio $videos,
+        private readonly TableEditTools $tableEdits,
     ) {}
 
     /** Counts renders, links and videos afresh, and forgets the pictures of an earlier question. */
@@ -87,7 +90,7 @@ class AgentTools implements ToolSet
     {
         $allowed = $this->agent()->tools();
         $shared = array_values(array_filter(
-            $this->tools->definitions(),
+            [...$this->tools->definitions(), ...($this->tableEdits->available() ? $this->tableEdits->definitions() : [])],
             fn (array $definition) => in_array($definition['name'], $allowed, true),
         ));
 
@@ -211,6 +214,10 @@ class AgentTools implements ToolSet
 
         if (! in_array($name, $this->agent()->tools(), true)) {
             throw new InvalidArgumentException("Unknown tool [{$name}].");
+        }
+
+        if (in_array($name, TableEditTools::NAMES, true)) {
+            return $this->tableEdits->run($name, $input);
         }
 
         return $this->tools->run($name, $input);

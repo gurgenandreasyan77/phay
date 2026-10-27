@@ -9,6 +9,10 @@ import styles from "./agents.module.css";
 /** Every lane is at least this wide, so a swimmer never touches the ropes. */
 const LANE = 128;
 
+/** A bigger team swims in narrower lanes with smaller swimmers, so all of them fit on a laptop screen. */
+const CROWD = 7;
+const NARROW_LANE = 100;
+
 /** How each swimmer moves in its lane, varied by its place so they never move in step. */
 function swim(index: number): CSSProperties {
   return {
@@ -44,6 +48,8 @@ export function AgentPool({
   const active = agents.filter((a) => a.active);
   const waiting = agents.filter((a) => !a.active);
   const swimmers = [null, ...active];
+  const crowded = swimmers.length > CROWD;
+  const swimmerSize = crowded ? 72 : 88;
 
   return (
     <section className={styles.pool} aria-label="Ձեր AI թիմը">
@@ -109,7 +115,15 @@ export function AgentPool({
 
       {/* Wide screens: the team swims in the pool, each in a lane of its own between the ropes. */}
       <div className="hidden overflow-x-auto overflow-y-hidden px-5 pt-4 pb-5 xl:block">
-        <ul className={styles.lanes} style={{ gridTemplateColumns: `repeat(${swimmers.length}, minmax(${LANE}px, 1fr))` }}>
+        <ul
+          className={styles.lanes}
+          style={
+            {
+              gridTemplateColumns: `repeat(${swimmers.length}, minmax(${crowded ? NARROW_LANE : LANE}px, 1fr))`,
+              ...(crowded ? { "--water": "90px" } : {}),
+            } as CSSProperties
+          }
+        >
           {swimmers.map((agent, index) => {
             const key = agent?.key ?? null;
             const isSelected = selected === key;
@@ -128,7 +142,11 @@ export function AgentPool({
                   </span>
                   <span className={cn(styles.swimmer, "relative block")} style={swim(index)}>
                     <span className={styles.halo} />
-                    {agent ? <AgentAvatar agentKey={agent.key} size={88} delay={-index * 0.7} /> : <AssistantOrb size={88} />}
+                    {agent ? (
+                      <AgentAvatar agentKey={agent.key} size={swimmerSize} delay={-index * 0.7} />
+                    ) : (
+                      <AssistantOrb size={swimmerSize} />
+                    )}
                   </span>
                   <span className={styles.ripple} aria-hidden="true" />
                   <span className={cn(styles.laneName, "mt-2 text-sm leading-tight font-semibold")}>

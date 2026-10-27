@@ -12,6 +12,7 @@ const TINTS: Record<string, AgentTint> = {
     soft: "rgba(82, 117, 137, 0.22)",
     bg: "#e7eff4",
   },
+  tables: { tint: "#4f7a4a", soft: "rgba(79, 122, 74, 0.22)", bg: "#ebf3e8" },
   content: { tint: "#b4507a", soft: "rgba(180, 80, 122, 0.2)", bg: "#f7e9ef" },
   reels: { tint: "#b47a2b", soft: "rgba(185, 130, 50, 0.22)", bg: "#f8efe0" },
   editor: { tint: "#5a6788", soft: "rgba(90, 103, 136, 0.22)", bg: "#ecedf4" },
@@ -108,6 +109,33 @@ const LOOKS: Record<string, Look> = {
             />
           )),
         )}
+      </g>
+    ),
+  },
+  // Sona: a high ponytail and a hairband; a small table with a tick.
+  tables: {
+    skin: "#efcdb2",
+    hair: "#3b2b22",
+    front: LONG_FRONT,
+    extra: (tint) => (
+      <>
+        <path d="M78 30c9-3 15 2 15 10 0 9-4 15-9 19 1-8-1-15-6-19z" fill="#3b2b22" />
+        <path d="M38 43c6-11 15-16 24-16s18 5 22 14" fill="none" stroke={tint} strokeWidth="3.2" strokeLinecap="round" />
+      </>
+    ),
+    badge: (tint) => (
+      <g>
+        <rect x="84" y="87" width="20" height="17" rx="2.5" fill={tint} />
+        <path d="M84 92.5h20M84 98h20M91 87v17" stroke="#fff" strokeOpacity="0.7" strokeWidth="1.1" />
+        <circle cx="101" cy="85.5" r="4.6" fill="#fff" stroke={tint} strokeWidth="1.2" />
+        <path
+          d="m98.8 85.6 1.5 1.5 2.9-3"
+          fill="none"
+          stroke={tint}
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </g>
     ),
   },

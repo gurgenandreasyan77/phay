@@ -4,11 +4,12 @@ import { Download, FileSpreadsheet } from "lucide-react";
 import type { AssistantActionDto } from "@/lib/adminApi";
 import { buttonClasses } from "@/ui";
 import { actionDownloadHref } from "../_components/downloads/downloads";
+import { ChangeCard } from "../_components/tables/ChangeCard";
 import { ReshapeCard } from "../_components/tables/Reshape";
 
 /**
- * Cards under an answer: a reshape of tables the AI prepared (applied only
- * with its button) and files to download. The AI never changes the tables
+ * Cards under an answer: a reshape or a change of tables the AI prepared
+ * (applied only with its button) and files to download. The AI never changes the tables
  * itself.
  */
 export function AnswerActions({ actions }: { actions: AssistantActionDto[] }) {
@@ -19,6 +20,8 @@ export function AnswerActions({ actions }: { actions: AssistantActionDto[] }) {
       {actions.map((action, i) =>
         action.type === "reshape" ? (
           <ReshapeCard key={`r-${action.id}`} id={action.id} />
+        ) : action.type === "change" ? (
+          <ChangeCard key={`c-${action.id}`} id={action.id} />
         ) : (
           <div key={`d-${i}`} className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface p-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-success-light text-success">

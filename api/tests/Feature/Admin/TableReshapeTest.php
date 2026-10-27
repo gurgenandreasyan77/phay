@@ -220,12 +220,12 @@ class TableReshapeTest extends TestCase
             ->assertJsonPath('data.conflicts.0.name', 'Ապրիլ 2026');
     }
 
-    public function test_the_accountant_only_plans_and_the_owner_applies_from_the_card(): void
+    public function test_the_table_agent_only_plans_and_the_owner_applies_from_the_card(): void
     {
         $client = new FakeAssistantClient;
         $this->app->instance(AssistantClient::class, $client);
         Sanctum::actingAs(User::factory()->superAdmin()->create());
-        $this->patchJson("/api/v1/admin/tenants/{$this->shop->id}/agents/accountant", ['active' => true])->assertOk();
+        $this->patchJson("/api/v1/admin/tenants/{$this->shop->id}/agents/tables", ['active' => true])->assertOk();
         Sanctum::actingAs($this->owner);
         $year = $this->year();
 
@@ -233,7 +233,7 @@ class TableReshapeTest extends TestCase
             ['reshape_tables', ['tables' => [$year->id], 'period' => 'month']],
             ['download_file', ['what' => 'tables', 'tables' => [$year->id]]],
         ];
-        $reply = $this->postJson('/api/v1/admin/assistant', ['question' => 'Բաժանիր ըստ ամիսների', 'agent' => 'accountant'])
+        $reply = $this->postJson('/api/v1/admin/assistant', ['question' => 'Բաժանիր ըստ ամիսների', 'agent' => 'tables'])
             ->assertOk()
             ->assertJsonCount(2, 'data.actions')
             ->assertJsonPath('data.actions.0.type', 'reshape')
