@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ExternalLink, MapPin, Phone, Plus, ShoppingBag, Trash2, TreePalm, UserSearch, Wrench } from "lucide-react";
+import { ExternalLink, MapPin, Phone, Plus, ShoppingBag, Trash2, TreePalm, TriangleAlert, UserSearch, Wrench } from "lucide-react";
 import type {
   AbsenceDto,
   AdminDataTableDto,
@@ -415,11 +415,46 @@ function TeamDay({ away, interviews }: { away: AbsenceDto[]; interviews: Calenda
   );
 }
 
+type Section = "orders" | "sales";
+
+const ADDING: Record<Section, { label: string; hint: string; noun: string }> = {
+  orders: { label: "Պատվեր", hint: "ծառայություն", noun: "Պատվերը" },
+  sales: { label: "Վաճառք", hint: "ապրանք", noun: "Վաճառքը" },
+};
+
+/** A performer who isn't free then (PerformerAvailability on the API). */
+type Conflict = { kind: "away" | "busy"; employee: string; message: string; free: string[] };
+
 /**
- * A new row of the chosen table, on this day: the table's own fields. When
- * the chosen table is kept for another day, week, month, quarter or year,
- * the API puts the row in the table of the date's period, made like the
- * chosen one when there is none.
+ * The table of the section a new row of this day goes to: the one used
+ * last time when it holds the day (or any dates), else the table of the
+ * day's period, else the latest period's table (the API then makes the
+ * day's one, like it), else the first.
+ */
+function currentTable(inSection: AdminDataTableDto[], day: string, rememberedId?: number): AdminDataTableDto {
+  const remembered = inSection.find((t) => t.id === rememberedId);
+  if (remembered && (!remembered.periodInfo || contains(remembered.periodInfo, day))) return remembered;
+  const ofDay = inSection.filter((t) => t.periodInfo && contains(t.periodInfo, day));
+  const latest = inSection
+    .filter((t) => t.periodInfo)
+    .sort((a, b) => (b.periodInfo?.start ?? "").localeCompare(a.periodInfo?.start ?? ""))[0];
+  return (
+    ofDay.find((t) => t.periodInfo?.kind === remembered?.periodInfo?.kind) ??
+    ofDay[0] ??
+    (remembered?.periodInfo ? undefined : remembered) ??
+    inSection.find((t) => !t.periodInfo) ??
+    latest ??
+    inSection[0]
+  );
+}
+
+/**
+ * A new order or sale on this day. With tables of both, it asks which one
+ * first; then shows the fields of that section's current table. When the
+ * date is out of the table's period, the API puts the row in the table of
+ * the date's period, made like this one when there is none. An empty order
+ * number gets the next one; a performer who is away or on another order
+ * then is told while typing, and saving asks to confirm.
  */
 function NewOrderForm({
   day,
@@ -430,41 +465,83 @@ function NewOrderForm({
   tables: AdminDataTableDto[];
   onDone: (saved: boolean) => void;
 }) {
-  const [tableId, setTableId] = useState<number>(() => {
-    const remembered = tables.find((t) => t.id === lastTable(tables));
-    // The table of this day's period, like the one used last time if there are several.
-    const ofDay = tables.filter((t) => t.periodInfo && contains(t.periodInfo, day));
-    return (
-      ofDay.find((t) => t.periodInfo?.kind === remembered?.periodInfo?.kind)?.id ??
-      ofDay[0]?.id ??
-      remembered?.id ??
-      tables[0].id
-    );
-  });
-  const table = tables.find((t) => t.id === tableId) ?? tables[0];
-  const [draft, setDraft] = useState<Draft>(() => toDraft(table, undefined, day));
+  const sections = (["orders", "sales"] as const).filter((s) => tables.some((t) => t.section === s));
+  const [section, setSection] = useState<Section | null>(() => (sections.length === 1 ? sections[0] : null));
+  const [tableId, setTableId] = useState<number | null>(() =>
+    sections.length === 1 ? currentTable(tables.filter((t) => t.section === sections[0]), day, lastTable(tables)).id : null,
+  );
+  const inSection = tables.filter((t) => t.section === section);
+  const table = tables.find((t) => t.id === tableId) ?? null;
+  const [draft, setDraft] = useState<Draft>(() => (table ? toDraft(table, undefined, day) : {}));
+  const [choosing, setChoosing] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [conflicts, setConflicts] = useState<Conflict[]>([]);
+  const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
 
+  // What the performer and the number depend on: who, when, how long.
+  const watched = table
+    ? table.columns
+        .filter((c) => c.key === table.dateColumn || ["performer", "time", "duration", "order_number"].includes(c.role ?? ""))
+        .map((c) => draft[c.key] ?? "")
+        .join("|")
+    : "";
+  const checks = table !== null && table.columns.some((c) => c.role === "performer" || c.role === "order_number");
+
+  useEffect(() => {
+    if (!table || !checks) return;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch("/api/admin/calendar/rows/check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ table: table.id, values: fromDraft(table, draft) }),
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const body = (await response.json()) as { data: { conflicts: Conflict[]; orderNumber: string | null } };
+        setConflicts(body.data.conflicts);
+        setOrderNumber(body.data.orderNumber);
+      } catch {
+        // Only a hint: saving checks again.
+      }
+    }, 350);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only who, when and how long matter
+  }, [table?.id, watched, checks]);
+
+  function chooseSection(next: Section) {
+    const chosen = currentTable(tables.filter((t) => t.section === next), day, lastTable(tables));
+    setSection(next);
+    pickTable(chosen);
+  }
+
+  function pickTable(next: AdminDataTableDto) {
+    setTableId(next.id);
+    setDraft(toDraft(next, undefined, day));
+    setErrors({});
+    setConflicts([]);
+    setOrderNumber(null);
+    setChoosing(false);
+  }
+
   // Where the row will go, by the period of the date typed in.
-  const date = table.dateColumn ? (draft[table.dateColumn] ?? "").slice(0, 10) : "";
-  const period = table.periodInfo;
+  const date = table?.dateColumn ? (draft[table.dateColumn] ?? "").slice(0, 10) : "";
+  const period = table?.periodInfo ?? null;
   const elsewhere = isDate(date) && period !== null && !contains(period, date);
   const target =
     elsewhere && period
-      ? tables.find((t) => t.periodInfo?.kind === period.kind && contains(t.periodInfo, date))
+      ? inSection.find((t) => t.periodInfo?.kind === period.kind && contains(t.periodInfo, date))
       : undefined;
-
-  function chooseTable(id: number) {
-    const next = tables.find((t) => t.id === id);
-    if (!next) return;
-    setTableId(id);
-    setDraft(toDraft(next, undefined, day));
-    setErrors({});
-  }
+  const noun = section ? ADDING[section].noun : "";
 
   async function save() {
+    if (!table) return;
     setPending(true);
     setErrors({});
     setFailed(false);
@@ -472,8 +549,14 @@ function NewOrderForm({
       const response = await fetch("/api/admin/calendar/rows", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ table: table.id, values: fromDraft(table, draft) }),
+        // The owner saw who isn't free and saves anyway.
+        body: JSON.stringify({ table: table.id, values: fromDraft(table, draft), anyway: conflicts.length > 0 }),
       });
+      if (response.status === 409) {
+        const body = (await response.json().catch(() => null)) as { conflicts?: Conflict[] } | null;
+        setConflicts(body?.conflicts ?? []);
+        return;
+      }
       if (response.status === 422) {
         setErrors(validationErrors(await response.json().catch(() => null)));
         return;
@@ -503,64 +586,133 @@ function NewOrderForm({
         save();
       }}
     >
-      {tables.length > 1 ? (
-        <label className="block space-y-1">
-          <FieldLabel>Աղյուսակ</FieldLabel>
-          <Select value={table.id} onChange={(e) => chooseTable(Number(e.target.value))}>
-            {(["orders", "sales"] as const).map((section) => {
-              const inSection = tables.filter((t) => t.section === section);
-              if (inSection.length === 0) return null;
+      {sections.length > 1 ? (
+        <div className="space-y-1.5">
+          <FieldLabel>Ի՞նչ ենք ավելացնում</FieldLabel>
+          <div role="radiogroup" aria-label="Ի՞նչ ենք ավելացնում" className="grid grid-cols-2 gap-2">
+            {sections.map((s) => {
+              const Icon = s === "orders" ? Wrench : ShoppingBag;
+              const active = section === s;
               return (
-                <optgroup key={section} label={section === "orders" ? "Պատվերներ (ծառայություններ)" : "Վաճառքներ"}>
-                  {inSection.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                      {t.periodInfo && t.periodInfo.label !== t.name ? ` · ${t.periodInfo.label}` : ""}
-                    </option>
-                  ))}
-                </optgroup>
+                <button
+                  key={s}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => chooseSection(s)}
+                  className={cn(
+                    "flex items-center gap-2 rounded-md border px-3 py-2 text-left transition-colors",
+                    active
+                      ? s === "orders"
+                        ? "border-primary bg-primary-light text-primary"
+                        : "border-warning bg-warning-light text-warning"
+                      : "border-border bg-surface text-ink hover:bg-surface-secondary",
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold">{ADDING[s].label}</span>
+                    <span className="block text-xs text-ink-muted">{ADDING[s].hint}</span>
+                  </span>
+                </button>
               );
             })}
-          </Select>
-        </label>
-      ) : (
-        <p className="text-xs text-ink-muted">Աղյուսակ՝ {table.name}</p>
-      )}
-
-      {table.columns.map((column) => (
-        <label key={column.key} className="block space-y-1">
-          <FieldLabel>
-            {column.label}
-            {column.required || column.key === table.dateColumn ? <span className="text-danger"> *</span> : null}
-          </FieldLabel>
-          <CellInput
-            column={column}
-            value={draft[column.key] ?? ""}
-            onChange={(value) => setDraft((d) => ({ ...d, [column.key]: value }))}
-          />
-          {errors[`values.${column.key}`] ? <p className="text-xs text-danger">{errors[`values.${column.key}`]}</p> : null}
-        </label>
-      ))}
-
-      {isDate(date) ? <p className="text-xs text-ink-faint">Կգրանցվի՝ {filingLabel(date)}</p> : null}
-
-      {elsewhere && period ? (
-        <p className="rounded-md bg-surface px-3 py-2 text-xs text-ink-muted">
-          {target
-            ? `Ամսաթիվը «${table.name}» աղյուսակի ժամանակահատվածից (${period.label}) դուրս է։ ${table.section === "sales" ? "Վաճառքը" : "Պատվերը"} կավելացվի «${target.name}» աղյուսակում։`
-            : `«${periodOf(period.kind, date).label}» ժամանակահատվածի համար աղյուսակ դեռ չկա։ Կստեղծվի նորը՝ «${table.name}»-ի սյունակներով, և ${table.section === "sales" ? "վաճառքը" : "պատվերը"} կավելացվի այնտեղ։`}
-        </p>
+          </div>
+        </div>
       ) : null}
 
-      <div className="flex items-center gap-2">
-        <Button type="submit" size="sm" disabled={pending}>
-          Պահպանել
-        </Button>
-        <button type="button" className={buttonClasses("ghost", "sm")} onClick={() => onDone(false)} disabled={pending}>
-          Չեղարկել
-        </button>
-        {failed ? <span className="text-xs text-danger">Չհաջողվեց պահպանել։</span> : null}
-      </div>
+      {table ? (
+        <>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-muted">
+            <span>
+              Աղյուսակ՝ <span className="font-medium text-ink">{table.name}</span>
+              {table.periodInfo && table.periodInfo.label !== table.name ? ` · ${table.periodInfo.label}` : ""}
+            </span>
+            {inSection.length > 1 && !choosing ? (
+              <button type="button" className="font-medium text-primary underline" onClick={() => setChoosing(true)}>
+                Փոխել
+              </button>
+            ) : null}
+          </div>
+          {choosing ? (
+            <Select
+              aria-label="Աղյուսակ"
+              value={table.id}
+              onChange={(e) => {
+                const next = inSection.find((t) => t.id === Number(e.target.value));
+                if (next) pickTable(next);
+              }}
+            >
+              {inSection.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                  {t.periodInfo && t.periodInfo.label !== t.name ? ` · ${t.periodInfo.label}` : ""}
+                </option>
+              ))}
+            </Select>
+          ) : null}
+
+          {table.columns.map((column) => (
+            <label key={column.key} className="block space-y-1">
+              <FieldLabel>
+                {column.label}
+                {(column.required && column.role !== "order_number") || column.key === table.dateColumn ? (
+                  <span className="text-danger"> *</span>
+                ) : null}
+              </FieldLabel>
+              <CellInput
+                column={column}
+                section={table.section}
+                value={draft[column.key] ?? ""}
+                onChange={(value) => setDraft((d) => ({ ...d, [column.key]: value }))}
+                placeholder={column.role === "order_number" ? `Ինքնաշխատ${orderNumber ? `՝ ${orderNumber}` : ""}` : undefined}
+              />
+              {column.role === "order_number" && !(draft[column.key] ?? "") ? (
+                <p className="text-xs text-ink-faint">Դատարկ թողնելիս համարը կտրվի ինքնաշխատ։</p>
+              ) : null}
+              {errors[`values.${column.key}`] ? <p className="text-xs text-danger">{errors[`values.${column.key}`]}</p> : null}
+            </label>
+          ))}
+
+          {isDate(date) ? <p className="text-xs text-ink-faint">Կգրանցվի՝ {filingLabel(date)}</p> : null}
+
+          {elsewhere && period ? (
+            <p className="rounded-md bg-surface px-3 py-2 text-xs text-ink-muted">
+              {target
+                ? `Ամսաթիվը «${table.name}» աղյուսակի ժամանակահատվածից (${period.label}) դուրս է։ ${noun} կավելացվի «${target.name}» աղյուսակում։`
+                : `«${periodOf(period.kind, date).label}» ժամանակահատվածի համար աղյուսակ դեռ չկա։ Կստեղծվի նորը՝ «${table.name}»-ի սյունակներով, և ${noun.toLowerCase()} կավելացվի այնտեղ։`}
+            </p>
+          ) : null}
+
+          {conflicts.length > 0 ? (
+            <div role="alert" className="space-y-1 rounded-md border border-warning/40 bg-warning-light px-3 py-2 text-sm text-ink">
+              {conflicts.map((c) => (
+                <p key={c.message} className="flex items-start gap-2">
+                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+                  <span>{c.message}</span>
+                </p>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="submit" size="sm" variant={conflicts.length > 0 ? "secondary" : "primary"} disabled={pending}>
+              {conflicts.length > 0 ? "Պահպանել, միևնույն է" : "Պահպանել"}
+            </Button>
+            <button type="button" className={buttonClasses("ghost", "sm")} onClick={() => onDone(false)} disabled={pending}>
+              Չեղարկել
+            </button>
+            {failed ? <span className="text-xs text-danger">Չհաջողվեց պահպանել։</span> : null}
+          </div>
+        </>
+      ) : (
+        <div className="flex items-center gap-2">
+          <p className="flex-1 text-xs text-ink-muted">Ընտրեք՝ պատվեր, թե վաճառք, և կբացվեն այդ աղյուսակի դաշտերը։</p>
+          <button type="button" className={buttonClasses("ghost", "sm")} onClick={() => onDone(false)}>
+            Չեղարկել
+          </button>
+        </div>
+      )}
     </form>
   );
 }
