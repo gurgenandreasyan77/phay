@@ -6,20 +6,16 @@ import { cn } from "@/ui";
 import { AgentAvatar, AssistantOrb, agentTintStyle } from "./AgentAvatar";
 import styles from "./agents.module.css";
 
-/** The pool keeps at least this much room for each swimmer, so they never cross. */
-const LANE = 132;
+/** Every lane is at least this wide, so a swimmer never touches the ropes. */
+const LANE = 128;
 
-/** Where each swimmer lives in the pool and how it moves, varied by its place. */
-function place(index: number, count: number): CSSProperties {
-  const step = 100 / count;
-  const x = step * index + step / 2;
+/** How each swimmer moves in its lane, varied by its place so they never move in step. */
+function swim(index: number): CSSProperties {
   return {
-    "--x": `calc(${x}% - 52px)`,
-    "--y": index % 2 === 0 ? "12%" : "20%",
-    "--dx": `${index % 2 === 0 ? 8 : -8}px`,
-    "--dy": `${4 + (index % 3) * 2}px`,
-    "--t": `${13 + ((index * 5) % 7)}s`,
-    "--d": `${-index * 2.3}s`,
+    "--dx": `${index % 2 === 0 ? 7 : -7}px`,
+    "--dy": `${3 + (index % 3)}px`,
+    "--t": `${11 + ((index * 5) % 6)}s`,
+    "--d": `${-index * 1.9}s`,
   } as CSSProperties;
 }
 
@@ -111,35 +107,41 @@ export function AgentPool({
         })}
       </ul>
 
-      {/* Wide screens: the team swims in its pool, each in a lane of its own. */}
-      <div className="hidden overflow-x-auto overflow-y-hidden xl:block">
-        <div className="relative h-52" style={{ minWidth: `${swimmers.length * LANE}px` }}>
+      {/* Wide screens: the team swims in the pool, each in a lane of its own between the ropes. */}
+      <div className="hidden overflow-x-auto overflow-y-hidden px-5 pt-4 pb-5 xl:block">
+        <ul className={styles.lanes} style={{ gridTemplateColumns: `repeat(${swimmers.length}, minmax(${LANE}px, 1fr))` }}>
           {swimmers.map((agent, index) => {
             const key = agent?.key ?? null;
             const isSelected = selected === key;
-            const name = agent ? agent.persona.hy : "Օգնական";
             return (
-              <Link
-                key={key ?? "assistant"}
-                href={key ? `/admin/assistant?agent=${key}` : "/admin/assistant"}
-                className={cn(styles.swimmer, "flex w-[104px] flex-col items-center gap-1 rounded-xl outline-none")}
-                data-selected={isSelected}
-                aria-current={isSelected ? "true" : undefined}
-                title={agent ? `${agent.label}. ${agent.tagline}` : "AI օգնական՝ ընդհանուր հարցերի համար"}
-                style={{
-                  ...place(index, swimmers.length),
-                  ...agentTintStyle(key ?? "analyst"),
-                }}
-              >
-                <span className={cn(styles.swimBody, "relative block")}>
-                  <span className={styles.halo} />
-                  {agent ? <AgentAvatar agentKey={agent.key} size={92} delay={-index * 0.7} /> : <AssistantOrb size={92} />}
-                </span>
-                <span className={styles.nameTag}>{name}</span>
-              </Link>
+              <li key={key ?? "assistant"} className={styles.lane}>
+                <Link
+                  href={key ? `/admin/assistant?agent=${key}` : "/admin/assistant"}
+                  className={cn(styles.laneLink, "flex h-full flex-col items-center px-3 pt-5 pb-4 text-center outline-none")}
+                  data-selected={isSelected}
+                  aria-current={isSelected ? "true" : undefined}
+                  title={agent ? `${agent.label}. ${agent.tagline}` : "AI օգնական՝ ընդհանուր հարցերի համար"}
+                  style={agentTintStyle(key ?? "analyst")}
+                >
+                  <span className={styles.laneNo} aria-hidden="true">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span className={cn(styles.swimmer, "relative block")} style={swim(index)}>
+                    <span className={styles.halo} />
+                    {agent ? <AgentAvatar agentKey={agent.key} size={88} delay={-index * 0.7} /> : <AssistantOrb size={88} />}
+                  </span>
+                  <span className={styles.ripple} aria-hidden="true" />
+                  <span className={cn(styles.laneName, "mt-2 text-sm leading-tight font-semibold")}>
+                    {agent ? agent.persona.hy : "Օգնական"}
+                  </span>
+                  <span className="mt-1 line-clamp-2 text-xs leading-snug text-ink-muted">
+                    {agent ? agent.role.hy : "Ընդհանուր հարցեր"}
+                  </span>
+                </Link>
+              </li>
             );
           })}
-        </div>
+        </ul>
       </div>
 
       {waiting.length > 0 ? (
