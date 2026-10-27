@@ -198,6 +198,26 @@ class TableChanges
     }
 
     /**
+     * Who could take an away performer's row that day: active employees not
+     * away then, the performer's own group first, a few names.
+     *
+     * @param  Collection<int, Employee>  $employees
+     * @return list<string>
+     */
+    private function freeOn(Collection $employees, Employee $away, string $day): array
+    {
+        $absent = EmployeeAbsence::query()->overlapping($day, $day)->pluck('employee_id')->all();
+
+        return $employees
+            ->filter(fn (Employee $e) => $e->is_active !== false && $e->id !== $away->id && ! in_array($e->id, $absent, true))
+            ->sortBy(fn (Employee $e) => $away->group_id !== null && $e->group_id === $away->group_id ? 0 : 1)
+            ->take(5)
+            ->pluck('name')
+            ->values()
+            ->all();
+    }
+
+    /**
      * Rows to add: each an object of values by column label or key. A row
      * without a date gets today's, as in the admin. Columns the rows need
      * and the table lacks (an address, a phone the owner dictated) come
@@ -252,7 +272,7 @@ class TableChanges
         }
 
         $rows = $change->kind === TableChange::ADD_ROWS ? $change->payload['rows'] : array_column($change->payload['rows'], 'after');
-        $employees = Employee::query()->get(['id', 'name']);
+        $employees = Employee::query()->get(['id', 'name', 'group_id', 'is_active']);
         $lines = [];
         foreach ($rows as $data) {
             $name = is_string($data[$performer->key] ?? null) ? Employee::normalize($data[$performer->key]) : '';
@@ -270,13 +290,15 @@ class TableChanges
             }
             $absence = EmployeeAbsence::query()->where('employee_id', $named->first()->id)->overlapping($day, $day)->first();
             if ($absence) {
+                $free = $this->freeOn($employees, $named->first(), $day);
                 $lines[] = sprintf(
-                    '%s %s-ին բացակա է՝ %s (%s–%s)։ Ընտրեք ուրիշ կատարող կամ օր։',
+                    '%s %s-ին բացակա է՝ %s (%s–%s)։ %s',
                     $named->first()->name,
                     CarbonImmutable::parse($day)->format('d.m.Y'),
                     mb_strtolower($absence->kind->label()),
                     $absence->starts_on->format('d.m.Y'),
                     $absence->ends_on->format('d.m.Y'),
+                    $free === [] ? 'Ընտրեք ուրիշ կատարող կամ օր։' : 'Այդ օրը ազատ են՝ '.implode(', ', $free).'։',
                 );
             }
         }

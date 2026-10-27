@@ -251,6 +251,9 @@ class AgentTeamworkTest extends TestCase
     {
         $table = $this->ordersTable();
         $arman = Employee::create(['name' => 'Արման Սարգսյան', 'position' => 'Վարպետ']);
+        Employee::create(['name' => 'Գոռ Հակոբյան', 'position' => 'Վարպետ']);
+        $vardan = Employee::create(['name' => 'Վարդան Պետրոսյան', 'position' => 'Վարպետ']);
+        $this->postJson('/api/v1/admin/team/absences', ['employeeId' => $vardan->id, 'kind' => 'sick', 'from' => '2026-11-05', 'to' => '2026-11-05'])->assertCreated();
         $this->postJson('/api/v1/admin/team/absences', ['employeeId' => $arman->id, 'kind' => 'vacation', 'from' => '2026-11-03', 'to' => '2026-11-14'])->assertCreated();
 
         $reply = $this->ask([['add_rows', ['table' => $table->id, 'rows' => [
@@ -258,7 +261,7 @@ class AgentTeamworkTest extends TestCase
             ['Ամսաթիվ' => '2026-11-20', 'Ծառայություն' => 'Ներքնակի մաքրում', 'Կատարող' => 'Արման'],
         ]]]]);
 
-        $away = ['Արման Սարգսյան 05.11.2026-ին բացակա է՝ արձակուրդ (03.11.2026–14.11.2026)։ Ընտրեք ուրիշ կատարող կամ օր։'];
+        $away = ['Արման Սարգսյան 05.11.2026-ին բացակա է՝ արձակուրդ (03.11.2026–14.11.2026)։ Այդ օրը ազատ են՝ Գոռ Հակոբյան։'];
         $this->assertSame($away, $this->client->toolResults[0]['performersAway']);
         $id = $reply['actions'][0]['id'];
         $this->assertSame($away, $this->getJson("/api/v1/admin/table-changes/{$id}")->json('data.warnings'));
