@@ -103,7 +103,7 @@ export function PwaSetup({ signedIn }: { signedIn: boolean }) {
     >
       <div className="flex items-start gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icons/phay-192.png" alt="" width={48} height={48} className="h-12 w-12 shrink-0 rounded-xl" />
+        <img src="/icons/phay-192.png?v=4" alt="" width={48} height={48} className="h-12 w-12 shrink-0 rounded-xl" />
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-ink">Տեղադրեք Phay-ը</p>
           {ios ? (
