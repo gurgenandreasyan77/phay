@@ -47,6 +47,6 @@ export const config = {
   // Everything but Next's own files, the route handlers, the icons and
   // what installs the admin as an app (manifest, service worker, offline page).
   matcher: [
-    "/((?!_next/|api/|icons/|favicon\\.ico|icon\\.png|icon\\.svg|apple-icon\\.png|robots\\.txt|sitemap\\.xml|manifest\\.webmanifest|sw\\.js|offline\\.html).*)",
+    "/((?!_next/|api/|icons/|favicon\\.ico|icon\\.png|icon\\.svg|apple-touch-icon\\.png|apple-touch-icon-precomposed\\.png|robots\\.txt|sitemap\\.xml|manifest\\.webmanifest|sw\\.js|offline\\.html).*)",
   ],
 };
