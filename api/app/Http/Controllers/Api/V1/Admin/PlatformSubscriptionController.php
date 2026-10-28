@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1\Admin;
 
+use App\Agents\AgentTerms;
 use App\Assistant\AssistantQuota;
 use App\Enums\SubscriptionStatus;
 use App\Http\Controllers\Controller;
@@ -29,6 +30,7 @@ class PlatformSubscriptionController extends Controller
     public function __construct(
         private readonly Subscriptions $subscriptions,
         private readonly AssistantQuota $quota,
+        private readonly AgentTerms $terms,
     ) {}
 
     /** ?status= keeps one status (trial, active, free, canceling, expired, unlimited). */
@@ -198,6 +200,8 @@ class PlatformSubscriptionController extends Controller
             'tenant' => ['id' => $tenant->id, 'name' => $tenant->name, 'logo' => $tenant->logo, 'status' => $tenant->status],
             'subscription' => (new SubscriptionResource($subscription))->resolve(),
             'payments' => SubscriptionPaymentResource::collection($payments)->resolve(),
+            // Every AI agent on its own term, the business's open request and agent payments.
+            'agentBilling' => $this->terms->billing($tenant),
             // AI assistant requests this subscription month and the bonuses given.
             'assistant' => [
                 ...$this->quota->status($tenant),

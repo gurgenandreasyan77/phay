@@ -4,6 +4,7 @@ namespace Tests\Feature\Tenancy;
 
 use App\Models\AccountToken;
 use App\Models\AdminNotification;
+use App\Models\AgentPayment;
 use App\Models\AssistantBonus;
 use App\Models\Concerns\BelongsToTenant;
 use App\Models\MetaDataDeletion;
@@ -31,14 +32,14 @@ class TenantModelCoverageTest extends TestCase
 
     // Platform-level models: they are not owned by one business. Plans and
     // module prices are the platform's own; a subscription and its payments
-    // are what the platform bills a business, read across businesses by the
+    // (and AI agent payments) are what the platform bills a business, read across businesses by the
     // super admin and always looked up by tenant_id explicitly (Subscriptions);
     // so are the AI assistant requests the super admin gives (AssistantQuota).
     // A notification belongs to a person and may be about a business they
     // aren't in (platform staff); read by user_id (AdminNotification::visibleTo).
     private const PLATFORM_MODELS = [
         User::class, Tenant::class, Site::class,
-        Plan::class, ModulePrice::class, Subscription::class, SubscriptionPayment::class,
+        Plan::class, ModulePrice::class, Subscription::class, SubscriptionPayment::class, AgentPayment::class,
         AssistantBonus::class, AdminNotification::class,
         // Sign-in security belongs to a person, not a business.
         AccountToken::class, VerificationCode::class, SecurityLogEntry::class,

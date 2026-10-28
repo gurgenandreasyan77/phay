@@ -31,6 +31,10 @@ return [
 
     'subscription_warn_days' => (int) env('PLATFORM_SUBSCRIPTION_WARN_DAYS', 10),
 
+    // Each AI agent: a free trial once, and how many days before its end the business is warned.
+    'agent_trial_days' => (int) env('PLATFORM_AGENT_TRIAL_DAYS', 7),
+    'agent_warn_days' => (int) env('PLATFORM_AGENT_WARN_DAYS', 3),
+
     /*
     |--------------------------------------------------------------------------
     | Legacy site webhook

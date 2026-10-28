@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Agents\AgentCatalog;
 use App\Agents\Agents;
+use App\Agents\AgentTerms;
 use App\Assistant\Attachments;
 use App\Enums\BusinessRole;
 use App\Http\Controllers\Controller;
@@ -31,10 +32,11 @@ class AgentController extends Controller
         private readonly TenantContext $context,
     ) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, AgentTerms $terms): JsonResponse
     {
         $role = $this->allow($request);
         $tenant = $this->context->current();
+        $terms->sync($tenant);
 
         return response()->json(['data' => [
             'agents' => $this->agents->overview($tenant),

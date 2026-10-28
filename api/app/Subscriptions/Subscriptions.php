@@ -89,11 +89,13 @@ class Subscriptions
     }
 
     /**
-     * What the business pays a month: its plan's price plus every module and
-     * AI agent it has on that the plan doesn't include. Agents are listed
-     * with the modules (kind "agent", key "agent:<key>").
+     * What the business pays a month: its plan's price plus every module it
+     * has on that the plan doesn't include. AI agents are listed with the
+     * modules (kind "agent", key "agent:<key>") but each one is paid for on
+     * its own term (App\Agents\AgentTerms): their monthly sum is `agents`,
+     * not part of `total`.
      *
-     * @return array{plan: int, modules: list<array{key: string, kind: string, label: string, description: string, price: int, active: bool, included: bool}>, total: int}
+     * @return array{plan: int, modules: list<array{key: string, kind: string, label: string, description: string, price: int, active: bool, included: bool}>, total: int, agents: int}
      */
     public function pricing(Tenant $tenant, ?Subscription $subscription = null, ?array $prices = null): array
     {
@@ -103,6 +105,7 @@ class Subscriptions
 
         $modules = [];
         $total = $plan?->price ?? 0;
+        $agentsTotal = 0;
 
         foreach (FeatureFlag::cases() as $flag) {
             $active = Feature::for($tenant)->active($flag->value);
@@ -128,11 +131,11 @@ class Subscriptions
 
         foreach (AgentCatalog::all() as $agent) {
             $active = in_array($agent->key(), $agents, true);
-            $included = (bool) $plan?->includes($agent->priceKey());
+            $included = $subscription->unlimited || (bool) $plan?->includes($agent->priceKey());
             $price = $prices[$agent->priceKey()] ?? $agent->defaultPrice();
 
             if ($active && ! $included) {
-                $total += $price;
+                $agentsTotal += $price;
             }
 
             $modules[] = [
@@ -146,7 +149,7 @@ class Subscriptions
             ];
         }
 
-        return ['plan' => $plan?->price ?? 0, 'modules' => $modules, 'total' => $total];
+        return ['plan' => $plan?->price ?? 0, 'modules' => $modules, 'total' => $total, 'agents' => $agentsTotal];
     }
 
     /**
