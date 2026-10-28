@@ -3,6 +3,7 @@
 namespace App\Subscriptions;
 
 use App\Agents\AgentCatalog;
+use App\Billing\Balance;
 use App\Features\FeatureFlag;
 use App\Models\ModulePrice;
 use App\Models\Plan;
@@ -29,7 +30,10 @@ class Subscriptions
 {
     public const UNITS = ['day', 'week', 'month'];
 
-    public function __construct(private readonly SupportChat $chat) {}
+    public function __construct(
+        private readonly SupportChat $chat,
+        private readonly Balance $balance,
+    ) {}
 
     public function warnDays(): int
     {
@@ -210,13 +214,14 @@ class Subscriptions
      * A payment for some months: it extends the subscription from where it
      * would end anyway (or from today, if it already ended) and undoes a
      * pending turn-off. The amount defaults to the monthly price × months.
+     * Without $notify the caller tells the business itself (paid from the balance).
      */
-    public function recordPayment(Subscription $subscription, int $months, ?int $amount, ?string $note, ?User $by): SubscriptionPayment
+    public function recordPayment(Subscription $subscription, int $months, ?int $amount, ?string $note, ?User $by, bool $notify = true): SubscriptionPayment
     {
         $tenant = $subscription->tenant;
         $amount ??= $this->pricing($tenant, $subscription)['total'] * $months;
 
-        return DB::transaction(function () use ($subscription, $tenant, $months, $amount, $note, $by) {
+        return DB::transaction(function () use ($subscription, $tenant, $months, $amount, $note, $by, $notify) {
             $from = $this->extendFrom($subscription);
             $to = $from->copy()->addMonthsNoOverflow($months);
 
@@ -232,11 +237,13 @@ class Subscriptions
                 'note' => $note,
             ]);
 
-            $this->chat->notify($tenant, sprintf(
-                'Շնորհակալություն, վճարումը ստացված է (%s դր)։ Բաժանորդագրությունը գործում է մինչև %s։',
-                $this->money($amount),
-                $this->date($tenant, $to),
-            ));
+            if ($notify) {
+                $this->chat->notify($tenant, sprintf(
+                    'Շնորհակալություն, վճարումը ստացված է (%s դր)։ Բաժանորդագրությունը գործում է մինչև %s։',
+                    $this->money($amount),
+                    $this->date($tenant, $to),
+                ));
+            }
 
             return $payment;
         });
@@ -244,9 +251,10 @@ class Subscriptions
 
     /**
      * Takes back the latest payment (entered by mistake): the paid period
-     * goes back to where that payment started it.
+     * goes back to where that payment started it, and what it took from the
+     * balance goes back there.
      */
-    public function deletePayment(Subscription $subscription, SubscriptionPayment $payment): void
+    public function deletePayment(Subscription $subscription, SubscriptionPayment $payment, ?User $by = null): void
     {
         $latest = SubscriptionPayment::query()->where('tenant_id', $subscription->tenant_id)->latest('id')->first();
 
@@ -254,7 +262,8 @@ class Subscriptions
             throw new InvalidArgumentException('Only the latest payment can be removed.');
         }
 
-        DB::transaction(function () use ($subscription, $payment) {
+        DB::transaction(function () use ($subscription, $payment, $by) {
+            $this->balance->refundFor($payment, $by);
             $previous = SubscriptionPayment::query()
                 ->where('tenant_id', $subscription->tenant_id)
                 ->whereKeyNot($payment->id)
@@ -363,12 +372,27 @@ class Subscriptions
     private function endingMessage(Tenant $tenant, Subscription $subscription): string
     {
         $pricing = $this->pricing($tenant, $subscription);
+        $balance = $this->balance->for($tenant);
+
+        // With a balance that covers the month it renews on its own: nothing to do.
+        if ($balance->auto_renew && ! $subscription->cancel_at && $pricing['total'] > 0 && $balance->amount >= $pricing['total']) {
+            return sprintf(
+                'Ձեր բաժանորդագրությունն ավարտվում է %s-ին (%d օր հետո)։ Այն կերկարաձգվի ինքնաշխատ՝ հաշվեկշռից կգանձվի %s դր (հաշվեկշռում՝ %s դր)։',
+                $this->date($tenant, $subscription->endsAt()),
+                $subscription->daysLeft(),
+                $this->money($pricing['total']),
+                $this->money($balance->amount),
+            );
+        }
 
         return sprintf(
-            'Ձեր բաժանորդագրությունն ավարտվում է %s-ին (%d օր հետո)։ Որպեսզի ադմինը շարունակի աշխատել առանց ընդհատման, խնդրում ենք երկարացնել բաժանորդագրությունը (%s դր/ամիս)։ Ձեր բոլոր տվյալները պահպանվում են։',
+            'Ձեր բաժանորդագրությունն ավարտվում է %s-ին (%d օր հետո)։ Որպեսզի ադմինը շարունակի աշխատել առանց ընդհատման, խնդրում ենք երկարացնել բաժանորդագրությունը (%s դր/ամիս)։ %sՁեր բոլոր տվյալները պահպանվում են։',
             $this->date($tenant, $subscription->endsAt()),
             $subscription->daysLeft(),
             $this->money($pricing['total']),
+            $balance->amount > 0
+                ? sprintf('Հաշվեկշռում՝ %s դր, ինքնաշխատ երկարացման համար պակասում է %s դր. համալրելու համար ուղարկեք անդորրագիրը այստեղ։ ', $this->money($balance->amount), $this->money(max(0, $pricing['total'] - $balance->amount)))
+                : 'Կարող եք նաև համալրել հաշվեկշիռը. դրանից ժամկետներն ինքնաշխատ կերկարաձգվեն։ ',
         );
     }
 

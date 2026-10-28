@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Billing\BalancePayments;
 use App\Exceptions\ApiException;
 use App\Platform\BusinessActivity;
 use App\Subscriptions\Subscriptions;
@@ -29,6 +30,8 @@ class ResolveAdminTenant
         'api/v1/admin/security/*',
         'api/v1/admin/subscription',
         'api/v1/admin/subscription/*',
+        'api/v1/admin/balance',
+        'api/v1/admin/balance/*',
         'api/v1/admin/support/*',
         'api/v1/admin/notifications',
         'api/v1/admin/notifications/*',
@@ -37,6 +40,7 @@ class ResolveAdminTenant
     public function __construct(
         private readonly TenantContext $context,
         private readonly Subscriptions $subscriptions,
+        private readonly BalancePayments $payments,
         private readonly BusinessActivity $activity,
     ) {}
 
@@ -60,6 +64,8 @@ class ResolveAdminTenant
             // The business's own people: warned before the end, locked out
             // (data kept) after it. Platform staff always get in.
             if (! $user->isPlatformStaff()) {
+                // What ends today renews from the balance first, so it never locks.
+                $this->payments->autoRenew($tenant);
                 $subscription = $this->subscriptions->sync($tenant);
 
                 if (! $subscription->allowsAccess() && ! $request->is(...self::OPEN_WITHOUT_SUBSCRIPTION)) {

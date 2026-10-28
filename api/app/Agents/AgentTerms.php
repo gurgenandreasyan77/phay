@@ -2,6 +2,7 @@
 
 namespace App\Agents;
 
+use App\Billing\Balance;
 use App\Models\AgentPayment;
 use App\Models\ModulePrice;
 use App\Models\Subscription;
@@ -37,6 +38,7 @@ class AgentTerms
     public function __construct(
         private readonly Subscriptions $subscriptions,
         private readonly SupportChat $chat,
+        private readonly Balance $balance,
     ) {}
 
     public function trialDays(): int
@@ -297,15 +299,18 @@ class AgentTerms
 
     /**
      * A payment the super admin takes in directly (cash, a transfer):
-     * quoted like a request and applied at once.
+     * quoted like a request and applied at once. Without $notify the caller
+     * tells the business itself (paid from the balance); a $quote already
+     * made is used as it is.
      *
      * @param  list<string>  $keys
+     * @param  array{lines: list<array<string, mixed>>, total: int}|null  $quote
      */
-    public function record(Tenant $tenant, array $keys, ?Carbon $until, int $months, ?int $amount, ?string $note, ?User $by): AgentPayment
+    public function record(Tenant $tenant, array $keys, ?Carbon $until, int $months, ?int $amount, ?string $note, ?User $by, bool $notify = true, ?array $quote = null): AgentPayment
     {
-        $quote = $this->quote($tenant, $keys, $until, $months);
+        $quote ??= $this->quote($tenant, $keys, $until, $months);
 
-        return DB::transaction(function () use ($tenant, $quote, $until, $months, $amount, $note, $by) {
+        return DB::transaction(function () use ($tenant, $quote, $until, $months, $amount, $note, $by, $notify) {
             $payment = new AgentPayment([
                 'tenant_id' => $tenant->id,
                 'amount' => $amount ?? $quote['total'],
@@ -315,15 +320,16 @@ class AgentTerms
                 'note' => $note,
             ]);
 
-            return $this->apply($payment, $by);
+            return $this->apply($payment, $by, $notify);
         });
     }
 
     /**
      * Takes back the latest recorded payment (entered by mistake): each of
-     * its agents goes back to the paid end it had before.
+     * its agents goes back to the paid end it had before, and what it took
+     * from the balance goes back there.
      */
-    public function removePayment(AgentPayment $payment): void
+    public function removePayment(AgentPayment $payment, ?User $by = null): void
     {
         $latest = AgentPayment::query()->where('tenant_id', $payment->tenant_id)->where('status', AgentPayment::PAID)->latest('id')->first();
 
@@ -331,7 +337,8 @@ class AgentTerms
             throw new InvalidArgumentException('Only the latest payment can be removed.');
         }
 
-        DB::transaction(function () use ($payment) {
+        DB::transaction(function () use ($payment, $by) {
+            $this->balance->refundFor($payment, $by);
             foreach ($payment->lines as $line) {
                 TenantAgent::withoutTenancy()
                     ->where('tenant_id', $payment->tenant_id)
@@ -377,8 +384,11 @@ class AgentTerms
         if ($ending !== []) {
             $names = implode(', ', array_map(fn (array $pair) => sprintf('%s (%s)', $pair[0]->label(), $this->date($tenant, $pair[1])), $ending));
             $this->chat->notify($tenant, sprintf(
-                'Շուտով ավարտվում է AI աշխատակիցների ժամկետը՝ %s։ Երկարացնել կարող եք «Բաժանորդագրություն» էջում. այնտեղ կարող եք նաև բոլորի ժամկետը բերել մեկ օրի։',
+                'Շուտով ավարտվում է AI աշխատակիցների ժամկետը՝ %s։ Երկարացնել կարող եք «Բաժանորդագրություն» էջում. այնտեղ կարող եք նաև բոլորի ժամկետը բերել մեկ օրի։%s',
                 $names,
+                $this->balance->for($tenant)->auto_renew && $this->balance->amount($tenant) > 0
+                    ? ' Վճարված աշխատակիցները կերկարաձգվեն ինքնաշխատ՝ հաշվեկշռից, եթե այն բավարարի։'
+                    : '',
             ), [
                 'type' => NotificationType::Agent,
                 'title' => count($ending) === 1
@@ -432,7 +442,7 @@ class AgentTerms
         return (int) ($prices[$agent->priceKey()] ?? $agent->defaultPrice());
     }
 
-    private function apply(AgentPayment $payment, ?User $by): AgentPayment
+    private function apply(AgentPayment $payment, ?User $by, bool $notify = true): AgentPayment
     {
         $tenant = $payment->tenant ?? Tenant::query()->findOrFail($payment->tenant_id);
         $lines = [];
@@ -460,6 +470,10 @@ class AgentTerms
             'recorded_by' => $by?->id,
             'paid_at' => now(),
         ])->save();
+
+        if (! $notify) {
+            return $payment;
+        }
 
         $this->chat->notify($tenant, sprintf(
             'Շնորհակալություն, AI աշխատակիցների վճարումը ստացված է (%s դր)։ %s',

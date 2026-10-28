@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Agents\AgentTerms;
 use App\Assistant\AssistantQuota;
+use App\Billing\BalancePayments;
 use App\Enums\SubscriptionStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\SubscriptionPaymentResource;
@@ -31,6 +32,7 @@ class PlatformSubscriptionController extends Controller
         private readonly Subscriptions $subscriptions,
         private readonly AssistantQuota $quota,
         private readonly AgentTerms $terms,
+        private readonly BalancePayments $balance,
     ) {}
 
     /** ?status= keeps one status (trial, active, free, canceling, expired, unlimited). */
@@ -119,7 +121,7 @@ class PlatformSubscriptionController extends Controller
         abort_unless($payment->tenant_id === $tenant->id, 404);
 
         try {
-            $this->subscriptions->deletePayment($this->subscriptions->for($tenant), $payment);
+            $this->subscriptions->deletePayment($this->subscriptions->for($tenant), $payment, request()->user());
         } catch (InvalidArgumentException) {
             abort(422, 'Կարելի է հեռացնել միայն վերջին վճարումը։');
         }
@@ -202,6 +204,8 @@ class PlatformSubscriptionController extends Controller
             'payments' => SubscriptionPaymentResource::collection($payments)->resolve(),
             // Every AI agent on its own term, the business's open request and agent payments.
             'agentBilling' => $this->terms->billing($tenant),
+            // The balance the super admin tops up, with its ledger.
+            'balance' => $this->balance->summary($tenant, platform: true, limit: 50),
             // AI assistant requests this subscription month and the bonuses given.
             'assistant' => [
                 ...$this->quota->status($tenant),

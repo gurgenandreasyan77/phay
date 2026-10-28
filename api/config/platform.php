@@ -34,6 +34,8 @@ return [
     // Each AI agent: a free trial once, and how many days before its end the business is warned.
     'agent_trial_days' => (int) env('PLATFORM_AGENT_TRIAL_DAYS', 7),
     'agent_warn_days' => (int) env('PLATFORM_AGENT_WARN_DAYS', 3),
+    // The balance renews a paid AI agent that ended at most this many days ago (App\Billing\BalancePayments).
+    'balance_agent_grace_days' => (int) env('PLATFORM_BALANCE_AGENT_GRACE_DAYS', 7),
 
     /*
     |--------------------------------------------------------------------------

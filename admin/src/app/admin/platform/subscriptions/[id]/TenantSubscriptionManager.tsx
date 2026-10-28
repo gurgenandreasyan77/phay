@@ -6,6 +6,7 @@ import type { TenantSubscriptionDetailDto } from "@/lib/adminApi";
 import { Button, Card, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { PriceBreakdown, StatusBadge, amd, formatDay, subscriptionLine } from "../../../_components/subscription/shared";
 import { AgentTeamBilling } from "../../../_components/agents/AgentTeamBilling";
+import { PlatformBalancePanel } from "../../../_components/balance/PlatformBalancePanel";
 
 type Unit = "day" | "week" | "month";
 
@@ -46,6 +47,9 @@ export function TenantSubscriptionManager({ data }: { data: TenantSubscriptionDe
   return (
     <div className="space-y-6">
       {error ? <p className="rounded-md bg-danger-light px-4 py-3 text-sm text-danger">{error}</p> : null}
+
+      {/* The balance the business pays from: topped up when its receipt comes in the chat. */}
+      <PlatformBalancePanel key={data.balance?.transactions[0]?.id ?? 0} tenantId={tenant.id} initial={data.balance ?? null} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="space-y-4">

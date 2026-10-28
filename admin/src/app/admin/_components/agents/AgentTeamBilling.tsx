@@ -29,6 +29,7 @@ export function AgentTeamBilling({
   canAsk,
   tenantId,
   openAgent,
+  balance = null,
 }: {
   billing: AgentBillingDto;
   /** The owner or the admin of the business: may start trials and ask to pay. */
@@ -37,6 +38,8 @@ export function AgentTeamBilling({
   tenantId?: number;
   /** Opens paying for this agent (a link from its card on the team page). */
   openAgent?: string | null;
+  /** The business's balance: paying from it at once when it covers the total. */
+  balance?: number | null;
 }) {
   const platform = tenantId !== undefined;
   const acts = canAsk || platform;
@@ -132,6 +135,7 @@ export function AgentTeamBilling({
           quoteUrl={`${base}/quote`}
           submitUrl={platform ? base : `${base}/request`}
           platform={platform}
+          balance={platform ? null : balance}
         />
       ) : null}
     </div>

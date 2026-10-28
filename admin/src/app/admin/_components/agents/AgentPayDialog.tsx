@@ -22,7 +22,8 @@ export type PayMode = "months" | "day";
  * day), so they are all paid on the same day from then on. The quote comes
  * from the API as the choice changes; the timeline shows the faces sliding
  * to the billing day. The business sends it as a request (Phay confirms it
- * in the chat); the super admin records it as paid (`platform`). Mounted
+ * in the chat) or, with a balance that covers it, pays from it at once;
+ * the super admin records it as paid (`platform`). Mounted
  * per opening, so it starts from what the button that opened it asks.
  */
 export function AgentPayDialog({
@@ -35,6 +36,7 @@ export function AgentPayDialog({
   quoteUrl,
   submitUrl,
   platform = false,
+  balance = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -46,6 +48,8 @@ export function AgentPayDialog({
   quoteUrl: string;
   submitUrl: string;
   platform?: boolean;
+  /** The business's balance (dram); null without one to pay from. */
+  balance?: number | null;
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<PayMode>(initialMode);
@@ -56,7 +60,7 @@ export function AgentPayDialog({
   const [note, setNote] = useState("");
   const [quote, setQuote] = useState<AgentQuoteDto | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "paid">("idle");
 
   // The earliest common day: no agent's end can move back.
   const latestDay = useMemo(() => {
@@ -103,12 +107,14 @@ export function AgentPayDialog({
   }, [ready, selected, months, mode, effectiveDay, quoteUrl]);
 
   const shown = ready ? quote : null;
+  // The balance pays at once when it covers the total.
+  const covers = !platform && balance !== null && shown !== null && shown.total <= balance;
   const total = useCountUp(shown?.total ?? 0, 600);
 
-  async function submit() {
+  async function submit(fromBalance = false) {
     setState("sending");
     setError(null);
-    const response = await fetch(submitUrl, {
+    const response = await fetch(fromBalance ? "/api/admin/balance/agents" : submitUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -118,10 +124,10 @@ export function AgentPayDialog({
         ...(platform ? { amount: amount === "" ? null : Number(amount), note: note.trim() || null } : {}),
       }),
     }).catch(() => null);
-    const json = (await response?.json().catch(() => null)) as { message?: string } | null;
+    const json = (await response?.json().catch(() => null)) as { message?: string; errors?: Record<string, string[]> } | null;
     if (!response?.ok) {
       setState("idle");
-      setError(json?.message ?? "Չհաջողվեց ուղարկել։ Փորձեք կրկին։");
+      setError(Object.values(json?.errors ?? {})[0]?.[0] ?? json?.message ?? "Չհաջողվեց ուղարկել։ Փորձեք կրկին։");
       return;
     }
     router.refresh();
@@ -129,7 +135,7 @@ export function AgentPayDialog({
       onClose();
       return;
     }
-    setState("sent");
+    setState(fromBalance ? "paid" : "sent");
   }
 
   function toggle(key: string) {
@@ -149,7 +155,18 @@ export function AgentPayDialog({
 
   return (
     <Dialog open={open} onClose={onClose} labelledBy="agent-pay-title" className="w-[min(44rem,calc(100vw-2rem))]">
-      {state === "sent" ? (
+      {state === "paid" ? (
+        <div className="space-y-4 text-center">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success-light text-success">
+            <Check className="h-7 w-7" />
+          </span>
+          <h2 id="agent-pay-title" className="text-lg font-semibold text-ink">
+            Վճարված է հաշվեկշռից
+          </h2>
+          <p className="text-sm text-ink-muted">AI աշխատակիցների ժամկետներն արդեն երկարաձգված են։</p>
+          <Button onClick={onClose}>Լավ</Button>
+        </div>
+      ) : state === "sent" ? (
         <div className="space-y-4 text-center">
           <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success-light text-success">
             <Check className="h-7 w-7" />
@@ -345,10 +362,32 @@ export function AgentPayDialog({
               <p className="text-xs text-ink-muted">Ընդամենը</p>
               <p className="text-2xl font-semibold tracking-tight text-ink">{amd(total)}</p>
             </div>
-            <Button onClick={submit} disabled={state === "sending" || !shown || shown.lines.length === 0}>
-              {state === "sending" ? "Ուղարկվում է…" : platform ? "Գրանցել վճարումը" : "Ուղարկել վճարման հայտը"}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {covers ? (
+                <Button variant="secondary" onClick={() => submit()} disabled={state === "sending" || !shown || shown.lines.length === 0}>
+                  Գրել չատում
+                </Button>
+              ) : null}
+              <Button
+                onClick={() => submit(covers)}
+                disabled={state === "sending" || !shown || shown.lines.length === 0}
+              >
+                {state === "sending"
+                  ? "Ուղարկվում է…"
+                  : platform
+                    ? "Գրանցել վճարումը"
+                    : covers
+                      ? "Վճարել հաշվեկշռից"
+                      : "Ուղարկել վճարման հայտը"}
+              </Button>
+            </div>
           </div>
+          {!platform && balance !== null ? (
+            <p className="text-right text-xs text-ink-muted">
+              Հաշվեկշռում՝ {amd(balance)}
+              {shown && !covers && shown.total > 0 ? ` · պակասում է ${amd(shown.total - balance)}. համալրելուց հետո հայտը կվճարվի ինքնաշխատ` : ""}
+            </p>
+          ) : null}
         </div>
       )}
     </Dialog>

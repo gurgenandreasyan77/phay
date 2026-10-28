@@ -65,7 +65,7 @@ class PlatformAgentPaymentController extends Controller
         try {
             $payment->status === AgentPayment::REQUESTED
                 ? $this->terms->cancelRequest($payment)
-                : $this->terms->removePayment($payment);
+                : $this->terms->removePayment($payment, request()->user());
         } catch (InvalidArgumentException) {
             abort(422, 'Կարելի է հեռացնել միայն վերջին վճարումը։');
         }

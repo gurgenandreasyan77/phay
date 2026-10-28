@@ -5,6 +5,9 @@ import type { CSSProperties } from "react";
 import { Badge, Card, EmptyCard, EmptyRow, PageHeader, SectionCard, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { PriceBreakdown, StatusBadge, amd, formatDay, subscriptionLine } from "../_components/subscription/shared";
 import { AgentTeamBilling } from "../_components/agents/AgentTeamBilling";
+import { BalanceCard } from "../_components/balance/BalanceCard";
+import { BalanceHistory } from "../_components/balance/BalanceHistory";
+import { PayFromBalance } from "../_components/balance/PayFromBalance";
 import { DaysRing } from "./DaysRing";
 import { ModuleCard } from "./ModuleCard";
 import { PremiumTeaser } from "./PremiumTeaser";
@@ -17,8 +20,10 @@ export const dynamic = "force-dynamic";
  * The business's subscription: where it stands, what it pays a month (its
  * plan plus the modules it has on), what premium will add, the modules it
  * can turn on, its AI agents each on its own term (trial, paid months, one
- * common billing day) and its payments. Open even after the
- * subscription ended: the owner asks to renew from here, in the chat.
+ * common billing day) and its payments. The owner and the admin pay from
+ * the balance (topped up by Phay when a receipt comes in the chat) or ask
+ * in the chat. Open even after the subscription ended: paying from the
+ * balance brings the admin back.
  */
 export default async function SubscriptionPage({ searchParams }: { searchParams: Promise<{ agent?: string }> }) {
   const admin = await requireAdmin({ allowLocked: true });
@@ -38,6 +43,9 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
   const { subscription, payments, plans } = data;
   // Asking goes to the chat, which the owner and admin have.
   const canAsk = can(admin, "settings") && !isPlatformStaff(admin);
+  // Paying from the balance: the same people, once the API sent it.
+  const balance = canAsk ? (data.balance ?? null) : null;
+  const paidUntil = formatDay(subscription.paidUntil);
   const currentPrice = subscription.plan?.price ?? 0;
   // A real bigger plan replaces the premium preview once the platform adds one.
   const upgrades = plans.filter((plan) => plan.id !== subscription.plan?.id && plan.price > currentPrice);
@@ -50,6 +58,8 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
         title="Բաժանորդագրություն"
         description="Ամսական վճարը կազմված է փաթեթի գնից և ձեր միացված մոդուլների գներից։ Բաժանորդագրության ավարտից հետո ձեր տվյալները չեն ջնջվում։"
       />
+
+      {balance ? <BalanceCard balance={balance} /> : null}
 
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
         <Card className={`${styles.hero} ${styles.rise} flex flex-col gap-5 sm:flex-row sm:items-center`}>
@@ -67,11 +77,31 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
                 Ադմինը ժամանակավորապես փակ է, բայց ձեր բոլոր տվյալները պահպանված են։ Վճարելուց հետո ամեն ինչ կվերադառնա։
               </p>
             ) : null}
+            {balance && subscription.status !== "unlimited" && subscription.pricing.total > 0 ? (
+              <PayFromBalance
+                purchase={{ action: "subscription", months: 1 }}
+                label="Երկարացնել հաշվեկշռից"
+                primary
+                confirm={{
+                  title: "Երկարացնե՞լ մեկ ամսով հաշվեկշռից",
+                  description: "Գումարը կգանձվի հաշվեկշռից, և ժամկետը կերկարաձգվի ընթացիկ ավարտի օրից (ավարտվածը՝ այսօրվանից)։",
+                  details: [
+                    { label: "Կգանձվի", value: amd(subscription.pricing.total) },
+                    { label: "Հաշվեկշռում", value: amd(balance.amount) },
+                    {
+                      label: subscription.status === "expired" ? "Ավարտվել է" : "Գործում է մինչև",
+                      value: formatDay(subscription.endsAt),
+                    },
+                  ],
+                  confirmLabel: "Վճարել",
+                }}
+              />
+            ) : null}
             {canAsk && subscription.status !== "unlimited" ? (
               <RequestButton
                 body={{ kind: "renew" }}
-                label="Երկարացնել բաժանորդագրությունը"
-                primary
+                label={balance ? "Գրել չատում" : "Երկարացնել բաժանորդագրությունը"}
+                primary={!balance}
                 confirm={{
                   title: "Երկարացնե՞լ բաժանորդագրությունը",
                   description:
@@ -111,14 +141,25 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
           <SectionCard title="Մոդուլներ" description="Միացրեք ձեզ անհրաժեշտ մոդուլները. դրանց գինը կավելանա ամսական վճարին։">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {modules.map((module, index) => (
-                <ModuleCard key={module.key} module={module} monthly={subscription.pricing.total} canAsk={canAsk} index={index} />
+                <ModuleCard
+                  key={module.key}
+                  module={module}
+                  monthly={subscription.pricing.total}
+                  canAsk={canAsk}
+                  index={index}
+                  payFromBalance={
+                    balance && ["active", "trial", "free", "unlimited"].includes(subscription.status)
+                      ? { paidUntil: subscription.status === "active" ? paidUntil : null }
+                      : null
+                  }
+                />
               ))}
             </div>
           </SectionCard>
         </div>
       ) : null}
 
-      {data.agentBilling ? <AgentTeamBilling billing={data.agentBilling} canAsk={canAsk} openAgent={agentParam} /> : null}
+      {data.agentBilling ? <AgentTeamBilling billing={data.agentBilling} canAsk={canAsk} openAgent={agentParam} balance={balance?.amount ?? null} /> : null}
 
       {plans.length > 1 ? (
         <SectionCard title="Փաթեթներ">
@@ -140,7 +181,29 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
                     <span className="text-sm font-normal text-ink-muted">/ամիս</span>
                   </p>
                   {plan.description ? <p className="text-sm text-ink-muted">{plan.description}</p> : null}
-                  {!current && canAsk ? (
+                  {!current && balance && plan.price > currentPrice && subscription.status !== "canceling" ? (
+                    <div className="mt-auto">
+                      <PayFromBalance
+                        purchase={{ action: "plan", plan_id: plan.id }}
+                        label="Անցնել հաշվեկշռից"
+                        confirm={{
+                          title: `Անցնե՞լ «${plan.name}» փաթեթին`,
+                          description:
+                            subscription.status === "active"
+                              ? `Հաշվեկշռից կգանձվի ամսական գների տարբերությունը մինչև ${paidUntil}, հետո ամսական վճարը կլինի նոր փաթեթով։`
+                              : subscription.status === "expired"
+                                ? "Հաշվեկշռից կգանձվի նոր փաթեթի առաջին ամիսը, և ադմինը կբացվի։"
+                                : "Փաթեթը կփոխվի հիմա. վճարը կգանձվի ընթացիկ ժամկետի ավարտին։",
+                          details: [
+                            ...(subscription.plan ? [{ label: `Հիմա՝ «${subscription.plan.name}»`, value: `${amd(subscription.plan.price)}/ամիս` }] : []),
+                            { label: `Նոր փաթեթ՝ «${plan.name}»`, value: `${amd(plan.price)}/ամիս` },
+                            { label: "Հաշվեկշռում", value: amd(balance.amount) },
+                          ],
+                          confirmLabel: "Այո, անցնել",
+                        }}
+                      />
+                    </div>
+                  ) : !current && canAsk ? (
                     <div className="mt-auto">
                       <RequestButton
                         body={{ kind: "plan", plan_id: plan.id }}
@@ -172,6 +235,14 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
             })}
           </div>
         </SectionCard>
+      ) : null}
+
+      {balance ? (
+        <div id="balance" className="scroll-mt-20">
+          <SectionCard title="Հաշվեկշռի պատմություն" description="Բոլոր համալրումները և գանձումները, ամենավերջինը՝ վերևում։">
+            <BalanceHistory transactions={balance.transactions} />
+          </SectionCard>
+        </div>
       ) : null}
 
       <SectionCard title="Վճարումներ">

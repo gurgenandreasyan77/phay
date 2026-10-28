@@ -6,6 +6,7 @@ import type { SupportConversationDto } from "@/lib/adminApi";
 import { BusinessLogo } from "../../_components/BusinessLogo";
 import { ChatThread } from "../../_components/chat/ChatThread";
 import { notifySupportActivity } from "../../_components/chat/unread";
+import { PlatformBalancePanel } from "../../_components/balance/PlatformBalancePanel";
 import { EmptyCard, Select, cn } from "@/ui";
 
 type TenantRef = { id: number; name: string; logo: string | null };
@@ -17,10 +18,13 @@ export function PlatformSupport({
   initialConversations,
   tenants,
   initialTenantId,
+  superAdmin = false,
 }: {
   initialConversations: SupportConversationDto[];
   tenants: TenantRef[];
   initialTenantId: number | null;
+  /** Tops up the chosen business's balance when its receipt comes in the chat. */
+  superAdmin?: boolean;
 }) {
   const router = useRouter();
   const [conversations, setConversations] = useState(initialConversations);
@@ -124,6 +128,7 @@ export function PlatformSupport({
             <BusinessLogo name={current.name} logo={current.logo} />
             <p className="text-base font-semibold text-ink">{current.name}</p>
           </div>
+          {superAdmin ? <PlatformBalancePanel key={`balance-${current.id}`} tenantId={current.id} compact /> : null}
           <ChatThread
             key={current.id}
             url={`/api/admin/tenants/${current.id}/messages`}
