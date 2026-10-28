@@ -63,7 +63,7 @@ export function RequestButton({
 
   if (state === "sent") {
     return (
-      <p className={cn("text-sm", onDark ? "text-[#9fd8c2]" : "text-success")}>
+      <p className={cn("text-sm", onDark ? "text-[#8ee6cb]" : "text-success")}>
         Հայտը ուղարկված է։ Phay-ի թիմը կպատասխանի{" "}
         <Link href="/admin/support" className="font-medium underline underline-offset-2">
           չատում
