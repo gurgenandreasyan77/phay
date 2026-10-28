@@ -567,19 +567,21 @@ export type AssistantConversationDto = {
 /** A file attached to a question in the AI chat; read through /api/admin/assistant/attachments/{id}/file. */
 export type AssistantAttachmentDto = {
   id: number;
-  kind: "image" | "pdf" | "text" | "video" | "sheet";
+  kind: "image" | "pdf" | "text" | "video" | "sheet" | "document";
   name: string;
   mime: string;
   size: number;
   width: number | null;
   height: number | null;
-  /** upload: the person attached it; design: an AI agent made it (a PNG of its answer); video: an MP4 an agent cut. */
-  origin?: "upload" | "design" | "video";
+  /** upload: the person attached it; design: an AI agent made it (a PNG of its answer); video: an MP4 an agent cut; document: a Word file (or a ZIP of many) an agent made. */
+  origin?: "upload" | "design" | "video" | "document";
   /** A design's name and size (post, story, square, landscape, flyer), or a video's (reel, feed, square, landscape). */
   title?: string | null;
   format?: string | null;
   /** A video's length in seconds. */
   duration?: number | null;
+  /** A ZIP's (or a print file's) number of documents. */
+  documents?: number | null;
 };
 
 /** A video an AI agent cuts from the owner's clips; asked about at /api/admin/assistant/videos/{id} until it is ready. */
@@ -601,7 +603,7 @@ export type AssistantMessageDto = {
   role: "user" | "assistant";
   content: string;
   refused: boolean;
-  /** Files of a question, or the pictures an agent made in an answer. */
+  /** Files of a question, or the pictures and documents an agent made in an answer. */
   attachments?: AssistantAttachmentDto[];
   /** Cards under an answer: a reshape to apply, a file to download. */
   actions?: AssistantActionDto[];

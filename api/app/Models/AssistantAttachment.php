@@ -28,6 +28,9 @@ class AssistantAttachment extends Model
     /** An MP4 an agent cut from the owner's clips (App\Media\VideoStudio). */
     public const VIDEO = 'video';
 
+    /** A document an agent made (App\Documents\DocumentStudio): a Word file, a text, a ZIP of many. */
+    public const DOCUMENT = 'document';
+
     protected $fillable = ['user_id', 'assistant_message_id', 'kind', 'origin', 'mime', 'name', 'title', 'format', 'size', 'path', 'width', 'height', 'html', 'meta'];
 
     protected $attributes = ['origin' => self::UPLOAD];
@@ -64,6 +67,11 @@ class AssistantAttachment extends Model
         return $this->origin === self::DESIGN;
     }
 
+    public function isDocument(): bool
+    {
+        return $this->origin === self::DOCUMENT;
+    }
+
     /** The file and the frames kept with it (a video's), for removal. */
     public function paths(): array
     {
@@ -86,6 +94,8 @@ class AssistantAttachment extends Model
             'format' => $this->format,
             // A video's length in seconds.
             'duration' => $this->meta['duration'] ?? null,
+            // A ZIP's (or a print file's) number of documents.
+            'documents' => $this->meta['documents'] ?? null,
         ];
     }
 }

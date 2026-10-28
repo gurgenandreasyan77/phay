@@ -99,6 +99,15 @@ abstract class Agent
         return false;
     }
 
+    /**
+     * Whether it makes documents itself (Word files written or filled from
+     * a template, many at once: App\Documents\DocumentStudio).
+     */
+    public function writesDocuments(): bool
+    {
+        return false;
+    }
+
     /** What it can't do yet, said plainly on its card (null: nothing to say). */
     public function limitation(): ?string
     {

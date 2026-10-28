@@ -69,11 +69,11 @@ class AdminAssistantTest extends TestCase
     public function test_client_contacts_never_reach_the_model(): void
     {
         Sanctum::actingAs(User::factory()->create());
-        Lead::create(['name' => 'Anna Petrosyan', 'phone' => '+37491123456', 'preferred_locale' => 'hy', 'consent' => true]);
+        Lead::create(['name' => 'Hasmik Petrosyan', 'phone' => '+37491123456', 'preferred_locale' => 'hy', 'consent' => true]);
 
         $this->postJson('/api/v1/admin/assistant', ['messages' => [['role' => 'user', 'content' => 'Hi']]])->assertOk();
 
-        $this->assertStringNotContainsString('Anna', $this->client->system);
+        $this->assertStringNotContainsString('Hasmik', $this->client->system);
         $this->assertStringNotContainsString('37491123456', $this->client->system);
     }
 

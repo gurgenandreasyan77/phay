@@ -54,7 +54,10 @@ class AssistantAttachmentController extends Controller
     {
         $file = $this->own($request, $assistantAttachment);
 
-        return self::serve($file->path, $file->name, $file->mime === 'text/plain' ? 'text/plain; charset=utf-8' : $file->mime, $request->boolean('download'));
+        // A web page is shown as its source, never run.
+        $type = in_array($file->mime, ['text/plain', 'text/html'], true) ? 'text/plain; charset=utf-8' : $file->mime;
+
+        return self::serve($file->path, $file->name, $type, $request->boolean('download'));
     }
 
     /** Takes back a file not sent yet; a sent one goes with its conversation. */
