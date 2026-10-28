@@ -4,6 +4,8 @@ namespace App\Assistant;
 
 use App\DataTables\Import\UnreadableFile;
 use App\DataTables\Import\XlsxReader;
+use App\Documents\DocumentReader;
+use App\Documents\UnreadableDocument;
 use App\Media\RenderFailed;
 use App\Media\VideoCutter;
 use App\Models\AssistantAttachment;
@@ -67,7 +69,23 @@ class Attachments
 
     private const VIDEO_TYPES = ['video/mp4' => 'mp4', 'video/quicktime' => 'mov', 'video/webm' => 'webm', 'video/x-m4v' => 'm4v'];
 
-    public const UNSUPPORTED = 'Կարելի է կցել նկար (JPG, PNG, WEBP, GIF), տեսանյութ (MP4, MOV, WEBM), PDF, Excel (XLSX) կամ տեքստային ֆայլ (TXT, CSV, MD)։';
+    public const UNSUPPORTED = 'Կարելի է կցել նկար (JPG, PNG, WEBP, GIF), տեսանյութ (MP4, MOV, WEBM), PDF, Word (DOCX), ODT, RTF, PowerPoint (PPTX), Excel (XLSX), HTML կամ տեքստային ֆայլ (TXT, CSV, MD)։';
+
+    /** A Word, OpenDocument, RTF, PowerPoint file or a web page. */
+    public const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+
+    /** Old binary formats nothing here reads: saved again in the new one, they come in. */
+    private const OLD_FORMATS = ['doc' => 'DOCX', 'ppt' => 'PPTX', 'xls' => 'XLSX', 'pages' => 'DOCX', 'odp' => 'PPTX', 'ods' => 'XLSX'];
+
+    /** What a document is stored as (by its extension, once its content is read). */
+    private const DOCUMENT_MIMES = [
+        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'odt' => 'application/vnd.oasis.opendocument.text',
+        'rtf' => 'application/rtf',
+        'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'html' => 'text/html',
+        'htm' => 'text/html',
+    ];
 
     /** An Excel file: its first sheet. */
     public const MAX_SHEET_BYTES = 5 * 1024 * 1024;
@@ -83,7 +101,7 @@ class Attachments
     /** Accepted types, for the file picker and the validation rule. */
     public static function extensions(): array
     {
-        return ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 'xlsx', ...self::TEXT_EXTENSIONS, ...array_values(self::VIDEO_TYPES)];
+        return ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 'xlsx', ...DocumentReader::EXTENSIONS, ...self::TEXT_EXTENSIONS, ...array_values(self::VIDEO_TYPES)];
     }
 
     /**
@@ -159,6 +177,26 @@ class Attachments
             }
 
             return ['kind' => AttachmentKind::Sheet, 'mime' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'extension' => 'xlsx', 'width' => null, 'height' => null];
+        }
+
+        if (in_array($extension, DocumentReader::EXTENSIONS, true)) {
+            if ($size > self::MAX_DOCUMENT_BYTES) {
+                $fail('Փաստաթուղթը պետք է լինի մինչև 10 ՄԲ։');
+            }
+            try {
+                $text = (new DocumentReader)->text((string) file_get_contents($file->getRealPath()), $extension);
+            } catch (UnreadableDocument $e) {
+                $fail($e->getMessage());
+            }
+            if (trim($text) === '') {
+                $fail('Փաստաթղթում տեքստ չկա (գուցե այն սկանավորված նկար է. ուղարկեք PDF կամ նկար)։');
+            }
+
+            return ['kind' => AttachmentKind::Document, 'mime' => self::DOCUMENT_MIMES[$extension], 'extension' => $extension, 'width' => null, 'height' => null];
+        }
+
+        if (isset(self::OLD_FORMATS[$extension])) {
+            $fail('Այս հին ձևաչափը չի կարդացվում։ Բացեք ֆայլը և պահեք որպես '.self::OLD_FORMATS[$extension].' կամ PDF, հետո կցեք։');
         }
 
         if (in_array($extension, self::TEXT_EXTENSIONS, true) && (str_starts_with($mime, 'text/') || in_array($mime, ['application/csv', 'application/x-empty'], true))) {
@@ -339,6 +377,10 @@ class Attachments
             return ['type' => 'document', 'source' => ['type' => 'text', 'media_type' => 'text/plain', 'data' => self::sheetText($content)], 'title' => $file->name];
         }
 
+        if ($file->kind === AttachmentKind::Document) {
+            return ['type' => 'document', 'source' => ['type' => 'text', 'media_type' => 'text/plain', 'data' => self::documentText($content, $file->name)], 'title' => $file->name];
+        }
+
         return ['type' => 'document', 'source' => ['type' => 'text', 'media_type' => 'text/plain', 'data' => $content], 'title' => $file->name];
     }
 
@@ -401,6 +443,18 @@ class Attachments
         return $csv.($sheet->truncated ? "\n(Only the first ".self::SHEET_ROWS_SHOWN.' rows are shown; copy_table reads them all.)' : '');
     }
 
+    /** A document's text as the model reads it (a ZIP of documents: only its name). */
+    private static function documentText(string $content, string $name): string
+    {
+        try {
+            $text = (new DocumentReader)->text($content, strtolower(pathinfo($name, PATHINFO_EXTENSION)));
+        } catch (UnreadableDocument) {
+            return '(The file could not be read.)';
+        }
+
+        return $text === '' ? '(The document has no text.)' : $text;
+    }
+
     /** How a file is named to the model: "[file #N: name, kind…]". */
     private static function label(AssistantAttachment $file, bool $shown): string
     {
@@ -458,9 +512,13 @@ class Attachments
             // The pictures an agent made in this answer, by number (get_design opens one), and its videos with their plans.
             if ($message['role'] !== 'user') {
                 $designs = array_filter($files, fn (AssistantAttachment $f) => $f->isDesign());
+                $documents = array_filter($files, fn (AssistantAttachment $f) => $f->isDocument());
                 $made = [];
                 if ($designs !== []) {
                     $made[] = '(Pictures made in this answer: '.implode(', ', array_map(fn (AssistantAttachment $f) => "[design #{$f->id}] «{$f->title}» ({$f->format})", $designs)).')';
+                }
+                if ($documents !== []) {
+                    $made[] = '(Documents made in this answer: '.implode(', ', array_map(fn (AssistantAttachment $f) => "[file #{$f->id}] {$f->name}", $documents)).')';
                 }
                 foreach ($videos as $video) {
                     $made[] = "(Video cut in this answer: [video #{$video->id}] «{$video->title}» ({$video->format}, {$video->duration} s, {$video->status}"

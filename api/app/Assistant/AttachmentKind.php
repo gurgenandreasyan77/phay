@@ -17,6 +17,9 @@ enum AttachmentKind: string
     /** XLSX: the model reads its first sheet as CSV text; copy_table copies it whole. */
     case Sheet = 'sheet';
 
+    /** Word, OpenDocument, RTF, PowerPoint or a web page: the model reads its text (App\Documents\DocumentReader); a document an agent made, or a ZIP of them. */
+    case Document = 'document';
+
     /** MP4, MOV or WEBM: the model sees a few frames and its length; an agent can cut it. */
     case Video = 'video';
 }

@@ -13,6 +13,7 @@ const TINTS: Record<string, AgentTint> = {
   accountant: { tint: "#527589", soft: "rgba(82, 117, 137, 0.22)", bg: "#e7eff4", from: "#527589", to: "#3b78b8" },
   tables: { tint: "#4f7a4a", soft: "rgba(79, 122, 74, 0.22)", bg: "#ebf3e8", from: "#4f7a4a", to: "#557f25" },
   hr: { tint: "#7a5aa6", soft: "rgba(122, 90, 166, 0.22)", bg: "#f1ecf7", from: "#7a5aa6", to: "#9c55c9" },
+  documents: { tint: "#34558b", soft: "rgba(52, 85, 139, 0.22)", bg: "#e9eef7", from: "#34558b", to: "#2f62c4" },
   content: { tint: "#b4507a", soft: "rgba(180, 80, 122, 0.2)", bg: "#f7e9ef", from: "#b4507a", to: "#c94078" },
   reels: { tint: "#b47a2b", soft: "rgba(185, 130, 50, 0.22)", bg: "#f8efe0", from: "#9a6420", to: "#c75a0c" },
   editor: { tint: "#5a6788", soft: "rgba(90, 103, 136, 0.22)", bg: "#ecedf4", from: "#5a6788", to: "#5468c8" },
@@ -162,6 +163,29 @@ const LOOKS: Record<string, Look> = {
         <path d="M85.2 100.5c.6-2.4 2-3.6 3.8-3.6s3.2 1.2 3.8 3.6" fill="#fff" fillOpacity="0.9" />
         <circle cx="100" cy="88" r="4.4" fill="#fff" stroke={tint} strokeWidth="1.6" />
         <path d="m103.2 91.2 3 3" stroke={tint} strokeWidth="2" strokeLinecap="round" />
+      </g>
+    ),
+  },
+  // Anna: a short bob and round reading glasses; a sheet with lines and a seal.
+  documents: {
+    skin: "#efd2bc",
+    hair: "#2e2420",
+    back: "M34 56C32 34 45 23 60 23s28 11 26 33l-1 14c-3 2-6 2-8 0V50H43v20c-2 2-5 2-8 0z",
+    front: LONG_FRONT,
+    extra: () => (
+      <g fill="none" stroke="#202623" strokeWidth="1.5">
+        <circle cx="50.5" cy="54" r="6" />
+        <circle cx="69.5" cy="54" r="6" />
+        <path d="M56.5 54h7M44.5 53l-7-2M75.5 53l7-2" />
+      </g>
+    ),
+    badge: (tint) => (
+      <g>
+        <path d="M85 85h11l5 5v15H85z" fill={tint} />
+        <path d="M96 85v5h5" fill="#fff" fillOpacity="0.5" />
+        <path d="M88 92h8M88 95.5h10M88 99h6" stroke="#fff" strokeOpacity="0.85" strokeWidth="1.2" strokeLinecap="round" />
+        <circle cx="99.5" cy="102.5" r="3.6" fill="#fff" stroke={tint} strokeWidth="1.3" />
+        <circle cx="99.5" cy="102.5" r="1.4" fill={tint} />
       </g>
     ),
   },

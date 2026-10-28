@@ -5,6 +5,7 @@ namespace App\Agents;
 use App\Agents\Team\Accountant;
 use App\Agents\Team\Analyst;
 use App\Agents\Team\ContentCreator;
+use App\Agents\Team\DocumentKeeper;
 use App\Agents\Team\PhotoDesigner;
 use App\Agents\Team\Recruiter;
 use App\Agents\Team\ReelMaker;
@@ -27,6 +28,7 @@ final class AgentCatalog
         Accountant::class,
         TableKeeper::class,
         Recruiter::class,
+        DocumentKeeper::class,
         ContentCreator::class,
         ReelMaker::class,
         VideoEditor::class,

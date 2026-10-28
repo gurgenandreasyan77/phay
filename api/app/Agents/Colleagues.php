@@ -7,6 +7,7 @@ use App\Assistant\BusinessAssistant;
 use App\Assistant\ReplyActions;
 use App\Assistant\ToolOutput;
 use App\Assistant\ToolSet;
+use App\Documents\DocumentStudio;
 use App\Media\DesignStudio;
 use App\Media\VideoStudio;
 use App\Models\User;
@@ -93,6 +94,7 @@ class Colleagues
         private readonly ReplyActions $actions,
         private readonly DesignStudio $studio,
         private readonly VideoStudio $videos,
+        private readonly DocumentStudio $documents,
     ) {}
 
     /** «Անյա · HR և հավաքագրում (hr): <tagline>», for prompts and the tool. */
@@ -175,7 +177,7 @@ class Colleagues
 
         return implode("\n", array_filter([
             $this->agents->directory($this->tenants->current()),
-            'Your own work is the business\'s figures and advice on selling more. The specialist work of the agents above (pictures, image prompts and the brand\'s look; post, caption and ad texts and content plans; reel scripts; video editing; changing the tables; hiring, job postings and staff time off) is not yours: don\'t do it yourself, not even as a draft or a prompt. When that agent is on this business\'s team, hand the work to them right away with '.self::DELEGATE.' (in the background, with every detail from the conversation) and report what they did in a sentence or two: their pictures and cards come under your answer. One message of the owner is enough for the whole job: use every teammate it needs, and tell in order whom you consulted and who did what (e.g. "I asked the analyst, then the designer made the picture"). Never send the owner to another chat for it. When that agent is NOT on the team, say plainly that this specialist isn\'t available for their business yet, that it can be added for a monthly fee with the button under your answer ('.self::REFER.'), and that once it is added they can come back here and you will have it done.',
+            'Your own work is the business\'s figures and advice on selling more. The specialist work of the agents above (pictures, image prompts and the brand\'s look; post, caption and ad texts and content plans; reel scripts; video editing; changing the tables; hiring, job postings and staff time off; reviewing documents and writing or filling contracts, acts and forms) is not yours: don\'t do it yourself, not even as a draft or a prompt. When that agent is on this business\'s team, hand the work to them right away with '.self::DELEGATE.' (in the background, with every detail from the conversation) and report what they did in a sentence or two: their pictures and cards come under your answer. One message of the owner is enough for the whole job: use every teammate it needs, and tell in order whom you consulted and who did what (e.g. "I asked the analyst, then the designer made the picture"). Never send the owner to another chat for it. When that agent is NOT on the team, say plainly that this specialist isn\'t available for their business yet, that it can be added for a monthly fee with the button under your answer ('.self::REFER.'), and that once it is added they can come back here and you will have it done.',
             $team === [] ? null : 'When a question needs what one of the business\'s agents keeps or knows best (e.g. who of the staff is away: the HR person), ask them with ask_colleague, then answer with what they said.',
         ]));
     }
@@ -307,6 +309,7 @@ class Colleagues
         $cards = count($this->actions->all());
         $designs = count($this->studio->produced());
         $videos = count($this->videos->started());
+        $documents = count($this->documents->produced());
 
         // The teammate as itself, with all its tools, but asking and handing on no one.
         $reply = $this->client->reply(
@@ -325,6 +328,7 @@ class Colleagues
         $made = array_filter([
             'pictures' => count($this->studio->produced()) - $designs,
             'videos' => count($this->videos->started()) - $videos,
+            'documents' => count($this->documents->produced()) - $documents,
             'cards' => count($this->actions->all()) - $cards,
         ]);
 
@@ -346,7 +350,7 @@ class Colleagues
             'done' => true,
             'report' => $report,
             'made' => $made,
-            'note' => 'Their pictures, videos and cards are already under your answer. Tell the owner in a sentence or two what they did (e.g. "'.$colleague->persona()['hy'].'ն պատրաստեց 2 տարբերակ, ընտրեք ներքևում"); don\'t redo or repeat their work.',
+            'note' => 'Their pictures, videos, documents and cards are already under your answer. Tell the owner in a sentence or two what they did (e.g. "'.$colleague->persona()['hy'].'ն պատրաստեց 2 տարբերակ, ընտրեք ներքևում"); don\'t redo or repeat their work.',
         ];
     }
 

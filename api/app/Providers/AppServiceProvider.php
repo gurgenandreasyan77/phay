@@ -6,6 +6,7 @@ use App\Assistant\AnthropicAssistantClient;
 use App\Assistant\AssistantClient;
 use App\Assistant\ReplyActions;
 use App\Audience\SocialSource;
+use App\Documents\DocumentStudio;
 use App\Features\FeatureFlag;
 use App\Google\GoogleCalendarClient;
 use App\Google\HttpGoogleCalendarClient;
@@ -99,6 +100,8 @@ class AppServiceProvider extends ServiceProvider
             token: config('services.media.token'),
         ));
         $this->app->scoped(VideoStudio::class);
+        // The documents agent's files: collected per question.
+        $this->app->scoped(DocumentStudio::class);
     }
 
     /**

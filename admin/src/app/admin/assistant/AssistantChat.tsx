@@ -31,19 +31,21 @@ import {
   type ShownFile,
 } from "./Attachments";
 import { chooseMessage, DesignGallery } from "./Designs";
+import { DocumentList } from "./Documents";
 import { VideoList } from "./Videos";
 import { SUGGESTIONS } from "./suggestions";
 import { AnswerActions } from "./AnswerActions";
 import { Consultations } from "./Consultations";
 import styles from "./chat.module.css";
 
-/** A question with its files, or an answer with the pictures the agent made. */
+/** A question with its files, or an answer with the pictures and documents the agent made. */
 type Message = {
   role: "user" | "assistant";
   content: string;
   files?: ShownFile[];
   actions?: AssistantActionDto[];
   designs?: AssistantAttachmentDto[];
+  documents?: AssistantAttachmentDto[];
   videos?: AssistantVideoDto[];
 };
 
@@ -56,15 +58,18 @@ function toMessage(
   if (message.role === "user") {
     return { role: "user", content: message.content, files: (message.attachments ?? []).map(shownFromAttachment) };
   }
-  const designs = message.attachments ?? [];
+  const made = message.attachments ?? [];
+  const designs = made.filter((file) => file.origin !== "document");
+  const documents = made.filter((file) => file.origin === "document");
   const videos = message.videos ?? [];
   return {
     role: "assistant",
     content: message.refused
       ? REFUSED
-      : message.content || (designs.length + videos.length > 0 ? "" : "Պատասխանը դատարկ է։ Փորձեք կրկին։"),
+      : message.content || (made.length + videos.length > 0 ? "" : "Պատասխանը դատարկ է։ Փորձեք կրկին։"),
     actions: message.actions ?? [],
     designs,
+    documents,
     videos,
   };
 }
@@ -434,13 +439,14 @@ export function AssistantChat({
         return;
       }
 
-      const { reply, refused, conversation, attachments, actions, designs, videos, ...nextUsage } = json.data as {
+      const { reply, refused, conversation, attachments, actions, designs, documents, videos, ...nextUsage } = json.data as {
         reply: string;
         refused: boolean;
         actions?: AssistantActionDto[];
         conversation: AssistantConversationDto | null;
         attachments?: AssistantAttachmentDto[];
         designs?: AssistantAttachmentDto[];
+        documents?: AssistantAttachmentDto[];
         videos?: AssistantVideoDto[];
       } & AssistantUsageDto;
       // The question shows its kept files (served by the API, no local blobs).
@@ -449,7 +455,14 @@ export function AssistantChat({
       setMessages([
         ...messages,
         asked,
-        toMessage({ role: "assistant", content: reply, refused, actions, attachments: designs ?? [], videos }),
+        toMessage({
+          role: "assistant",
+          content: reply,
+          refused,
+          actions,
+          attachments: [...(designs ?? []), ...(documents ?? [])],
+          videos,
+        }),
       ]);
       setUsage(nextUsage);
       if (conversation) {
@@ -568,6 +581,7 @@ export function AssistantChat({
                     }
                   />
                   <VideoList videos={message.videos ?? []} />
+                  <DocumentList documents={message.documents ?? []} />
                   <AnswerActions
                     actions={message.actions ?? []}
                     team={team}

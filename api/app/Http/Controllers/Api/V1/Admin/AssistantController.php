@@ -12,6 +12,7 @@ use App\Assistant\Attachments;
 use App\Assistant\BusinessAssistant;
 use App\Assistant\RecentChats;
 use App\Assistant\ReplyActions;
+use App\Documents\DocumentStudio;
 use App\Http\Controllers\Controller;
 use App\Media\DesignStudio;
 use App\Media\VideoStudio;
@@ -49,6 +50,8 @@ use Illuminate\Validation\ValidationException;
  * of the answer and come back with it ("designs"); videos it cuts
  * (VideoStudio) render for a minute or two after the answer: they come
  * back as "videos" and the chat asks about each (video) until it is ready.
+ * Documents it makes (DocumentStudio: Word files, a ZIP of many) are files
+ * of the answer too and come back as "documents".
  *
  * While a question is answered it is "asking" (RecentChats), and the answer
  * is kept even when the person leaves the page meanwhile: the header then
@@ -72,7 +75,7 @@ class AssistantController extends Controller
         ]]);
     }
 
-    public function store(Request $request, BusinessAssistant $assistant, Agents $agents, TenantContext $tenants, Attachments $attachments, ReplyActions $actions, DesignStudio $studio, VideoStudio $videoStudio, RecentChats $recent): JsonResponse
+    public function store(Request $request, BusinessAssistant $assistant, Agents $agents, TenantContext $tenants, Attachments $attachments, ReplyActions $actions, DesignStudio $studio, VideoStudio $videoStudio, DocumentStudio $documentStudio, RecentChats $recent): JsonResponse
     {
         // Leaving the page mid-answer doesn't lose the answer: it is kept and shown as new.
         ignore_user_abort(true);
@@ -146,7 +149,7 @@ class AssistantController extends Controller
         $actions->reset();
         $asking = $kept ? $recent->begin($request->user(), $agent?->key(), $conversation, $question) : null;
         try {
-            return $this->answer($request, $assistant, $attachments, $actions, $studio, $videoStudio, $messages, $agent, $kept, $conversation, $question ?? '', $files);
+            return $this->answer($request, $assistant, $attachments, $actions, $studio, $videoStudio, $documentStudio, $messages, $agent, $kept, $conversation, $question ?? '', $files);
         } finally {
             if ($asking) {
                 $recent->end($request->user(), $asking);
@@ -167,6 +170,7 @@ class AssistantController extends Controller
         ReplyActions $actions,
         DesignStudio $studio,
         VideoStudio $videoStudio,
+        DocumentStudio $documentStudio,
         array $messages,
         ?Agent $agent,
         bool $kept,
@@ -197,9 +201,10 @@ class AssistantController extends Controller
 
         $designs = collect($studio->produced());
         $videos = collect($videoStudio->started());
+        $documents = collect($documentStudio->produced());
 
         if ($kept) {
-            $conversation = DB::transaction(function () use ($request, $conversation, $question, $files, $reply, $agent, $actions, $designs, $videos) {
+            $conversation = DB::transaction(function () use ($request, $conversation, $question, $files, $reply, $agent, $actions, $designs, $videos, $documents) {
                 $conversation ??= AssistantConversation::create([
                     'user_id' => $request->user()->id,
                     'agent_key' => $agent?->key(),
@@ -215,8 +220,8 @@ class AssistantController extends Controller
                     'refused' => $reply->refused,
                     'actions' => $actions->all() ?: null,
                 ]);
-                if ($designs->isNotEmpty()) {
-                    AssistantAttachment::query()->whereKey($designs->pluck('id'))->update(['assistant_message_id' => $answer->id]);
+                if ($designs->isNotEmpty() || $documents->isNotEmpty()) {
+                    AssistantAttachment::query()->whereKey([...$designs->pluck('id'), ...$documents->pluck('id')])->update(['assistant_message_id' => $answer->id]);
                 }
                 if ($videos->isNotEmpty()) {
                     VideoJob::query()->whereKey($videos->pluck('id'))->update(['assistant_message_id' => $answer->id]);
@@ -241,6 +246,8 @@ class AssistantController extends Controller
             'attachments' => $files->map(fn (AssistantAttachment $file) => $file->present())->values(),
             // The pictures the agent made in its answer.
             'designs' => $designs->map(fn (AssistantAttachment $file) => $file->present())->values(),
+            // The documents it made (Word files, a ZIP of many).
+            'documents' => $documents->map(fn (AssistantAttachment $file) => $file->present())->values(),
             // The videos it started cutting (rendering: ask GET assistant/videos/{id}).
             'videos' => $videos->map(fn (VideoJob $video) => $video->present())->values(),
             'conversation' => $conversation ? $this->summary($conversation->loadCount('messages')) : null,

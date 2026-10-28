@@ -7,6 +7,7 @@ use App\Assistant\BusinessTools;
 use App\Assistant\TableEditTools;
 use App\Assistant\ToolOutput;
 use App\Assistant\ToolSet;
+use App\Documents\DocumentStudio;
 use App\Media\DesignStudio;
 use App\Media\LinkReader;
 use App\Media\VideoStudio;
@@ -30,7 +31,8 @@ use InvalidArgumentException;
  * later conversations (view_brand_assets). Every agent can open a link
  * the owner sends (read_link); the designers also make pictures
  * (render_designs, get_design), the video editors cut the owner's clips
- * (edit_video), the table agent prepares changes of the tables
+ * (edit_video), the documents agent writes and fills Word files
+ * (DocumentStudio), the table agent prepares changes of the tables
  * (TableEditTools), the HR agent the team's records (HrTools).
  * Everything stays inside the current business.
  *
@@ -73,6 +75,7 @@ class AgentTools implements ToolSet
         private readonly VideoStudio $videos,
         private readonly TableEditTools $tableEdits,
         private readonly HrTools $hr,
+        private readonly DocumentStudio $documents,
     ) {}
 
     /** Counts renders, links and videos afresh, and forgets the pictures of an earlier question. */
@@ -81,6 +84,7 @@ class AgentTools implements ToolSet
         $this->studio->newQuestion();
         $this->links->newQuestion();
         $this->videos->newQuestion();
+        $this->documents->newQuestion();
     }
 
     /** Whether this agent makes pictures here (its role, and the media service is connected). */
@@ -93,6 +97,12 @@ class AgentTools implements ToolSet
     public function edits(): bool
     {
         return ! $this->readOnly && $this->agent()->edits() && $this->videos->available();
+    }
+
+    /** Whether this agent makes documents here (its role; not while a teammate only consults it). */
+    public function writesDocuments(): bool
+    {
+        return ! $this->readOnly && $this->agent()->writesDocuments();
     }
 
     /** The same tools for another agent, saving as the given person. */
@@ -205,6 +215,7 @@ class AgentTools implements ToolSet
             $this->links->definition(),
             ...($this->designs() ? $this->studio->definitions() : []),
             ...($this->edits() ? [$this->videos->definition()] : []),
+            ...($this->writesDocuments() ? $this->documents->definitions() : []),
         ];
     }
 
@@ -242,6 +253,14 @@ class AgentTools implements ToolSet
             }
 
             return $this->videos->edit($input, $this->user);
+        }
+
+        if (in_array($name, DocumentStudio::NAMES, true)) {
+            if (! $this->writesDocuments()) {
+                throw new InvalidArgumentException('Documents are made by the documents agent: hand it over.');
+            }
+
+            return $this->documents->run($name, $input, $this->user);
         }
 
         if ($name === self::SAVE_PROFILE) {
