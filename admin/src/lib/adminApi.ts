@@ -1045,7 +1045,57 @@ export type BusinessSubscriptionDto = {
   assistant: AssistantUsageDto;
   payments: SubscriptionPaymentDto[];
   agentBilling?: AgentBillingDto;
+  /** The balance it pays from: only for the owner and the admin. */
+  balance?: BalanceDto | null;
   plans: { id: number; name: string; description: string | null; price: number; assistantRequests: number | null; includedModules: string[] }[];
+};
+
+export type BalanceTransactionType = "top_up" | "charge" | "refund" | "correction";
+
+/** One row of the balance ledger (only ever added). */
+export type BalanceTransactionDto = {
+  id: number;
+  type: BalanceTransactionType;
+  /** Signed: a top-up adds, a charge takes. */
+  amount: number;
+  balanceAfter: number;
+  purpose: "subscription" | "plan" | "module" | "agents" | null;
+  description: string;
+  note: string | null;
+  /** Renewed by the platform on its own. */
+  automatic: boolean;
+  /** Who on the platform did it: the platform level only. */
+  by?: string | null;
+  createdAt: string | null;
+};
+
+/** A payment coming: the subscription or an AI agent at its end. */
+export type BalanceUpcomingDto = {
+  kind: "subscription" | "agent";
+  key: string;
+  label: string;
+  date: string;
+  amount: number;
+  /** Renews from the balance on its own (a trial agent doesn't). */
+  auto: boolean;
+  /** The balance carries it, after what comes before it. */
+  covered: boolean;
+};
+
+/** The business's balance: the super admin tops it up, the business pays from it. */
+export type BalanceDto = {
+  amount: number;
+  autoRenew: boolean;
+  /** The subscription plus the paid agents, a month. */
+  monthly: number;
+  /** Whole months of that the balance holds. */
+  months: number | null;
+  upcoming: BalanceUpcomingDto[];
+  /** The last payment coming the balance covers. */
+  coversUntil: string | null;
+  toppedUp: number;
+  spent: number;
+  transactions: BalanceTransactionDto[];
 };
 
 export type SubscriptionTenantDto = { id: number; name: string; logo: string | null; status: "active" | "suspended" };
@@ -1062,6 +1112,7 @@ export type TenantSubscriptionDetailDto = {
   payments: SubscriptionPaymentDto[];
   assistant: AssistantUsageDto & { bonuses: AssistantBonusDto[] };
   agentBilling?: AgentBillingDto;
+  balance?: BalanceDto;
   plans: { id: number; name: string; price: number; isActive: boolean; assistantRequests: number | null }[];
 };
 
@@ -2234,6 +2285,12 @@ export async function getDataImports(tableId: number): Promise<AdminDataImportDt
 
 export async function getDataImport(id: number, tableId: number): Promise<AdminDataImportPreviewDto | null> {
   const result = await adminApiFetch<AdminDataImportPreviewDto>(`/admin/data-imports/${id}?data_table_id=${tableId}`);
+  return result.data;
+}
+
+/** The business's balance (owner and admin); null for anyone else. */
+export async function getBalance(): Promise<BalanceDto | null> {
+  const result = await adminApiFetch<BalanceDto>("/admin/balance");
   return result.data;
 }
 

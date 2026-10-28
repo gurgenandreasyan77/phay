@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Admin;
 use App\Agents\AgentCatalog;
 use App\Agents\AgentTerms;
 use App\Assistant\BusinessAssistant;
+use App\Billing\BalancePayments;
 use App\Features\FeatureFlag;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Admin\SubscriptionPaymentResource;
@@ -31,9 +32,10 @@ class SubscriptionController extends Controller
         private readonly TenantContext $context,
     ) {}
 
-    public function show(BusinessAssistant $assistant, AgentTerms $terms): JsonResponse
+    public function show(Request $request, BusinessAssistant $assistant, AgentTerms $terms, BalancePayments $balance): JsonResponse
     {
         $tenant = $this->context->current();
+        $user = $request->user();
         $subscription = $this->subscriptions->for($tenant);
         $terms->sync($tenant);
 
@@ -46,6 +48,8 @@ class SubscriptionController extends Controller
             'payments' => SubscriptionPaymentResource::collection($payments)->resolve(),
             // Every AI agent on its own term, the open request to pay for some and their payments.
             'agentBilling' => $terms->billing($tenant),
+            // The balance it pays from: for the people who manage the subscription.
+            'balance' => ! $user->isPlatformStaff() && $user->businessRole($tenant)?->can('settings') ? $balance->summary($tenant) : null,
             'plans' => Plan::query()->where('is_active', true)->ordered()->get()->map(fn (Plan $plan) => [
                 'id' => $plan->id,
                 'name' => $plan->name,

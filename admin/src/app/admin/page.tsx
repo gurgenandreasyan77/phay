@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { requireAdmin } from "@/lib/adminAuth";
-import { can } from "@/lib/roles";
+import { can, isPlatformStaff } from "@/lib/roles";
 import {
+  getBalance,
   getDashboard,
   type DashboardDto,
   type HomeFiguresDto,
@@ -13,19 +14,22 @@ import { bucketLabel, bucketTitle, weekdayShort } from "./_components/analytics/
 import { HBars, RingStat } from "./_components/analytics/Charts";
 import { formatMoment, formatMoney, formatNumber, SECTIONS, tablePath, tablesPath } from "./_components/tables/shared";
 import { LEAD_STATUS_LABELS, LEAD_STATUS_TONES } from "./_components/leadStatus";
+import { BalanceCard } from "./_components/balance/BalanceCard";
 import { Badge, buttonClasses, Card, cn, EmptyCard, EmptyRow, PageHeader, TableWrap, Th, Thead, Td, Tr } from "@/ui";
 
 export const dynamic = "force-dynamic";
 
 /**
- * The business home: what came in today, this week and this month, the net
- * profit, the orders coming up and the site's orders. Read from the
- * business's own tables, expenses and site orders (GET /admin/dashboard);
- * money only for roles that see it.
+ * The business home: its balance with the payments coming (owner and
+ * admin), what came in today, this week and this month, the net profit, the
+ * orders coming up and the site's orders. Read from the business's own
+ * tables, expenses and site orders (GET /admin/dashboard); money only for
+ * roles that see it.
  */
 export default async function AdminDashboardPage() {
   const me = await requireAdmin();
-  const dashboard = await getDashboard();
+  const managesBilling = can(me, "settings") && !isPlatformStaff(me);
+  const [dashboard, balance] = await Promise.all([getDashboard(), managesBilling ? getBalance() : Promise.resolve(null)]);
 
   return (
     <div className="space-y-8">
@@ -45,6 +49,8 @@ export default async function AdminDashboardPage() {
           </>
         }
       />
+
+      {balance ? <BalanceCard balance={balance} history /> : null}
 
       {dashboard ? (
         <>

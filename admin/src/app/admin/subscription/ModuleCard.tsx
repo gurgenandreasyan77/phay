@@ -4,6 +4,7 @@ import type { SubscriptionModulePriceDto } from "@/lib/adminApi";
 import { amd } from "../_components/subscription/shared";
 import { ModuleArt, tintStyle } from "./ModuleArt";
 import { RequestButton } from "./RequestButton";
+import { PayFromBalance } from "../_components/balance/PayFromBalance";
 import styles from "./subscription.module.css";
 
 /** One module: its picture in its colour, what it gives, its price and how to get it. */
@@ -12,12 +13,15 @@ export function ModuleCard({
   monthly,
   canAsk,
   index,
+  payFromBalance = null,
 }: {
   module: SubscriptionModulePriceDto;
   /** What the business pays a month now. */
   monthly: number;
   canAsk: boolean;
   index: number;
+  /** Turned on at once from the balance; `paidUntil` when a paid month runs (its days left are charged). */
+  payFromBalance?: { paidUntil: string | null } | null;
 }) {
   return (
     <article
@@ -45,7 +49,28 @@ export function ModuleCard({
               <span className="text-sm text-ink-muted">/ամիս</span>
             </p>
           )}
-          {canAsk && !module.active ? (
+          {payFromBalance && !module.active ? (
+            <PayFromBalance
+              purchase={{ action: "module", module: module.key }}
+              label="Միացնել"
+              className={`${styles.tintButton} h-9`}
+              confirm={{
+                title: `Միացնե՞լ «${module.label}» մոդուլը`,
+                description: module.included
+                  ? "Մոդուլը ներառված է ձեր փաթեթում. կմիանա հիմա, ամսական վճարը չի փոխվի։"
+                  : payFromBalance.paidUntil
+                    ? `Կմիանա հիմա։ Հաշվեկշռից կգանձվի մոդուլի գինը մինչև ${payFromBalance.paidUntil} մնացած օրերի համար, հետո այն կավելանա ամսական վճարին։`
+                    : "Կմիանա հիմա, առանց վճարի։ Մոդուլի գինը կավելանա ամսական վճարին ընթացիկ ժամկետի ավարտից։",
+                details: module.included
+                  ? [{ label: "Ամսական վճար", value: amd(monthly) }]
+                  : [
+                      { label: "Մոդուլի գինը", value: `+ ${amd(module.price)}/ամիս` },
+                      { label: "Նոր ամսական վճար", value: amd(monthly + module.price) },
+                    ],
+                confirmLabel: "Այո, միացնել",
+              }}
+            />
+          ) : canAsk && !module.active ? (
             <RequestButton
               body={{ kind: "module", module: module.key }}
               label="Միացնել"

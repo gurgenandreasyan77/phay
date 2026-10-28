@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\Admin\AssistantAttachmentController as AdminAssi
 use App\Http\Controllers\Api\V1\Admin\AssistantController as AdminAssistantController;
 use App\Http\Controllers\Api\V1\Admin\AudienceController as AdminAudienceController;
 use App\Http\Controllers\Api\V1\Admin\AuthController as AdminAuthController;
+use App\Http\Controllers\Api\V1\Admin\BalanceController as AdminBalanceController;
 use App\Http\Controllers\Api\V1\Admin\CalculatorSettingController as AdminCalculatorSettingController;
 use App\Http\Controllers\Api\V1\Admin\CalendarController as AdminCalendarController;
 use App\Http\Controllers\Api\V1\Admin\CalendarRowController as AdminCalendarRowController;
@@ -36,6 +37,7 @@ use App\Http\Controllers\Api\V1\Admin\NotificationController as AdminNotificatio
 use App\Http\Controllers\Api\V1\Admin\PasswordController as AdminPasswordController;
 use App\Http\Controllers\Api\V1\Admin\PlanController as AdminPlanController;
 use App\Http\Controllers\Api\V1\Admin\PlatformAgentPaymentController as AdminPlatformAgentPaymentController;
+use App\Http\Controllers\Api\V1\Admin\PlatformBalanceController as AdminPlatformBalanceController;
 use App\Http\Controllers\Api\V1\Admin\PlatformBusinessController as AdminPlatformBusinessController;
 use App\Http\Controllers\Api\V1\Admin\PlatformSubscriptionController as AdminPlatformSubscriptionController;
 use App\Http\Controllers\Api\V1\Admin\PlatformSupportController as AdminPlatformSupportController;
@@ -187,6 +189,18 @@ Route::prefix('v1')->group(function () {
             Route::get('/subscription', [AdminSubscriptionController::class, 'show']);
             Route::post('/subscription/request', [AdminSubscriptionController::class, 'request'])
                 ->middleware(['business.can:settings', 'throttle:10,1']);
+            // The business's balance (topped up by the super admin): what it holds and
+            // paying from it; open after the end too, so paying brings the admin back.
+            Route::middleware('business.can:settings')->group(function () {
+                Route::get('/balance', [AdminBalanceController::class, 'show']);
+                Route::patch('/balance', [AdminBalanceController::class, 'update'])->middleware('throttle:30,1');
+                Route::middleware('throttle:20,1')->group(function () {
+                    Route::post('/balance/subscription', [AdminBalanceController::class, 'subscription']);
+                    Route::post('/balance/plan', [AdminBalanceController::class, 'plan']);
+                    Route::post('/balance/module', [AdminBalanceController::class, 'module']);
+                    Route::post('/balance/agents', [AdminBalanceController::class, 'agents']);
+                });
+            });
 
             // Onboarding (platform staff: super admin and moderators); a
             // business's own people get 403 here.
@@ -257,6 +271,10 @@ Route::prefix('v1')->group(function () {
                 Route::post('/tenants/{tenant}/agent-payments', [AdminPlatformAgentPaymentController::class, 'store']);
                 Route::post('/tenants/{tenant}/agent-payments/{payment}/confirm', [AdminPlatformAgentPaymentController::class, 'confirm'])->whereNumber('payment');
                 Route::delete('/tenants/{tenant}/agent-payments/{payment}', [AdminPlatformAgentPaymentController::class, 'destroy'])->whereNumber('payment');
+                // The business's balance: topped up when a receipt comes in the chat, corrected by a new row.
+                Route::get('/tenants/{tenant}/balance', [AdminPlatformBalanceController::class, 'show']);
+                Route::post('/tenants/{tenant}/balance/top-ups', [AdminPlatformBalanceController::class, 'topUp']);
+                Route::post('/tenants/{tenant}/balance/corrections', [AdminPlatformBalanceController::class, 'correct']);
             });
 
             // The business admin, by role (App\Enums\BusinessRole).
