@@ -2,21 +2,21 @@
 name: Phay Admin
 description: Calm, white-label B2B operations console for service businesses
 colors:
-  background: "#F5F6F3"
+  background: "#F4F6F5"
   surface: "#FFFFFF"
-  surface-secondary: "#ECEFEB"
-  sidebar: "#202925"
-  sidebar-hover: "#2B3732"
-  sidebar-text: "#D8DEDA"
-  sidebar-text-muted: "#929C97"
-  primary: "#3F6F62"
-  primary-hover: "#345D52"
-  primary-light: "#E1EBE7"
-  text-primary: "#202623"
+  surface-secondary: "#EAF0EF"
+  sidebar: "#0B2E36"
+  sidebar-hover: "#153D46"
+  sidebar-text: "#D6E4E4"
+  sidebar-text-muted: "#8CA4A7"
+  primary: "#0F4C5C"
+  primary-hover: "#0B3D4A"
+  primary-light: "#E0EEEE"
+  text-primary: "#1C2628"
   text-secondary: "#68716D"
   text-muted: "#929A96"
-  border: "#DCE1DD"
-  border-strong: "#C8CEC9"
+  border: "#DAE1E0"
+  border-strong: "#C5CFCD"
   success: "#3F7658"
   success-light: "#E5F1E9"
   warning: "#B98232"
@@ -91,13 +91,13 @@ Phay Admin is being built as a white-label CRM product, not a single business's 
 
 ## Colors
 
-The palette is deliberately low-saturation: every role color is a muted, desaturated tone so the one true accent (primary green) still reads as "the important one" when it appears.
+The palette is deliberately low-saturation: every role color is a muted, desaturated tone so the one true accent (primary lagoon) still reads as "the important one" when it appears.
 
 ### Primary
-- **Deep Muted Green** (`#3F6F62`): the only color used for primary actions, the active sidebar indicator, selected-row state, and headline KPI numbers. Hover state `#345D52`; `#E1EBE7` is its light tint for soft highlight panels and badges.
+- **Deep Lagoon** (`#0F4C5C`, the logo's base color): the only color used for primary actions, the active sidebar indicator, selected-row state, and headline KPI numbers. Hover state `#0B3D4A`; `#E0EEEE` is its light tint for soft highlight panels and badges.
 
 ### Neutral
-- **Warm Paper** (`#F5F6F3`): page background.
+- **Cool Paper** (`#F4F6F5`): page background.
 - **Card White** (`#FFFFFF`): surface for cards, tables, inputs.
 - **Soft Sage** (`#ECEFEB`): secondary surface — table header rows, hover states, inline highlight panels.
 - **Graphite** (`#202623`): primary text.
@@ -148,7 +148,7 @@ Two radius steps, deliberately small: 8px (`rounded-md`) for buttons and inputs,
 
 ### Buttons
 - **Shape:** 8px radius, 40px height, `px-4` (16px) horizontal padding, `sm` variant at 32px height / `px-3`.
-- **Primary:** solid `#3F6F62` fill, white text, hover `#345D52`. Reserved for the one primary action per view.
+- **Primary:** solid `#0F4C5C` fill, white text, hover `#0B3D4A`. Reserved for the one primary action per view.
 - **Secondary:** white surface, 1px border, graphite text, hover fills `#ECEFEB`. The default for every non-primary action, including delete triggers.
 - **Ghost:** text-only, muted color, hover fills `#ECEFEB`. Used for "cancel" and low-emphasis actions.
 - **Danger:** solid `#B85D5D` fill — exists in the kit but is only ever reached from an explicit confirmation context, never as a resting toolbar button.
@@ -175,9 +175,9 @@ Two radius steps, deliberately small: 8px (`rounded-md`) for buttons and inputs,
 - **Empty state:** centered muted single line inside the table body, not a separate illustration block.
 
 ### Navigation (Sidebar)
-- **Style:** dark graphite-green (`#202925`) fixed column, grouped by section with 11px uppercase muted group labels.
+- **Style:** deep lagoon (`#0B2E36`) fixed column, grouped by section with 11px uppercase muted group labels.
 - **Default:** muted sidebar text (`#929C97`), transparent background.
-- **Hover:** `#2B3732` background, text brightens to `#D8DEDA`.
+- **Hover:** `#153D46` background, text brightens to `#D6E4E4`.
 - **Active:** same hover background plus a 2px primary-green indicator bar on the item's left edge — the only place a hard-edged color bar is used in the whole system, because the brief explicitly calls for it on this one element.
 - **Disabled ("coming soon"):** reduced-opacity muted text, non-interactive, with a small `Շուտով` tag on the right so the product's intended shape stays legible without faking a working screen.
 - **Mobile:** same component rendered inside a slide-over drawer with a scrim, triggered from the top bar's menu button.
@@ -195,3 +195,8 @@ Two radius steps, deliberately small: 8px (`rounded-md`) for buttons and inputs,
 - **Don't** give cards or buttons large/pill radii; the system caps at 10px except true pill badges and tags.
 - **Don't** use pure black (`#000`) or the public site's teal (`#427b6a`-family) tokens inside `/admin` — the two token systems are intentionally decoupled.
 - **Don't** stack shadows on resting surfaces; depth comes from a 1px border, not elevation.
+
+## Logo
+
+The Phay logo is a «p» whose bowl is three arcs (three AI agents) around three dots: the gold one is the owner, the two others are teammates. Lagoon gradient `#0F4C5C` → `#5FD0B0`, owner dot `#F2B544`, wordmark `#0C3540` (Outfit SemiBold, outlined). In code use `PhayMark` / `PhayLogo` from `src/app/admin/_components/brand/PhayLogo.tsx` with `tone` `color` (light backgrounds), `onDark` (sidebar, dark panels) or `white` (on the brand color). Favicon and app icons live in `src/app/` (`icon.svg`, `icon.png`, `apple-icon.png`, `favicon.ico`). Never recolor the mark, stretch it, or put the color version on the brand teal.
+

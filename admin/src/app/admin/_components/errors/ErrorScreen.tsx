@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/ui";
+import { PhayLogo } from "../brand/PhayLogo";
 
 /**
  * The frame of every error page of the admin (404, 403, "something went
@@ -54,7 +55,7 @@ export function ErrorScreen({
             {details}
           </div>
         ) : null}
-        <p className="mt-10 text-xs font-medium tracking-wide text-ink-faint">Phay</p>
+        <PhayLogo className="mx-auto mt-10 h-6 opacity-70" />
       </div>
     </div>
   );

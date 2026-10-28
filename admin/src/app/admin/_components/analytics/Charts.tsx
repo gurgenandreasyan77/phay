@@ -12,7 +12,7 @@ import styles from "./charts.module.css";
  */
 
 /** Colours for slices in order: the admin's own, then a few more that sit well beside them. */
-export const PALETTE = ["#3f6f62", "#527589", "#b98232", "#8a6bb0", "#c46a6a", "#5f9e8a", "#d39a52", "#6b8bb3", "#9a8a6e"];
+export const PALETTE = ["#0f4c5c", "#527589", "#b98232", "#8a6bb0", "#c46a6a", "#5f9e8a", "#d39a52", "#6b8bb3", "#9a8a6e"];
 
 /** Colours that mean something, by a value's key (lower case). */
 const NAMED: Record<string, string> = {
@@ -22,7 +22,7 @@ const NAMED: Record<string, string> = {
   telegram: "#2a9fd6",
   whatsapp: "#2fa65a",
   viber: "#7a5bc4",
-  կայք: "#3f6f62",
+  կայք: "#0f4c5c",
   female: "#c4618c",
   male: "#4f7fa8",
   other: "#9aa39f",

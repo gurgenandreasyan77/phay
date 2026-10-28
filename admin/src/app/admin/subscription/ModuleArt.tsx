@@ -5,7 +5,7 @@ import styles from "./subscription.module.css";
 export type ModuleTint = { tint: string; soft: string; bg: string };
 
 export const MODULE_TINTS: Record<string, ModuleTint> = {
-  services: { tint: "#3f6f62", soft: "rgba(63, 111, 98, 0.18)", bg: "#eaf2ee" },
+  services: { tint: "#0f4c5c", soft: "rgba(15, 76, 92, 0.18)", bg: "#eaf2ee" },
   market: { tint: "#b47a2b", soft: "rgba(185, 130, 50, 0.2)", bg: "#f8efe0" },
   site: { tint: "#3f6b86", soft: "rgba(82, 117, 137, 0.2)", bg: "#e7eff4" },
   social: { tint: "#b4507a", soft: "rgba(180, 80, 122, 0.18)", bg: "#f7e9ef" },

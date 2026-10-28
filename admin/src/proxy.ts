@@ -45,5 +45,5 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Everything but Next's own files, the route handlers and the icons.
-  matcher: ["/((?!_next/|api/|favicon\\.ico|icon\\.png|robots\\.txt|sitemap\\.xml).*)"],
+  matcher: ["/((?!_next/|api/|favicon\\.ico|icon\\.png|icon\\.svg|apple-icon\\.png|robots\\.txt|sitemap\\.xml).*)"],
 };
