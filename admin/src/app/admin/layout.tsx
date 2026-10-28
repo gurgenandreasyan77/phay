@@ -12,6 +12,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
   // Added to the iPhone home screen it opens full screen, named Phay.
   appleWebApp: { capable: true, title: "Phay", statusBarStyle: "default" },
+  // The home-screen icon on iPhone and iPad: the square Lagoon icon (iOS rounds it itself).
+  icons: {
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+      { url: "/icons/apple-touch-icon-167.png", sizes: "167x167", type: "image/png" },
+      { url: "/icons/apple-touch-icon-152.png", sizes: "152x152", type: "image/png" },
+    ],
+  },
   formatDetection: { telephone: false },
 };
 

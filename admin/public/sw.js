@@ -6,7 +6,7 @@
  * business data is never stored on the device; a page that can't load
  * without internet shows /offline.html instead.
  */
-const VERSION = "phay-v1";
+const VERSION = "phay-v2";
 const STATIC = `${VERSION}-static`;
 const SHELL = ["/offline.html", "/icons/phay-192.png", "/icons/phay-512.png"];
 
