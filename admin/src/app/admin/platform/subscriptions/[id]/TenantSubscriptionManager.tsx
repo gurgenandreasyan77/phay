@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import type { TenantSubscriptionDetailDto } from "@/lib/adminApi";
 import { Button, Card, EmptyRow, FieldLabel, Input, Select, TableWrap, Td, Th, Thead, Tr } from "@/ui";
 import { PriceBreakdown, StatusBadge, amd, formatDay, subscriptionLine } from "../../../_components/subscription/shared";
+import { AgentTeamBilling } from "../../../_components/agents/AgentTeamBilling";
 
 type Unit = "day" | "week" | "month";
 
 const UNIT_LABELS: Record<Unit, string> = { day: "օր", week: "շաբաթ", month: "ամիս" };
 
-/** Everything the super admin does to one business's subscription. */
+/** Everything the super admin does to one business's subscription, and to each of its AI agents' terms. */
 export function TenantSubscriptionManager({ data }: { data: TenantSubscriptionDetailDto }) {
   const router = useRouter();
   const { tenant, subscription, payments, plans, assistant } = data;
@@ -120,6 +121,8 @@ export function TenantSubscriptionManager({ data }: { data: TenantSubscriptionDe
       </div>
 
       <AssistantCard assistant={assistant} pending={pending} onGrant={(body) => call("/assistant-bonus", "POST", body)} />
+
+      {data.agentBilling ? <AgentTeamBilling billing={data.agentBilling} canAsk={false} tenantId={tenant.id} /> : null}
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-ink">Վճարումներ</h2>

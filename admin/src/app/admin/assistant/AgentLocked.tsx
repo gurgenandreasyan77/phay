@@ -10,7 +10,11 @@ export function AgentLocked({ agent, canRequest }: { agent: AgentDto; canRequest
       <Card className="space-y-3">
         <p className="text-sm font-semibold text-ink">Ինչպես կսկսի աշխատել</p>
         <ol className="list-decimal space-y-2 pl-5 text-sm text-ink-muted">
-          <li>Ուղարկեք հայտ. Phay-ի թիմը կմիացնի աշխատակցին և կգրի ձեզ չատում։</li>
+          <li>
+            {agent.term?.trialAvailable
+              ? `Սկսեք ${agent.term.trialDays} օր անվճար փորձաշրջանը. աշխատակիցն անմիջապես կմիանա թիմին։`
+              : "Վճարեք նրա ամսականը «Բաժանորդագրություն» էջում. Phay-ի թիմը կհաստատի վճարումը չատում։"}
+          </li>
           <li>Առաջին զրույցում նա կհարցնի ձեր բիզնեսի, հաճախորդների, ոճի և գույների մասին։</li>
           <li>Պատասխանները կպահվեն ձեր բրենդի պրոֆիլում, և ամբողջ AI թիմը կաշխատի ձեր ոճով։</li>
         </ol>

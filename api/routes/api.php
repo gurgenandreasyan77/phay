@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\HealthController;
 use App\Http\Controllers\Api\V1\AdditionalServiceController;
 use App\Http\Controllers\Api\V1\Admin\AccountLinkController as AdminAccountLinkController;
 use App\Http\Controllers\Api\V1\Admin\AdditionalServiceController as AdminAdditionalServiceController;
+use App\Http\Controllers\Api\V1\Admin\AgentBillingController as AdminAgentBillingController;
 use App\Http\Controllers\Api\V1\Admin\AgentController as AdminAgentController;
 use App\Http\Controllers\Api\V1\Admin\AnalyticsController as AdminAnalyticsController;
 use App\Http\Controllers\Api\V1\Admin\AssistantAttachmentController as AdminAssistantAttachmentController;
@@ -34,6 +35,7 @@ use App\Http\Controllers\Api\V1\Admin\ModulePriceController as AdminModulePriceC
 use App\Http\Controllers\Api\V1\Admin\NotificationController as AdminNotificationController;
 use App\Http\Controllers\Api\V1\Admin\PasswordController as AdminPasswordController;
 use App\Http\Controllers\Api\V1\Admin\PlanController as AdminPlanController;
+use App\Http\Controllers\Api\V1\Admin\PlatformAgentPaymentController as AdminPlatformAgentPaymentController;
 use App\Http\Controllers\Api\V1\Admin\PlatformBusinessController as AdminPlatformBusinessController;
 use App\Http\Controllers\Api\V1\Admin\PlatformSubscriptionController as AdminPlatformSubscriptionController;
 use App\Http\Controllers\Api\V1\Admin\PlatformSupportController as AdminPlatformSupportController;
@@ -250,6 +252,11 @@ Route::prefix('v1')->group(function () {
                 Route::post('/tenants/{tenant}/subscription/cancel', [AdminPlatformSubscriptionController::class, 'cancel']);
                 Route::post('/tenants/{tenant}/subscription/resume', [AdminPlatformSubscriptionController::class, 'resume']);
                 Route::post('/tenants/{tenant}/subscription/assistant-bonus', [AdminPlatformSubscriptionController::class, 'grantAssistantBonus']);
+                // Each AI agent's own term: requests confirmed, payments recorded by hand.
+                Route::post('/tenants/{tenant}/agent-payments/quote', [AdminPlatformAgentPaymentController::class, 'quote']);
+                Route::post('/tenants/{tenant}/agent-payments', [AdminPlatformAgentPaymentController::class, 'store']);
+                Route::post('/tenants/{tenant}/agent-payments/{payment}/confirm', [AdminPlatformAgentPaymentController::class, 'confirm'])->whereNumber('payment');
+                Route::delete('/tenants/{tenant}/agent-payments/{payment}', [AdminPlatformAgentPaymentController::class, 'destroy'])->whereNumber('payment');
             });
 
             // The business admin, by role (App\Enums\BusinessRole).
@@ -259,6 +266,13 @@ Route::prefix('v1')->group(function () {
             Route::get('/agents', [AdminAgentController::class, 'index']);
             Route::put('/agents/profile', [AdminAgentController::class, 'updateProfile'])->middleware('throttle:30,1');
             Route::put('/agents/{agent}/notes', [AdminAgentController::class, 'updateNotes'])->middleware('throttle:30,1');
+            // Each agent on its own term: a free trial once, paying (asked in the chat) for some months or one common day.
+            Route::middleware('business.can:settings')->group(function () {
+                Route::post('/agents/billing/quote', [AdminAgentBillingController::class, 'quote'])->middleware('throttle:60,1');
+                Route::post('/agents/billing/request', [AdminAgentBillingController::class, 'request'])->middleware('throttle:10,1');
+                Route::delete('/agents/billing/request/{payment}', [AdminAgentBillingController::class, 'cancel'])->whereNumber('payment');
+                Route::post('/agents/{agent}/trial', [AdminAgentBillingController::class, 'trial'])->middleware('throttle:10,1');
+            });
             // The brand's pictures the agents look at (logo, examples).
             Route::post('/agents/brand-assets', [AdminAgentController::class, 'storeAsset'])->middleware('throttle:30,1');
             Route::get('/agents/brand-assets/{brandAsset}/file', [AdminAgentController::class, 'assetFile']);

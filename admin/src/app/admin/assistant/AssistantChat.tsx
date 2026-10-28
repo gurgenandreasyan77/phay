@@ -104,6 +104,7 @@ const GET_ACQUAINTED = "Եկեք ծանոթանանք. ուզում եմ պատ�
 const ERRORS: Record<string, string> = {
   not_configured: "AI օգնականը դեռ միացված չէ։",
   agent_inactive: "Այս AI աշխատակիցը դեռ ձեր թիմում չէ։",
+  agent_expired: "Այս AI աշխատակցի ժամկետն ավարտվել է։ Երկարացրեք այն «Բաժանորդագրություն» էջում. նրա հիշողությունը պահպանված է։",
   limit_reached: "Այս ամսվա հարցերը սպառվել են։",
   unavailable: "AI օգնականը հիմա հասանելի չէ։ Փորձեք մեկ րոպեից։",
   // Set-up problems: the platform fixes them, the detail says what to fix.

@@ -5,8 +5,7 @@ import { ArrowRight, Lock, MessageCircle, Play } from "lucide-react";
 import type { AgentDto, AssistantActionDto } from "@/lib/adminApi";
 import { buttonClasses, cn } from "@/ui";
 import { AgentAvatar, agentTintStyle } from "../_components/agents/AgentAvatar";
-import { agentRequestConfirm } from "../_components/agents/AgentCard";
-import { RequestButton } from "../subscription/RequestButton";
+import { AgentJoinAction } from "../_components/agents/AgentJoinAction";
 
 type Refer = Extract<AssistantActionDto, { type: "refer" }>;
 
@@ -68,12 +67,7 @@ export function ReferCard({
         </Link>
       ) : agent && canRequest ? (
         <div className="flex flex-wrap items-center gap-2">
-          <RequestButton
-            body={{ kind: "agent", agent: agent.key }}
-            label="Ավելացնել թիմին"
-            confirm={agentRequestConfirm(agent)}
-            primary
-          />
+          <AgentJoinAction agent={agent} primary />
           <Link
             href={`/admin/subscription#agents`}
             className="inline-flex items-center gap-1 text-xs text-ink-muted underline-offset-2 hover:underline"

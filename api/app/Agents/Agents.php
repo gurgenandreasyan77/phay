@@ -27,6 +27,7 @@ class Agents
     public function __construct(
         private readonly SupportChat $chat,
         private readonly Subscriptions $subscriptions,
+        private readonly AgentTerms $terms,
     ) {}
 
     /** @return Collection<string, TenantAgent> the business's agent rows by key */
@@ -35,19 +36,30 @@ class Agents
         return TenantAgent::withoutTenancy()->where('tenant_id', $tenant->id)->get()->keyBy('agent_key');
     }
 
+    /** On the team and within its own term (AgentTerms): it answers. */
     public function isActive(Tenant $tenant, Agent $agent): bool
     {
-        return TenantAgent::withoutTenancy()
-            ->where('tenant_id', $tenant->id)
-            ->where('agent_key', $agent->key())
-            ->where('active', true)
-            ->exists();
+        $row = TenantAgent::withoutTenancy()->where('tenant_id', $tenant->id)->where('agent_key', $agent->key())->first();
+
+        return $this->terms->running($this->subscriptions->for($tenant), $agent, $row);
     }
 
-    /** @return list<string> keys of the agents the business has */
+    /** On the team, but its trial or paid months are over: it waits to be paid for. */
+    public function isExpired(Tenant $tenant, Agent $agent): bool
+    {
+        $row = TenantAgent::withoutTenancy()->where('tenant_id', $tenant->id)->where('agent_key', $agent->key())->first();
+
+        return (bool) $row?->active && ! $this->terms->running($this->subscriptions->for($tenant), $agent, $row);
+    }
+
+    /** @return list<string> keys of the agents the business has (and whose term runs) */
     public function activeKeys(Tenant $tenant): array
     {
-        return $this->rows($tenant)->filter(fn (TenantAgent $row) => $row->active && $row->agent())->keys()->values()->all();
+        $subscription = $this->subscriptions->for($tenant);
+
+        return $this->rows($tenant)
+            ->filter(fn (TenantAgent $row) => $row->agent() && $this->terms->running($subscription, $row->agent(), $row))
+            ->keys()->values()->all();
     }
 
     /**
@@ -84,32 +96,51 @@ class Agents
     }
 
     /**
-     * Turns an agent on or off for a business (super admin). On: the
-     * business is told in its chat and the bell, with a link to the agent.
+     * Turns an agent on or off for a business (super admin). On for the
+     * first time: its free trial starts (AgentTerms). The business is told
+     * in its chat and the bell, with a link to the agent.
      */
     public function setActive(Tenant $tenant, Agent $agent, bool $active, ?User $by = null): TenantAgent
     {
         $row = $this->row($tenant, $agent);
         $was = $row->active;
+        $fresh = $row->trial_ends_at === null && $row->paid_until === null;
 
         $row->forceFill([
             'active' => $active,
             'activated_at' => $active ? ($was ? $row->activated_at : now()) : $row->activated_at,
             'activated_by' => $active && ! $was ? $by?->id : $row->activated_by,
+            'trial_ends_at' => $active && $fresh ? now()->addDays($this->terms->trialDays()) : $row->trial_ends_at,
         ])->save();
 
-        if ($active && ! $was) {
+        $this->announce($tenant, $agent, $active && ! $was, $active && $fresh ? $this->terms->trialDays() : null);
+
+        return $row;
+    }
+
+    /** The owner starts an agent's free trial (once): it joins the team at once. */
+    public function startTrial(Tenant $tenant, Agent $agent, ?User $by = null): TenantAgent
+    {
+        $row = $this->terms->startTrial($tenant, $agent, $by);
+
+        $this->announce($tenant, $agent, true, $this->terms->trialDays());
+
+        return $row;
+    }
+
+    private function announce(Tenant $tenant, Agent $agent, bool $joined, ?int $trialDays = null): void
+    {
+        if ($joined) {
             $this->chat->notify($tenant, sprintf(
-                'Ձեր թիմին միացավ նոր AI աշխատակից՝ %s։ Բացեք «AI օգնական» բաժինը և սկսեք զրույցը. նախ պատմեք ձեր բիզնեսի մասին, որպեսզի նա աշխատի հենց ձեր բրենդի համար։',
+                'Ձեր թիմին միացավ նոր AI աշխատակից՝ %s։%s Բացեք «AI օգնական» բաժինը և սկսեք զրույցը. նախ պատմեք ձեր բիզնեսի մասին, որպեսզի նա աշխատի հենց ձեր բրենդի համար։',
                 $agent->label(),
+                $trialDays ? sprintf(' Առաջին %d օրն անվճար է։', $trialDays) : '',
             ), [
                 'type' => NotificationType::Agent,
                 'title' => sprintf('Նոր AI աշխատակից՝ %s', $agent->label()),
                 'url' => '/admin/assistant?agent='.$agent->key(),
             ]);
         }
-
-        return $row;
     }
 
     public function profile(Tenant $tenant): BrandProfile
@@ -177,7 +208,8 @@ class Agents
 
     /**
      * Every agent of the catalog with what this business has of it: on or
-     * off, its price (included in the plan or not) and its notes.
+     * off, its own term (trial, paid until, ended), its price (included in
+     * the plan or not) and its notes.
      *
      * @return list<array<string, mixed>>
      */
@@ -185,17 +217,22 @@ class Agents
     {
         $rows = $this->rows($tenant);
         $prices = ModulePrice::map();
-        $plan = $this->subscriptions->for($tenant)->plan;
+        $subscription = $this->subscriptions->for($tenant);
 
-        return array_values(array_map(function (Agent $agent) use ($rows, $prices, $plan) {
+        return array_values(array_map(function (Agent $agent) use ($rows, $prices, $subscription) {
             $row = $rows->get($agent->key());
+            $price = $this->terms->price($agent, $prices);
 
             return [
                 ...$agent->present(),
-                'active' => (bool) $row?->active,
+                // Works now: on the team and within its term.
+                'active' => $this->terms->running($subscription, $agent, $row),
+                // On the team, even if its term ended (it waits to be paid for).
+                'onTeam' => (bool) $row?->active,
                 'activatedAt' => $row?->active ? $row->activated_at?->toIso8601String() : null,
-                'price' => $prices[$agent->priceKey()] ?? $agent->defaultPrice(),
-                'included' => (bool) $plan?->includes($agent->priceKey()),
+                'price' => $price,
+                'included' => $this->terms->included($subscription, $agent),
+                'term' => $this->terms->term($subscription, $agent, $row, $price),
                 'notes' => $row?->notes,
             ];
         }, AgentCatalog::all()));

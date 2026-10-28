@@ -8,11 +8,13 @@ import type { AgentDto } from "@/lib/adminApi";
 import { Badge, Button, buttonClasses, cn, Textarea } from "@/ui";
 import { Dialog, DialogClose } from "@/ui/dialog/Dialog";
 import { amd } from "../subscription/shared";
-import { RequestButton } from "../../subscription/RequestButton";
 import { AgentAvatar, agentTintStyle } from "./AgentAvatar";
+import { AgentJoinAction } from "./AgentJoinAction";
+import { AgentTermRing } from "./AgentTermRing";
+import { TERM_LABELS, TERM_TONES } from "./terms";
 import styles from "./agents.module.css";
 
-/** What a request for an agent says before it goes to the chat with Phay. */
+/** What a request for an agent (one inside the plan) says before it goes to the chat with Phay. */
 export function agentRequestConfirm(agent: AgentDto) {
   return {
     title: `Ավելացնե՞լ «${agent.label}» AI աշխատակցին ձեր թիմին`,
@@ -25,9 +27,10 @@ export function agentRequestConfirm(agent: AgentDto) {
 }
 
 /**
- * One AI agent as a member of the team: its face, role, what it does and
- * can't do yet, its price; on the team: talk to it and read or edit what it
- * remembers; not yet: ask Phay to add it.
+ * One AI agent as a member of the team: its face (in the ring of its own
+ * term once it had one), role, what it does and can't do yet, its price; on
+ * the team: talk to it and read or edit what it remembers; not yet or its
+ * term ended: start its free trial or pay for it.
  */
 export function AgentCard({
   agent,
@@ -49,11 +52,23 @@ export function AgentCard({
       style={{ ...agentTintStyle(agent.key), "--i": index } as CSSProperties}
     >
       <div className={cn(agent.active ? styles.cardWash : styles.cardOff, "flex items-center gap-4 rounded-t-xl px-5 pb-3 pt-5")}>
-        <AgentAvatar agentKey={agent.key} size={84} active={agent.active} delay={-index * 0.9} title={agent.label} />
+        {agent.term && agent.term.status !== "off" ? (
+          <AgentTermRing agentKey={agent.key} term={agent.term} size={92} index={index} title={agent.label} />
+        ) : (
+          <AgentAvatar agentKey={agent.key} size={84} active={agent.active} delay={-index * 0.9} title={agent.label} />
+        )}
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-base font-semibold text-ink">{agent.persona.hy}</h3>
-            {agent.active ? <Badge tone="success">Թիմում է</Badge> : <Badge>Միացված չէ</Badge>}
+            {agent.term ? (
+              <Badge tone={agent.term.ending ? "warning" : TERM_TONES[agent.term.status]}>
+                {agent.term.ending ? "Ավարտվում է" : TERM_LABELS[agent.term.status]}
+              </Badge>
+            ) : agent.active ? (
+              <Badge tone="success">Թիմում է</Badge>
+            ) : (
+              <Badge>Միացված չէ</Badge>
+            )}
           </div>
           <p className={cn("text-sm font-medium", agent.active ? "text-[var(--tint)]" : "text-ink-muted")}>{agent.role.hy}</p>
           <p className="text-xs text-ink-faint">
@@ -102,13 +117,10 @@ export function AgentCard({
                   Զրուցել
                 </Link>
               ) : null}
+              {canRequest && agent.term?.ending ? <AgentJoinAction agent={agent} /> : null}
             </div>
           ) : canRequest ? (
-            <RequestButton
-              body={{ kind: "agent", agent: agent.key }}
-              label="Ավելացնել թիմին"
-              confirm={agentRequestConfirm(agent)}
-            />
+            <AgentJoinAction agent={agent} />
           ) : (
             <p className="text-xs text-ink-muted">Միացնելու համար դիմեք բիզնեսի սեփականատիրոջը։</p>
           )}

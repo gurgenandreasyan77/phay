@@ -121,9 +121,12 @@ class AssistantController extends Controller
         // A kept conversation stays with the agent it started with.
         $agent = AgentCatalog::find($conversation ? $conversation->agent_key : ($validated['agent'] ?? null));
         if ($agent && ! $agents->isActive($tenants->current(), $agent)) {
+            // On the team but its own term ended: the chat offers to pay for it.
+            $expired = $agents->isExpired($tenants->current(), $agent);
+
             return response()->json([
-                'message' => 'This AI agent is not on your team yet.',
-                'code' => 'agent_inactive',
+                'message' => $expired ? 'This AI agent\'s term has ended.' : 'This AI agent is not on your team yet.',
+                'code' => $expired ? 'agent_expired' : 'agent_inactive',
                 'agent' => $agent->key(),
             ], 403);
         }

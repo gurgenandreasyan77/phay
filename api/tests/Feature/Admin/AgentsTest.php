@@ -243,7 +243,7 @@ class AgentsTest extends TestCase
         $this->assertSame(4, (int) AssistantUsage::withoutTenancy()->where('tenant_id', $this->shop->id)->sum('requests'));
     }
 
-    public function test_an_agent_on_adds_its_price_unless_the_plan_includes_it(): void
+    public function test_an_agent_on_is_billed_on_its_own_unless_the_plan_includes_it(): void
     {
         Sanctum::actingAs($this->admin);
         $base = $this->getJson("/api/v1/admin/tenants/{$this->shop->id}/subscription")->assertOk()->json('data.subscription.pricing.total');
@@ -257,14 +257,16 @@ class AgentsTest extends TestCase
         $this->turnOn('reels');
         Sanctum::actingAs($this->admin);
         $this->getJson("/api/v1/admin/tenants/{$this->shop->id}/subscription")->assertOk()
-            ->assertJsonPath('data.subscription.pricing.total', $base + 4500)
+            // Agents are paid for on their own terms, not in the subscription's month.
+            ->assertJsonPath('data.subscription.pricing.total', $base)
+            ->assertJsonPath('data.subscription.pricing.agents', 4500)
             ->assertJsonFragment(['key' => 'agent:reels', 'kind' => 'agent', 'active' => true, 'included' => false]);
 
         // A plan may include an agent, like a module.
         $plan = Plan::default();
         $this->patchJson("/api/v1/admin/plans/{$plan->id}", ['included_modules' => ['agent:reels']])->assertOk();
         $this->getJson("/api/v1/admin/tenants/{$this->shop->id}/subscription")->assertOk()
-            ->assertJsonPath('data.subscription.pricing.total', $base);
+            ->assertJsonPath('data.subscription.pricing.agents', 0);
         $this->patchJson("/api/v1/admin/plans/{$plan->id}", ['included_modules' => ['agent:nobody']])->assertUnprocessable();
 
         Sanctum::actingAs($this->owner);
