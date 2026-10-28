@@ -1,108 +1,141 @@
 /*
- * The premium invitation in the header: a gold chip whose text shimmers
- * and changes every few seconds. Still under reduced motion.
+ * The premium invitation in the header, in the brand's Lagoon colours: the
+ * seal is the logo's teal with the owner's gold, the pill is white with a
+ * hairline border that runs from teal to gold. Motion is a light passing
+ * over the seal now and then and the hint sliding in; none under reduced
+ * motion.
  */
 
 .chip {
   position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  border: 1px solid rgba(217, 178, 99, 0.55);
-  background: linear-gradient(135deg, #1f3a33 0%, #24404d 100%);
-  color: #f3dc9e;
-  box-shadow: 0 6px 16px -10px rgba(19, 36, 31, 0.7);
+  padding: 0.25rem;
+  color: #0c3540;
+  -webkit-tap-highlight-color: transparent;
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease;
 }
 
-@media (hover: hover) and (pointer: fine) {
+/* From a tablet up the seal sits in a pill with the word beside it. */
+@media (min-width: 640px) {
+  .chip {
+    padding: 0.1875rem 0.875rem 0.1875rem 0.1875rem;
+    border: 1px solid transparent;
+    background:
+      linear-gradient(180deg, #ffffff, #f2f9f7) padding-box,
+      linear-gradient(115deg, rgba(15, 76, 92, 0.3), rgba(95, 208, 176, 0.5) 48%, rgba(242, 181, 68, 0.85)) border-box;
+    box-shadow:
+      0 1px 2px rgba(11, 46, 54, 0.06),
+      0 8px 18px -12px rgba(15, 76, 92, 0.45);
+  }
+}
+
+@media (min-width: 640px) and (hover: hover) and (pointer: fine) {
   .chip:hover {
     transform: translateY(-1px);
-    box-shadow: 0 10px 22px -12px rgba(19, 36, 31, 0.8);
+    box-shadow:
+      0 1px 2px rgba(11, 46, 54, 0.06),
+      0 12px 24px -12px rgba(15, 76, 92, 0.55);
   }
 }
 
 .chip:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 
-/* A band of light passing over the chip now and then. */
-.chip::after {
+/* The gold crown on lagoon teal, like the owner's dot in the logo. */
+.seal {
+  position: relative;
+  display: inline-flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 999px;
+  color: #f2b544;
+  background: radial-gradient(120% 120% at 30% 20%, #1f7686 0%, #0f4c5c 50%, #0b2e36 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(242, 181, 68, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 4px 10px -4px rgba(11, 46, 54, 0.55);
+}
+
+.seal svg {
+  fill: rgba(242, 181, 68, 0.28);
+}
+
+@media (min-width: 640px) {
+  .seal {
+    height: 1.75rem;
+    width: 1.75rem;
+  }
+}
+
+/* A light passing over the seal every few seconds. */
+.seal::after {
   content: "";
   position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(105deg, transparent 35%, rgba(255, 246, 220, 0.28) 50%, transparent 65%);
-  transform: translateX(-120%);
-  animation: sweep 4.5s ease-in-out infinite;
+  inset: -20%;
+  background: linear-gradient(115deg, transparent 38%, rgba(255, 240, 205, 0.55) 50%, transparent 62%);
+  transform: translateX(-110%);
+  animation: glint 7s ease-in-out infinite;
 }
 
-@keyframes sweep {
+@keyframes glint {
   0%,
-  55% {
-    transform: translateX(-120%);
+  78% {
+    transform: translateX(-110%);
   }
   100% {
-    transform: translateX(120%);
+    transform: translateX(110%);
   }
 }
 
-.gold {
-  background: linear-gradient(100deg, #f3dc9e 0%, #fff6dc 35%, #d9b263 60%, #f3dc9e 100%);
-  background-size: 220% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: shimmer 4s ease-in-out infinite;
+.word {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: #0c3540;
 }
 
-@keyframes shimmer {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
+.divider {
+  height: 0.875rem;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(15, 76, 92, 0.3), transparent);
 }
 
 .hint {
-  display: inline-block;
-  animation: hintIn 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78125rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  color: #4d6569;
+  animation: hintIn 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
 @keyframes hintIn {
   from {
     opacity: 0;
-    transform: translateY(6px);
-  }
-}
-
-.crown {
-  animation: bob 3s ease-in-out infinite;
-}
-
-@keyframes bob {
-  0%,
-  100% {
-    transform: rotate(-6deg);
-  }
-  50% {
-    transform: rotate(6deg) translateY(-1px);
+    transform: translateY(70%);
+    filter: blur(2px);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chip::after,
-  .gold,
-  .hint,
-  .crown {
+  .seal::after,
+  .hint {
     animation: none;
   }
 
   .chip,
-  .chip:hover {
+  .chip:hover,
+  .chip:active {
     transition: none;
     transform: none;
   }

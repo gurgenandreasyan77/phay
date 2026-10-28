@@ -6,13 +6,11 @@ import { useEffect, useState } from "react";
 import { cn } from "@/ui";
 import styles from "./premium.module.css";
 
-/** What premium gives, one line each, in turn. */
-const HINTS = [
-  "Անցեք Պրեմիումին՝ ավելին տեսնելու համար",
-  "Պրեմիումում՝ ավելի խորը վերլուծություն",
-  "Պրեմիումում՝ ավելի շատ AI հարցումներ",
-  "Պրեմիումում՝ ավելի շատ մոդուլներ",
-];
+/** The full invitation: the chip's tooltip. */
+const INVITATION = "Անցեք Պրեմիումին՝ ավելին տեսնելու համար";
+
+/** What premium gives, one line each, in turn beside the word «Պրեմիում». */
+const HINTS = ["Ավելի խորը վերլուծություն", "Ավելի շատ AI հարցումներ", "Ավելի շատ մոդուլներ"];
 
 const EVERY_MS = 4500;
 
@@ -21,9 +19,10 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
- * In the header of a business that isn't on premium: a gold chip that
- * leads to the premium block of the subscription page. On wide screens it
- * goes through what premium gives; on a phone it is the crown alone.
+ * In the header of a business that isn't on premium: a quiet white pill
+ * with the brand's seal (a gold crown on lagoon teal) that leads to the
+ * premium block of the subscription page. On wide screens it goes through
+ * what premium gives; on a phone it is the seal alone.
  */
 export function PremiumChip() {
   const [index, setIndex] = useState(0);
@@ -37,18 +36,20 @@ export function PremiumChip() {
   return (
     <Link
       href="/admin/subscription#premium"
-      className={cn(
-        styles.chip,
-        "mr-1 inline-flex h-9 shrink-0 items-center gap-2 rounded-full px-2.5 text-xs font-semibold sm:px-3",
-      )}
+      className={cn(styles.chip, "mr-1 inline-flex h-11 shrink-0 items-center gap-2 rounded-full sm:h-9")}
       aria-label="Պրեմիում. ավելին՝ բաժանորդագրության էջում"
-      title={HINTS[0]}
+      title={INVITATION}
     >
-      <Crown className={cn(styles.crown, "h-4 w-4 shrink-0")} strokeWidth={1.9} />
-      <span className={cn(styles.gold, "hidden sm:inline xl:hidden")}>Պրեմիում</span>
-      <span className="hidden w-[17.5rem] overflow-hidden whitespace-nowrap xl:inline-block" aria-live="off">
-        <span key={index} className={cn(styles.hint, styles.gold)}>
-          {HINTS[index]}
+      <span className={styles.seal} aria-hidden="true">
+        <Crown className="h-3.5 w-3.5" strokeWidth={2} />
+      </span>
+      <span className={cn(styles.word, "hidden sm:inline")}>Պրեմիում</span>
+      <span className="hidden items-center gap-2.5 xl:inline-flex" aria-hidden="true">
+        <span className={styles.divider} />
+        <span className="relative h-5 w-[12.5rem] overflow-hidden">
+          <span key={index} className={styles.hint}>
+            {HINTS[index]}
+          </span>
         </span>
       </span>
     </Link>

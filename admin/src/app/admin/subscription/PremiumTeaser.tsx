@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Bot, Crown, Lock, Puzzle, Sparkles } from "lucide-react";
+import { BarChart3, Bot, Crown, Lock, Puzzle } from "lucide-react";
 import { useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import type { AssistantUsageDto } from "@/lib/adminApi";
 import { formatNumber } from "../_components/tables/shared";
@@ -36,60 +36,58 @@ export function PremiumTeaser({ assistant, canAsk }: { assistant: Pick<Assistant
   ];
 
   return (
-    <section id="premium" className={`${styles.premium} ${styles.rise} scroll-mt-20 p-6 sm:p-8`} style={{ "--i": 2 } as CSSProperties}>
-      <Sparkles className={styles.sparkle} style={{ top: 18, right: "46%", "--d": "0s" } as CSSProperties} size={14} />
-      <Sparkles className={styles.sparkle} style={{ bottom: 22, left: 24, "--d": "1.1s" } as CSSProperties} size={12} />
-      <Sparkles className={styles.sparkle} style={{ top: 40, left: "38%", "--d": "2s" } as CSSProperties} size={10} />
-
-      <div className="grid items-center gap-8 lg:grid-cols-[1.05fr_1fr]">
-        <div className="space-y-5">
+    <section id="premium" className={`${styles.premium} ${styles.rise} scroll-mt-20 p-5 sm:p-8`} style={{ "--i": 2 } as CSSProperties}>
+      <div className="grid items-center gap-7 lg:grid-cols-[1.05fr_1fr] lg:gap-10">
+        <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
-              <Crown className="h-5 w-5 text-[#f3dc9e]" strokeWidth={1.75} />
+            <span className={styles.seal} aria-hidden="true">
+              <Crown className="h-5 w-5" strokeWidth={1.8} />
             </span>
-            <span className={`${styles.gold} text-2xl font-semibold tracking-tight`}>Պրեմիում</span>
-            <span className={`${styles.soonBadge} rounded-full px-2.5 py-0.5 text-xs font-medium`}>Շուտով</span>
+            <span className={`${styles.gold} text-lg font-semibold tracking-tight`}>Պրեմիում</span>
+            <span className={`${styles.soonBadge} rounded-full px-2.5 py-0.5 text-[11px] font-medium`}>Շուտով</span>
           </div>
 
-          <div className="space-y-2">
-            <h2 className="text-xl font-semibold leading-snug sm:text-2xl">Անցեք Պրեմիումի և ստացեք ավելին</h2>
-            <p className="max-w-lg text-sm text-white/70">
+          <div className="space-y-2.5">
+            <h2 className="text-balance text-[1.375rem] font-semibold leading-tight tracking-tight sm:text-[1.75rem]">
+              Անցեք Պրեմիումի և ստացեք ավելին
+            </h2>
+            <p className="max-w-lg text-sm leading-relaxed text-[#e4f4ef]/70">
               Ավելի խորը վերլուծություն, ավելի շատ AI հարցումներ և ավելի շատ մոդուլներ՝ մեկ փաթեթում։
             </p>
           </div>
 
-          <ul className="space-y-2.5">
+          <ul className={`${styles.benefits} divide-y`}>
             {benefits.map(({ icon: Icon, title, text }, index) => (
               <li
                 key={title}
-                className={`${styles.benefit} ${styles.rise} flex gap-3 rounded-lg p-3`}
+                className={`${styles.benefit} ${styles.rise} flex gap-3.5 px-3.5 py-3`}
                 style={{ "--i": index + 3 } as CSSProperties}
               >
-                <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#f3dc9e]/15">
-                  <Icon className="h-4 w-4 text-[#f3dc9e]" strokeWidth={1.9} />
+                <span className={`${styles.benefitIcon} mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg`}>
+                  <Icon className="h-4 w-4" strokeWidth={1.9} />
                 </span>
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{title}</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-white/65">{text}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-[#e4f4ef]/60">{text}</p>
                 </div>
               </li>
             ))}
           </ul>
 
-          <div className="space-y-2 rounded-lg bg-black/15 p-3">
+          <div className="space-y-2">
             <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
-              <span className="text-white/70">AI հարցումներ այս ամիս</span>
+              <span className="text-[#e4f4ef]/65">AI հարցումներ այս ամիս</span>
               <span className="font-medium tabular-nums">
                 {formatNumber(used)} / {formatNumber(limit)}
               </span>
             </div>
-            <div className={`${styles.usageTrack} flex h-2 overflow-hidden rounded-full`}>
-              <div className={`${styles.usageNow} h-full`} style={{ width: `${Math.max(usedShare * 55, used > 0 ? 3 : 0)}%` }} />
-              <div className={`${styles.usageMore} ml-auto h-full w-[45%] opacity-80`} />
+            <div className={`${styles.usageTrack} flex h-1.5 overflow-hidden rounded-full`}>
+              <div className={`${styles.usageNow} h-full rounded-full`} style={{ width: `${Math.max(usedShare * 55, used > 0 ? 3 : 0)}%` }} />
+              <div className={`${styles.usageMore} ml-auto h-full w-[45%]`} />
             </div>
-            <div className="flex justify-between text-[11px] text-white/55">
+            <div className="flex justify-between text-[11px] text-[#e4f4ef]/50">
               <span>Ձեր փաթեթը</span>
-              <span className="text-[#f3dc9e]">+ Պրեմիում</span>
+              <span className={styles.goldSolid}>+ Պրեմիում</span>
             </div>
           </div>
 
@@ -103,7 +101,7 @@ export function PremiumTeaser({ assistant, canAsk }: { assistant: Pick<Assistant
                   "Պրեմիումը դեռ պատրաստվում է։ Երբ այն հասանելի լինի, Phay-ի թիմը կգրի ձեզ չատում։ Սա ձեզ ոչնչի չի պարտավորեցնում, գումար չի գանձվի։",
                 confirmLabel: "Այո, տեղեկացնել",
               }}
-              className={`${styles.cta} h-11 px-5`}
+              className={`${styles.cta} min-h-11 w-full px-5 py-2.5 leading-snug sm:w-auto`}
               onDark
             />
           ) : null}
@@ -186,7 +184,7 @@ function PreviewScreen() {
         {FORECAST.map((height, index) => (
           <div
             key={`f${index}`}
-            className={`${styles.bar} flex-1 rounded-t-sm border-2 border-dashed border-[#d9b263] bg-[#f3dc9e]/50`}
+            className={`${styles.bar} flex-1 rounded-t-sm border-2 border-dashed border-[#f2b544] bg-[#f2b544]/30`}
             style={{ height: `${height}%`, "--i": BARS.length + index } as CSSProperties}
           />
         ))}

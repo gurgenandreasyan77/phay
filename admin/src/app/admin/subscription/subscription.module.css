@@ -28,8 +28,8 @@
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(120% 140% at 100% 0%, rgba(63, 111, 98, 0.16), transparent 55%),
-    radial-gradient(90% 120% at 0% 100%, rgba(82, 117, 137, 0.12), transparent 60%),
+    radial-gradient(120% 140% at 100% 0%, rgba(95, 208, 176, 0.16), transparent 55%),
+    radial-gradient(90% 120% at 0% 100%, rgba(15, 76, 92, 0.1), transparent 60%),
     var(--color-surface);
 }
 
@@ -52,20 +52,24 @@
 
 /* ------------------------------------------------------------- Premium */
 
+/* The brand's night teal with a breath of the logo's lagoon green at the
+   top left and of the owner's gold at the bottom right. */
 .premium {
   position: relative;
   isolation: isolate;
   overflow: hidden;
   border-radius: var(--radius-xl);
-  color: #f4f7f5;
+  color: #f2faf7;
   background:
-    radial-gradient(80% 120% at 0% 0%, rgba(122, 196, 168, 0.28), transparent 60%),
-    radial-gradient(70% 90% at 100% 100%, rgba(214, 178, 106, 0.22), transparent 60%),
-    linear-gradient(135deg, #17302a 0%, #1d3a4a 55%, #13241f 100%);
-  box-shadow: 0 24px 48px -24px rgba(19, 36, 31, 0.6);
+    radial-gradient(70% 90% at 0% 0%, rgba(95, 208, 176, 0.2), transparent 60%),
+    radial-gradient(55% 75% at 100% 100%, rgba(242, 181, 68, 0.08), transparent 65%),
+    linear-gradient(140deg, #0b2e36 0%, #0f4c5c 58%, #0a2a31 100%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 28px 56px -28px rgba(11, 46, 54, 0.7);
 }
 
-/* A thin border of light running around the card. */
+/* A hairline of light slowly running around the card. */
 .premium::before {
   content: "";
   position: absolute;
@@ -75,19 +79,19 @@
   border-radius: inherit;
   background: conic-gradient(
     from var(--angle, 0deg),
-    transparent 0deg,
-    rgba(240, 214, 150, 0.9) 40deg,
-    transparent 110deg,
-    transparent 200deg,
-    rgba(150, 220, 195, 0.8) 250deg,
-    transparent 320deg
+    rgba(255, 255, 255, 0.08) 0deg,
+    rgba(242, 181, 68, 0.75) 50deg,
+    rgba(255, 255, 255, 0.08) 120deg,
+    rgba(255, 255, 255, 0.08) 210deg,
+    rgba(142, 230, 203, 0.6) 260deg,
+    rgba(255, 255, 255, 0.08) 320deg
   );
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  animation: spinBorder 6s linear infinite;
+  animation: spinBorder 12s linear infinite;
 }
 
 @property --angle {
@@ -102,76 +106,101 @@
   }
 }
 
+/* The same seal as the header chip: the owner's gold on lagoon teal. */
+.seal {
+  display: inline-flex;
+  height: 2.75rem;
+  width: 2.75rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #f2b544;
+  background: radial-gradient(120% 120% at 30% 20%, #23869a 0%, #0f4c5c 55%, #0b2e36 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(242, 181, 68, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 8px 18px -8px rgba(0, 0, 0, 0.55);
+}
+
+.seal svg {
+  fill: rgba(242, 181, 68, 0.28);
+}
+
 .gold {
-  background: linear-gradient(100deg, #f3dc9e 0%, #fff6dc 35%, #d9b263 60%, #f3dc9e 100%);
-  background-size: 220% 100%;
+  background: linear-gradient(100deg, #f8dc9c 0%, #f2b544 55%, #e3a23a 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: shimmer 4s ease-in-out infinite;
 }
 
-@keyframes shimmer {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
+.goldSolid {
+  color: #f6c869;
 }
 
 .soonBadge {
-  background: linear-gradient(100deg, rgba(243, 220, 158, 0.22), rgba(243, 220, 158, 0.08));
-  border: 1px solid rgba(243, 220, 158, 0.45);
-  color: #f3dc9e;
+  border: 1px solid rgba(142, 230, 203, 0.35);
+  background: rgba(142, 230, 203, 0.1);
+  color: #a9eed8;
+}
+
+/* The benefits as one quiet glass list rather than separate boxes. */
+.benefits {
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.benefits > * {
+  border-color: rgba(255, 255, 255, 0.07);
 }
 
 .benefit {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  transition:
-    transform 0.25s ease,
-    background-color 0.25s ease,
-    border-color 0.25s ease;
+  transition: background-color 0.25s ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .benefit:hover {
-    transform: translateX(4px);
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(243, 220, 158, 0.35);
+    background: rgba(255, 255, 255, 0.05);
   }
 }
 
+.benefitIcon {
+  color: #8ee6cb;
+  background: rgba(142, 230, 203, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(142, 230, 203, 0.18);
+}
+
 .usageTrack {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .usageNow {
-  background: #9fd8c2;
+  background: linear-gradient(90deg, #5fd0b0, #8ee6cb);
 }
 
 .usageMore {
-  background: repeating-linear-gradient(
-    -45deg,
-    rgba(243, 220, 158, 0.85) 0 6px,
-    rgba(243, 220, 158, 0.45) 6px 12px
-  );
-  background-size: 34px 34px;
-  animation: stripes 1.4s linear infinite;
+  border-radius: 999px;
+  background: repeating-linear-gradient(-45deg, rgba(242, 181, 68, 0.9) 0 5px, rgba(242, 181, 68, 0.45) 5px 10px);
+  background-size: 28px 28px;
+  animation: stripes 2.4s linear infinite;
 }
 
 @keyframes stripes {
   to {
-    background-position: 34px 0;
+    background-position: 28px 0;
   }
 }
 
 .cta {
-  background: linear-gradient(100deg, #f3dc9e, #e2bd72);
-  color: #1b2a24;
-  box-shadow: 0 10px 24px -10px rgba(226, 189, 114, 0.8);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, #f8d688, #f2b544);
+  color: #0b2e36;
+  font-weight: 600;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 10px 24px -12px rgba(242, 181, 68, 0.85);
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease;
@@ -180,7 +209,9 @@
 @media (hover: hover) and (pointer: fine) {
   .cta:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 14px 28px -10px rgba(226, 189, 114, 0.95);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.45),
+      0 14px 28px -12px rgba(242, 181, 68, 0.95);
   }
 }
 
@@ -190,9 +221,11 @@
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-lg);
-  background: #f7f9f7;
+  background: #f4f8f7;
   color: var(--color-ink);
-  box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.6);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 24px 48px -22px rgba(0, 0, 0, 0.65);
   --x: 30%;
   --y: 40%;
 }
@@ -211,7 +244,7 @@
 
 .previewGlow {
   pointer-events: none;
-  background: radial-gradient(circle 130px at var(--x) var(--y), rgba(243, 220, 158, 0.32), transparent 70%);
+  background: radial-gradient(circle 130px at var(--x) var(--y), rgba(242, 181, 68, 0.22), transparent 70%);
   mix-blend-mode: multiply;
 }
 
@@ -253,21 +286,11 @@
 }
 
 .lock {
-  background: rgba(19, 36, 31, 0.78);
-  border: 1px solid rgba(243, 220, 158, 0.4);
-  color: #f3dc9e;
+  background: rgba(11, 46, 54, 0.85);
+  border: 1px solid rgba(242, 181, 68, 0.45);
+  color: #f8d688;
   backdrop-filter: blur(4px);
-  animation: pulse 2.6s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(243, 220, 158, 0.45);
-  }
-  50% {
-    box-shadow: 0 0 0 10px rgba(243, 220, 158, 0);
-  }
+  box-shadow: 0 8px 20px -10px rgba(11, 46, 54, 0.8);
 }
 
 .bar {
@@ -279,25 +302,6 @@
 @keyframes grow {
   from {
     transform: scaleY(0.1);
-  }
-}
-
-.sparkle {
-  position: absolute;
-  color: #f3dc9e;
-  animation: twinkle 3s ease-in-out infinite;
-  animation-delay: var(--d, 0s);
-}
-
-@keyframes twinkle {
-  0%,
-  100% {
-    opacity: 0.15;
-    transform: scale(0.7) rotate(0deg);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.1) rotate(20deg);
   }
 }
 
@@ -407,9 +411,7 @@
   .gold,
   .usageMore,
   .wander,
-  .lock,
   .bar,
-  .sparkle,
   .float,
   .module:hover .art::after {
     animation: none !important;
