@@ -7,6 +7,18 @@ const nextConfig: NextConfig = {
     // the public site), so the bare domain just forwards to the dashboard.
     return [{ source: "/", destination: "/admin", permanent: false }];
   },
+  async headers() {
+    // The service worker is checked for a new version on every visit.
+    return [
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

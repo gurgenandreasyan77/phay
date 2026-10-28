@@ -2,12 +2,17 @@ import type { Metadata, Viewport } from "next";
 import "./admin.css";
 import { getFeatureFlagsAdmin, getMe } from "@/lib/adminApi";
 import { AdminShell } from "./_components/AdminShell";
+import { PwaSetup } from "./_components/pwa/PwaSetup";
 
 // The admin is its own Next.js app, so this is the root layout and owns
 // <html>/<body>.
 export const metadata: Metadata = {
   title: "Phay ադմին",
+  applicationName: "Phay",
   robots: { index: false, follow: false },
+  // Added to the iPhone home screen it opens full screen, named Phay.
+  appleWebApp: { capable: true, title: "Phay", statusBarStyle: "default" },
+  formatDetection: { telephone: false },
 };
 
 // viewport-fit=cover lets the header and sheets reach under the notch and
@@ -41,6 +46,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <AdminShell features={features} me={me}>
           {children}
         </AdminShell>
+        <PwaSetup signedIn={me !== null} />
       </body>
     </html>
   );

@@ -35,6 +35,8 @@ ENV HOSTNAME=0.0.0.0
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# The app icons, the service worker and the offline page (PWA).
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --chown=nextjs:nodejs healthcheck.js ./healthcheck.js
 USER nextjs
 EXPOSE 3001

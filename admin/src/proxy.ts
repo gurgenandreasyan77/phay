@@ -44,6 +44,9 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything but Next's own files, the route handlers and the icons.
-  matcher: ["/((?!_next/|api/|favicon\\.ico|icon\\.png|icon\\.svg|apple-icon\\.png|robots\\.txt|sitemap\\.xml).*)"],
+  // Everything but Next's own files, the route handlers, the icons and
+  // what installs the admin as an app (manifest, service worker, offline page).
+  matcher: [
+    "/((?!_next/|api/|icons/|favicon\\.ico|icon\\.png|icon\\.svg|apple-icon\\.png|robots\\.txt|sitemap\\.xml|manifest\\.webmanifest|sw\\.js|offline\\.html).*)",
+  ],
 };
