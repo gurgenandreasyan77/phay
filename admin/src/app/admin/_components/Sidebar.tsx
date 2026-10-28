@@ -10,6 +10,7 @@ import { PLATFORM_HOME, isActiveHref, showsPlatformLevel, visibleNavGroups } fro
 import { cn } from "@/ui";
 import { useSupportUnread } from "./chat/unread";
 import { BusinessLogo } from "./BusinessLogo";
+import { PhayMark } from "./brand/PhayLogo";
 
 export function Sidebar({
   features,
@@ -46,8 +47,8 @@ export function Sidebar({
         {!onPlatform && businessLogo ? (
           <BusinessLogo name={businessName ?? "Phay"} logo={businessLogo} size="sm" className="border-0" />
         ) : (
-          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
-            P
+          <span className="flex h-8 w-8 items-center justify-center">
+            <PhayMark tone="onDark" className="h-8" />
           </span>
         )}
         <div className="min-w-0 leading-tight">

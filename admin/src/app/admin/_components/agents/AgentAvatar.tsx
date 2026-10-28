@@ -9,7 +9,7 @@ import styles from "./agents.module.css";
 export type AgentTint = { tint: string; soft: string; bg: string; from: string; to: string };
 
 const TINTS: Record<string, AgentTint> = {
-  analyst: { tint: "#3f6f62", soft: "rgba(63, 111, 98, 0.22)", bg: "#eaf2ee", from: "#3f6f62", to: "#2b8370" },
+  analyst: { tint: "#0f4c5c", soft: "rgba(15, 76, 92, 0.22)", bg: "#eaf2ee", from: "#0f4c5c", to: "#2b8370" },
   accountant: { tint: "#527589", soft: "rgba(82, 117, 137, 0.22)", bg: "#e7eff4", from: "#527589", to: "#3b78b8" },
   tables: { tint: "#4f7a4a", soft: "rgba(79, 122, 74, 0.22)", bg: "#ebf3e8", from: "#4f7a4a", to: "#557f25" },
   hr: { tint: "#7a5aa6", soft: "rgba(122, 90, 166, 0.22)", bg: "#f1ecf7", from: "#7a5aa6", to: "#9c55c9" },
@@ -19,7 +19,7 @@ const TINTS: Record<string, AgentTint> = {
   editor: { tint: "#5a6788", soft: "rgba(90, 103, 136, 0.22)", bg: "#ecedf4", from: "#5a6788", to: "#5468c8" },
   designer: { tint: "#3d7f86", soft: "rgba(61, 127, 134, 0.22)", bg: "#e4f1f2", from: "#3d7f86", to: "#13808a" },
   // The general assistant: the orb's green.
-  assistant: { tint: "#3f6f62", soft: "rgba(63, 111, 98, 0.2)", bg: "#e9f3ee", from: "#3f6f62", to: "#2d7f5e" },
+  assistant: { tint: "#0f4c5c", soft: "rgba(15, 76, 92, 0.2)", bg: "#e9f3ee", from: "#0f4c5c", to: "#2d7f5e" },
 };
 
 const FALLBACK: AgentTint = {
@@ -353,7 +353,7 @@ export function AssistantOrb({ size = 72, className }: { size?: number; classNam
       <defs>
         <radialGradient id={gradient} cx="38%" cy="32%" r="70%">
           <stop offset="0%" stopColor="#8fb5a8" />
-          <stop offset="55%" stopColor="#3f6f62" />
+          <stop offset="55%" stopColor="#0f4c5c" />
           <stop offset="100%" stopColor="#2b4f45" />
         </radialGradient>
       </defs>

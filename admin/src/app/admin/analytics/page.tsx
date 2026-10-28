@@ -568,7 +568,7 @@ const STATUS_COLORS: Partial<Record<string, string>> = {
   waiting_for_photos: "#d39a52",
   estimated: "#b98232",
   confirmed: "#5f9e8a",
-  in_progress: "#3f6f62",
+  in_progress: "#0f4c5c",
   completed: "#3f7658",
   cancelled: "#b85d5d",
 };

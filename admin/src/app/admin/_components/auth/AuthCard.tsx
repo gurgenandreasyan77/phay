@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Card } from "@/ui";
+import { PhayLogo } from "../brand/PhayLogo";
 
 /** The frame of the sign-in pages (login, invitation, password reset, 2FA setup). */
 export function AuthCard({
@@ -17,9 +18,7 @@ export function AuthCard({
     <div className="flex min-h-screen items-center justify-center px-4 py-16">
       <div className={wide ? "w-full max-w-lg space-y-6" : "w-full max-w-sm space-y-6"}>
         <div className="flex flex-col items-center gap-3 text-center">
-          <span className="flex h-11 w-11 items-center justify-center rounded-md bg-primary text-base font-semibold text-primary-foreground">
-            P
-          </span>
+          <PhayLogo className="mb-2 h-11" />
           <div>
             <h1 className="text-xl font-semibold text-ink">{title}</h1>
             {description ? <p className="mt-1 text-sm text-ink-muted">{description}</p> : null}
