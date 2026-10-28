@@ -43,7 +43,7 @@ export class HttpError extends Error {
   }
 }
 
-function run(command, args, { onStderr, timeout = 15 * 60_000 } = {}) {
+export function run(command, args, { onStderr, timeout = 15 * 60_000 } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
@@ -62,7 +62,7 @@ function run(command, args, { onStderr, timeout = 15 * 60_000 } = {}) {
   });
 }
 
-function filePath(id) {
+export function filePath(id) {
   if (!ID.test(String(id))) throw new HttpError(422, "Unknown file.");
   const file = path.join(files, id);
   if (!fs.existsSync(file)) throw new HttpError(404, "The file is gone: upload it again.");

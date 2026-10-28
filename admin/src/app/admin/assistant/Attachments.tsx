@@ -11,24 +11,29 @@ export const MAX_FILES = 4;
 /** What the file picker offers; the API checks the content again. */
 export const ACCEPT =
   "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v,.mov,.m4v,application/pdf,text/plain,text/csv,text/markdown,.txt,.csv,.md,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet," +
-  ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.odt,application/vnd.oasis.opendocument.text,.rtf,application/rtf,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation,.html,.htm,text/html";
+  ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.odt,application/vnd.oasis.opendocument.text,.rtf,application/rtf,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation,.html,.htm,text/html," +
+  ".doc,.dot,application/msword,.wps,.wpd,.pages,.ppt,.pps,application/vnd.ms-powerpoint,.odp,.key,.xls,application/vnd.ms-excel,.ods,.numbers";
 
 /** Word, OpenDocument, RTF, PowerPoint and web pages: their text goes to the model. */
 const DOCUMENT_EXTENSIONS = ["docx", "odt", "rtf", "pptx", "html", "htm"];
 
-/** Old binary formats the API can't read: saved again in the new one, they come in. */
-const OLD_FORMATS: Record<string, string> = { doc: "DOCX", ppt: "PPTX", xls: "XLSX", pages: "DOCX", odp: "PPTX", ods: "XLSX" };
+/** Old and other office formats: the API turns them into DOCX, PPTX or XLSX (DocumentConverter::TARGETS). */
+const OLD_DOCUMENTS = ["doc", "dot", "wps", "wpd", "pages", "ppt", "pps", "odp", "key"];
+const OLD_SHEETS = ["xls", "ods", "numbers"];
 
 const MB = 1024 * 1024;
-const LIMITS = { image: 5 * MB, pdf: 10 * MB, text: 512 * 1024, video: 80 * MB, sheet: 5 * MB, document: 10 * MB } as const;
+/** Long PDFs are read by the media service; a short one goes to the model whole (10 MB, 30 pages). */
+const LIMITS = { image: 5 * MB, pdf: 40 * MB, text: 512 * 1024, video: 80 * MB, sheet: 5 * MB, document: 10 * MB } as const;
+const OLD_FORMAT_LIMIT = 20 * MB;
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const VIDEO_EXTENSIONS = ["mp4", "mov", "webm", "m4v"];
 
 export const FILE_ERRORS = {
-  type: "Կարելի է կցել նկար (JPG, PNG, WEBP, GIF), տեսանյութ (MP4, MOV, WEBM), PDF, Word (DOCX), ODT, RTF, PowerPoint (PPTX), Excel (XLSX), HTML կամ տեքստային ֆայլ (TXT, CSV, MD)։",
+  type: "Կարելի է կցել նկար (JPG, PNG, WEBP, GIF), տեսանյութ (MP4, MOV, WEBM), PDF, Word (DOC, DOCX), ODT, RTF, Pages, PowerPoint (PPT, PPTX), Excel (XLS, XLSX), ODS, HTML կամ տեքստային ֆայլ (TXT, CSV, MD)։",
   image: "Նկարը պետք է լինի մինչև 5 ՄԲ։",
   video: "Տեսանյութը պետք է լինի մինչև 80 ՄԲ։",
-  pdf: "PDF-ը պետք է լինի մինչև 10 ՄԲ։",
+  pdf: "PDF-ը պետք է լինի մինչև 40 ՄԲ։",
+  old: "Ֆայլը պետք է լինի մինչև 20 ՄԲ։",
   text: "Տեքստային ֆայլը պետք է լինի մինչև 512 ԿԲ։",
   sheet: "Excel ֆայլը պետք է լինի մինչև 5 ՄԲ։",
   document: "Փաստաթուղթը պետք է լինի մինչև 10 ՄԲ։",
@@ -60,8 +65,9 @@ export function attachmentUrl(id: number): string {
 /** The kind of a picked file, or the reason it can't go (checked again by the API, by content). */
 export function checkFile(file: File): { kind: FileKind } | { error: string } {
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-  if (OLD_FORMATS[extension]) {
-    return { error: `Այս հին ձևաչափը չի կարդացվում։ Բացեք ֆայլը և պահեք որպես ${OLD_FORMATS[extension]} կամ PDF, հետո կցեք։` };
+  if (OLD_DOCUMENTS.includes(extension) || OLD_SHEETS.includes(extension)) {
+    if (file.size > OLD_FORMAT_LIMIT) return { error: FILE_ERRORS.old };
+    return { kind: OLD_SHEETS.includes(extension) ? "sheet" : "document" };
   }
   const kind: FileKind | null = IMAGE_TYPES.includes(file.type)
     ? "image"

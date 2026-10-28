@@ -8,7 +8,9 @@ use App\Documents\DocumentReader;
 use App\Documents\DocumentStudio;
 use App\Documents\DocxWriter;
 use App\Documents\TemplateFiller;
+use App\Media\DocumentConverter;
 use App\Models\AssistantAttachment;
+use App\Models\AssistantConversation;
 use App\Models\DataTable;
 use App\Models\DataTableRow;
 use App\Models\Employee;
@@ -21,6 +23,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\Fakes\FakeAssistantClient;
+use Tests\Fakes\FakeDocumentConverter;
 use Tests\Feature\Tenancy\TenancyTestHelpers;
 use Tests\TestCase;
 use ZipArchive;
@@ -371,6 +374,95 @@ class DocumentAgentTest extends TestCase
         $this->getJson('/api/v1/admin/agents')->assertOk()
             ->assertJsonPath('data.agents.4.key', 'documents')
             ->assertJsonPath('data.agents.4.persona.hy', 'Աննա');
+    }
+
+    private function converter(): FakeDocumentConverter
+    {
+        $converter = new FakeDocumentConverter;
+        $this->app->instance(DocumentConverter::class, $converter);
+
+        return $converter;
+    }
+
+    public function test_old_office_files_become_modern_ones_anna_fills_in_place(): void
+    {
+        $converter = $this->converter();
+        $converter->converted = self::template();
+
+        // contract.doc is kept as contract.docx: read and filled like any Word file.
+        $doc = $this->upload('contract.doc', "\xD0\xCF\x11\xE0old word");
+        $this->assertSame(['document', 'contract.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'], [$doc['kind'], $doc['name'], $doc['mime']]);
+        $this->assertSame([['convert', 'doc']], $converter->calls);
+
+        $reply = $this->ask([[DocumentStudio::FILL, ['template' => $doc['id'], 'documents' => [['title' => 'Գուրգեն', 'replacements' => [['find' => 'Արման Պետրոսյան', 'replace' => 'Գուրգեն Անդրեասյան']]]]]]], [$doc['id']]);
+        $this->assertStringContainsString("[file #{$doc['id']}: contract.docx, document, converted from DOC]", end($this->client->messages[0]['content'])['text']);
+        $this->assertStringContainsString('Գուրգեն Անդրեասյան', $this->text($this->stored($reply['documents'][0]['id'])));
+
+        // An old Excel becomes a sheet.
+        $converter->converted = self::zip([
+            '[Content_Types].xml' => '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>',
+            'xl/worksheets/sheet1.xml' => '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Ապրանք</t></is></c></row><row r="2"><c r="A2" t="inlineStr"><is><t>Մոմ</t></is></c></row></sheetData></worksheet>',
+        ]);
+        $xls = $this->upload('sales.xls', "\xD0\xCF\x11\xE0old excel");
+        $this->assertSame(['sheet', 'sales.xlsx'], [$xls['kind'], $xls['name']]);
+
+        // A file the service can't open is refused with the way out.
+        $converter->converted = null;
+        $this->postJson('/api/v1/admin/assistant/attachments', ['file' => UploadedFile::fake()->createWithContent('broken.ppt', 'junk')])
+            ->assertUnprocessable()->assertJsonPath('errors.file.0', fn (string $m) => str_contains($m, 'PPTX'));
+        // The .doc, the .xls and the contract she made; nothing of the broken one.
+        $this->assertSame(3, AssistantAttachment::withoutTenancy()->count());
+    }
+
+    /** A PDF the page counter sees as $pages pages. */
+    private static function pdf(int $pages): string
+    {
+        return "%PDF-1.4\n1 0 obj << /Type /Pages /Count {$pages} >> endobj\n".str_repeat("2 0 obj << /Type /Page >> endobj\n", $pages).'%%EOF';
+    }
+
+    public function test_long_pdfs_are_read_as_text_and_scans_as_pictures_of_their_pages(): void
+    {
+        $converter = $this->converter();
+
+        // Short ones go to the model whole, as before.
+        $short = $this->upload('short.pdf', self::pdf(3));
+        $this->assertSame([], $converter->calls);
+        $this->assertNull($short['pages']);
+
+        // A long one with text: its text.
+        $converter->pdf = ['pages' => 120, 'text' => str_repeat("Պայմանագրի կետ\n", 400), 'images' => []];
+        $long = $this->upload('long.pdf', self::pdf(120));
+        $this->assertSame(120, $long['pages']);
+        $this->assertSame([['pdf', 0]], $converter->calls);
+
+        // A scan (no text): pictures of its first pages.
+        $jpg = base64_encode(UploadedFile::fake()->image('p.jpg', 20, 30)->getContent());
+        $converter->pdf = ['pages' => 45, 'text' => '', 'images' => [['page' => 1, 'jpg' => $jpg], ['page' => 2, 'jpg' => $jpg]]];
+        $scan = $this->upload('scan.pdf', self::pdf(45));
+
+        $this->ask([], [$short['id'], $long['id'], $scan['id']]);
+        $blocks = $this->client->messages[0]['content'];
+        $this->assertSame('document', $blocks[0]['type']);
+        $this->assertSame('application/pdf', $blocks[0]['source']['media_type']);
+        $this->assertSame('text', $blocks[1]['source']['type']);
+        $this->assertStringStartsWith('Պայմանագրի կետ', $blocks[1]['source']['data']);
+        $this->assertSame("[file #{$scan['id']}] page 1:", $blocks[2]['text']);
+        $this->assertSame('image', $blocks[3]['type']);
+        $this->assertSame("[file #{$scan['id']}]: a scan of 45 pages, only the first 2 are shown.", $blocks[6]['text']);
+        $label = end($blocks)['text'];
+        $this->assertStringContainsString('long.pdf, pdf, 120 pages, read as text]', $label);
+        $this->assertStringContainsString('scan.pdf, pdf, 45 pages, a scan: pictures of its first pages]', $label);
+
+        // Too many pages, or the service down: refused, nothing kept.
+        $converter->pdf = ['pages' => 900, 'text' => 'x', 'images' => []];
+        $this->postJson('/api/v1/admin/assistant/attachments', ['file' => UploadedFile::fake()->createWithContent('huge.pdf', self::pdf(40))])
+            ->assertUnprocessable()->assertJsonPath('errors.file.0', 'PDF-ը պետք է լինի մինչև 500 էջ։');
+        $this->assertCount(3, AssistantAttachment::withoutTenancy()->get());
+
+        // Deleting the chat removes the text and pictures kept with them.
+        $conversation = AssistantConversation::query()->latest('id')->firstOrFail();
+        $this->deleteJson("/api/v1/admin/assistant/conversations/{$conversation->id}")->assertNoContent();
+        $this->assertSame([], Storage::disk(Attachments::DISK)->allFiles());
     }
 
     public function test_the_writer_and_reader_agree_on_plain_text(): void

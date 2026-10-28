@@ -11,6 +11,8 @@ use App\Features\FeatureFlag;
 use App\Google\GoogleCalendarClient;
 use App\Google\HttpGoogleCalendarClient;
 use App\Media\DesignStudio;
+use App\Media\DocumentConverter;
+use App\Media\HttpDocumentConverter;
 use App\Media\HttpRenderer;
 use App\Media\HttpVideoCutter;
 use App\Media\LinkReader;
@@ -100,6 +102,11 @@ class AppServiceProvider extends ServiceProvider
             token: config('services.media.token'),
         ));
         $this->app->scoped(VideoStudio::class);
+        // Old office files and long PDFs, opened by the media service too.
+        $this->app->bind(DocumentConverter::class, fn () => new HttpDocumentConverter(
+            url: config('services.media.url'),
+            token: config('services.media.token'),
+        ));
         // The documents agent's files: collected per question.
         $this->app->scoped(DocumentStudio::class);
     }
