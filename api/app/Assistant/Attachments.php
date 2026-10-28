@@ -6,6 +6,7 @@ use App\DataTables\Import\UnreadableFile;
 use App\DataTables\Import\XlsxReader;
 use App\Documents\DocumentReader;
 use App\Documents\UnreadableDocument;
+use App\Media\DocumentConverter;
 use App\Media\RenderFailed;
 use App\Media\VideoCutter;
 use App\Models\AssistantAttachment;
@@ -52,6 +53,19 @@ class Attachments
     /** Pages of a PDF: every page is read as text and as a picture, so long ones cost a lot. */
     public const MAX_PDF_PAGES = 30;
 
+    /**
+     * A longer or heavier PDF, when the media service opens it: the model
+     * reads its text, or for a scan pictures of its first PDF_PICTURES pages.
+     */
+    public const MAX_LONG_PDF_BYTES = 40 * 1024 * 1024;
+
+    public const MAX_LONG_PDF_PAGES = 500;
+
+    public const PDF_PICTURES = 20;
+
+    /** Characters a page has on average for a PDF to count as text, not a scan. */
+    private const TEXT_PER_PAGE = 40;
+
     public const MAX_TEXT_BYTES = 512 * 1024;
 
     /** A clip, as php.ini lets it in (upload_max_filesize 80M). */
@@ -69,13 +83,13 @@ class Attachments
 
     private const VIDEO_TYPES = ['video/mp4' => 'mp4', 'video/quicktime' => 'mov', 'video/webm' => 'webm', 'video/x-m4v' => 'm4v'];
 
-    public const UNSUPPORTED = 'Կարելի է կցել նկար (JPG, PNG, WEBP, GIF), տեսանյութ (MP4, MOV, WEBM), PDF, Word (DOCX), ODT, RTF, PowerPoint (PPTX), Excel (XLSX), HTML կամ տեքստային ֆայլ (TXT, CSV, MD)։';
+    public const UNSUPPORTED = 'Կարելի է կցել նկար (JPG, PNG, WEBP, GIF), տեսանյութ (MP4, MOV, WEBM), PDF, Word (DOC, DOCX), ODT, RTF, PowerPoint (PPT, PPTX), Excel (XLS, XLSX), HTML կամ տեքստային ֆայլ (TXT, CSV, MD)։';
 
     /** A Word, OpenDocument, RTF, PowerPoint file or a web page. */
     public const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
-    /** Old binary formats nothing here reads: saved again in the new one, they come in. */
-    private const OLD_FORMATS = ['doc' => 'DOCX', 'ppt' => 'PPTX', 'xls' => 'XLSX', 'pages' => 'DOCX', 'odp' => 'PPTX', 'ods' => 'XLSX'];
+    /** An old office file (Word .doc, .ppt, .xls…), before it becomes DOCX, PPTX or XLSX. */
+    public const MAX_OLD_FORMAT_BYTES = 20 * 1024 * 1024;
 
     /** What a document is stored as (by its extension, once its content is read). */
     private const DOCUMENT_MIMES = [
@@ -96,19 +110,23 @@ class Attachments
     public function __construct(
         private readonly TenantContext $tenants,
         private readonly VideoCutter $cutter,
+        private readonly DocumentConverter $converter,
     ) {}
 
     /** Accepted types, for the file picker and the validation rule. */
     public static function extensions(): array
     {
-        return ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 'xlsx', ...DocumentReader::EXTENSIONS, ...self::TEXT_EXTENSIONS, ...array_values(self::VIDEO_TYPES)];
+        return ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 'xlsx', ...DocumentReader::EXTENSIONS, ...array_keys(DocumentConverter::TARGETS), ...self::TEXT_EXTENSIONS, ...array_values(self::VIDEO_TYPES)];
     }
 
     /**
      * What the file really is, refused with the reason when it can't go to
      * the model.
      *
-     * @return array{kind: AttachmentKind, mime: string, extension: string, width: ?int, height: ?int}
+     * An old office format comes back with `convert` (its extension) and no
+     * kind: upload() turns it into a modern file and looks at that.
+     *
+     * @return array{kind: ?AttachmentKind, mime: string, extension: string, width: ?int, height: ?int, convert?: string}
      *
      * @throws ValidationException
      */
@@ -156,11 +174,18 @@ class Attachments
         }
 
         if ($mime === 'application/pdf') {
-            if ($size > self::MAX_PDF_BYTES) {
-                $fail('PDF-ը պետք է լինի մինչև 10 ՄԲ։');
-            }
-            if (self::pdfPages($file->getRealPath()) > self::MAX_PDF_PAGES) {
-                $fail('PDF-ը պետք է լինի մինչև '.self::MAX_PDF_PAGES.' էջ։');
+            // The media service reads long ones; without it the model takes the PDF whole, within its limits.
+            if ($this->converter->isConfigured()) {
+                if ($size > self::MAX_LONG_PDF_BYTES) {
+                    $fail('PDF-ը պետք է լինի մինչև '.intdiv(self::MAX_LONG_PDF_BYTES, 1024 * 1024).' ՄԲ։');
+                }
+            } else {
+                if ($size > self::MAX_PDF_BYTES) {
+                    $fail('PDF-ը պետք է լինի մինչև 10 ՄԲ։');
+                }
+                if (self::pdfPages($file->getRealPath()) > self::MAX_PDF_PAGES) {
+                    $fail('PDF-ը պետք է լինի մինչև '.self::MAX_PDF_PAGES.' էջ։');
+                }
             }
 
             return ['kind' => AttachmentKind::Pdf, 'mime' => $mime, 'extension' => 'pdf', 'width' => null, 'height' => null];
@@ -179,6 +204,20 @@ class Attachments
             return ['kind' => AttachmentKind::Sheet, 'mime' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'extension' => 'xlsx', 'width' => null, 'height' => null];
         }
 
+        // An RTF is read here too, but as a Word file it can also be filled keeping its look.
+        if (isset(DocumentConverter::TARGETS[$extension]) && ($this->converter->isConfigured() || ! in_array($extension, DocumentReader::EXTENSIONS, true))) {
+            $target = strtoupper(DocumentConverter::TARGETS[$extension]);
+            if (! $this->converter->isConfigured()) {
+                $fail('Այս ձևաչափը հիմա չի կարդացվում։ Բացեք ֆայլը և պահեք որպես '.$target.' կամ PDF, հետո կցեք։');
+            }
+            if ($size > self::MAX_OLD_FORMAT_BYTES) {
+                $fail('Ֆայլը պետք է լինի մինչև '.intdiv(self::MAX_OLD_FORMAT_BYTES, 1024 * 1024).' ՄԲ։');
+            }
+
+            // Opened on upload: it becomes a DOCX, PPTX or XLSX (upload()).
+            return ['kind' => null, 'convert' => $extension, 'mime' => $mime, 'extension' => $extension, 'width' => null, 'height' => null];
+        }
+
         if (in_array($extension, DocumentReader::EXTENSIONS, true)) {
             if ($size > self::MAX_DOCUMENT_BYTES) {
                 $fail('Փաստաթուղթը պետք է լինի մինչև 10 ՄԲ։');
@@ -193,10 +232,6 @@ class Attachments
             }
 
             return ['kind' => AttachmentKind::Document, 'mime' => self::DOCUMENT_MIMES[$extension], 'extension' => $extension, 'width' => null, 'height' => null];
-        }
-
-        if (isset(self::OLD_FORMATS[$extension])) {
-            $fail('Այս հին ձևաչափը չի կարդացվում։ Բացեք ֆայլը և պահեք որպես '.self::OLD_FORMATS[$extension].' կամ PDF, հետո կցեք։');
         }
 
         if (in_array($extension, self::TEXT_EXTENSIONS, true) && (str_starts_with($mime, 'text/') || in_array($mime, ['application/csv', 'application/x-empty'], true))) {
@@ -226,18 +261,45 @@ class Attachments
         }
 
         $info = $this->inspect($file);
-        $path = $this->store($file, 'assistant', $info['extension']);
         $meta = null;
+        $converted = null;
+        if (isset($info['convert'])) {
+            // contract.doc is kept as contract.docx: read and filled like any Word file.
+            $from = $info['convert'];
+            $file = $converted = $this->convert($file, $from);
+            try {
+                $info = $this->inspect($file);
+            } catch (ValidationException $e) {
+                @unlink($converted->getRealPath());
+
+                throw $e;
+            }
+            $meta = ['converted_from' => $from];
+        }
+        $name = self::name($file);
+        $size = (int) $file->getSize();
+        $long = $info['kind'] === AttachmentKind::Pdf && $this->converter->isConfigured()
+            && ($size > self::MAX_PDF_BYTES || self::pdfPages($file->getRealPath()) > self::MAX_PDF_PAGES);
+        try {
+            $path = $this->store($file, 'assistant', $info['extension']);
+        } finally {
+            if ($converted) {
+                @unlink($converted->getRealPath());
+            }
+        }
         if ($info['kind'] === AttachmentKind::Video) {
             [$meta, $info['width'], $info['height']] = $this->probe($path);
+        }
+        if ($long) {
+            $meta = $this->readPdf($path);
         }
 
         return AssistantAttachment::create([
             'user_id' => $user->id,
             'kind' => $info['kind'],
             'mime' => $info['mime'],
-            'name' => self::name($file),
-            'size' => (int) $file->getSize(),
+            'name' => $name,
+            'size' => $size,
             'path' => $path,
             'width' => $info['width'],
             'height' => $info['height'],
@@ -290,6 +352,83 @@ class Attachments
             'audio' => (bool) ($info['audio'] ?? false),
             'frames' => $frames,
         ], (int) ($info['width'] ?? 0) ?: null, (int) ($info['height'] ?? 0) ?: null];
+    }
+
+    /**
+     * An old office file turned into its modern twin by the media service
+     * (a temporary file named like the original: contract.doc → contract.docx).
+     */
+    private function convert(UploadedFile $file, string $from): UploadedFile
+    {
+        try {
+            $content = $this->converter->convert($file->getRealPath(), $from);
+        } catch (RenderFailed $e) {
+            throw ValidationException::withMessages(['file' => [$e->getCode() === 422
+                ? 'Ֆայլը չհաջողվեց բացել։ Բացեք այն և պահեք որպես '.strtoupper(DocumentConverter::TARGETS[$from]).' կամ PDF։'
+                : 'Ֆայլերի ծառայությունը հիմա հասանելի չէ։ Փորձեք մի փոքր ուշ կամ պահեք ֆայլը որպես '.strtoupper(DocumentConverter::TARGETS[$from]).'։']]);
+        }
+
+        $path = tempnam(sys_get_temp_dir(), 'conv');
+        file_put_contents($path, $content);
+        $name = pathinfo(self::name($file), PATHINFO_FILENAME).'.'.DocumentConverter::TARGETS[$from];
+
+        return new UploadedFile($path, $name, null, null, true);
+    }
+
+    /**
+     * A long or heavy PDF, read by the media service: its text kept next to
+     * it, or for a scan (little text) pictures of its first pages.
+     *
+     * @return array{pages: int, text?: string, frames?: list<array{page: int, path: string}>}
+     */
+    private function readPdf(string $path): array
+    {
+        $disk = Storage::disk(self::DISK);
+        $refuse = function (string $message) use ($disk, $path) {
+            $disk->delete($path);
+
+            throw ValidationException::withMessages(['file' => [$message]]);
+        };
+
+        try {
+            $pdf = $this->converter->pdf($disk->path($path));
+            if ($pdf['pages'] > self::MAX_LONG_PDF_PAGES) {
+                $refuse('PDF-ը պետք է լինի մինչև '.self::MAX_LONG_PDF_PAGES.' էջ։');
+            }
+            $text = trim($pdf['text']);
+            $base = preg_replace('/\.\w+$/', '', $path);
+            if (mb_strlen($text) >= self::TEXT_PER_PAGE * max(1, $pdf['pages'])) {
+                $disk->put($base.'-text.txt', $text);
+
+                return ['pages' => $pdf['pages'], 'text' => $base.'-text.txt'];
+            }
+
+            // A scan: its first pages as pictures.
+            $frames = [];
+            foreach ($this->converter->pdf($disk->path($path), self::PDF_PICTURES)['images'] as $i => $image) {
+                $jpg = base64_decode((string) ($image['jpg'] ?? ''), true);
+                if ($jpg === false || $jpg === '' || @getimagesizefromstring($jpg) === false) {
+                    continue;
+                }
+                $file = $base.'-page-'.((int) ($image['page'] ?? $i + 1)).'.jpg';
+                $disk->put($file, $jpg);
+                $frames[] = ['page' => (int) ($image['page'] ?? $i + 1), 'path' => $file];
+            }
+            if ($frames === [] && $text === '') {
+                $refuse('PDF-ը չի կարդացվում։ Փորձեք այլ ֆայլ։');
+            }
+            $meta = ['pages' => $pdf['pages'], 'frames' => $frames];
+            if ($text !== '') {
+                $disk->put($base.'-text.txt', $text);
+                $meta['text'] = $base.'-text.txt';
+            }
+
+            return $meta;
+        } catch (RenderFailed $e) {
+            $refuse($e->getCode() === 422
+                ? 'PDF-ը չի կարդացվում։ Փորձեք այլ ֆայլ։'
+                : 'Ֆայլերի ծառայությունը հիմա հասանելի չէ։ Փորձեք մի փոքր ուշ կամ ուղարկեք մինչև '.self::MAX_PDF_PAGES.' էջ PDF։');
+        }
     }
 
     /** Keeps an uploaded picture for the business's AI agents. */
@@ -392,11 +531,14 @@ class Attachments
      */
     public function blocks(AssistantAttachment $file): array
     {
+        $disk = Storage::disk(self::DISK);
+        if ($file->kind === AttachmentKind::Pdf && isset($file->meta['pages'])) {
+            return $this->longPdf($file);
+        }
         if ($file->kind !== AttachmentKind::Video) {
             return [$this->block($file)];
         }
 
-        $disk = Storage::disk(self::DISK);
         $blocks = [];
         foreach ($file->meta['frames'] ?? [] as $frame) {
             if ($disk->exists($frame['path'])) {
@@ -408,13 +550,55 @@ class Attachments
         return $blocks;
     }
 
-    /** Bytes a file adds to the request (a video: its frames). */
+    /**
+     * A long PDF as the model gets it: its text, or for a scan pictures of
+     * its first pages, each after its number.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function longPdf(AssistantAttachment $file): array
+    {
+        $disk = Storage::disk(self::DISK);
+        $pages = (int) $file->meta['pages'];
+        $frames = array_values(array_filter($file->meta['frames'] ?? [], fn (array $f) => $disk->exists($f['path'])));
+        if ($frames === []) {
+            $text = isset($file->meta['text']) ? (string) $disk->get($file->meta['text']) : '';
+
+            return [['type' => 'document', 'source' => ['type' => 'text', 'media_type' => 'text/plain', 'data' => self::cut($text) ?: '(The PDF has no text.)'], 'title' => $file->name]];
+        }
+
+        $blocks = [];
+        foreach ($frames as $frame) {
+            $blocks[] = ['type' => 'text', 'text' => "[file #{$file->id}] page {$frame['page']}:"];
+            $blocks[] = ['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => 'image/jpeg', 'data' => base64_encode((string) $disk->get($frame['path']))]];
+        }
+        if ($pages > count($frames)) {
+            $blocks[] = ['type' => 'text', 'text' => "[file #{$file->id}]: a scan of {$pages} pages, only the first ".count($frames).' are shown.'];
+        }
+
+        return $blocks;
+    }
+
+    /** The text of a long document within what the model reads of one. */
+    private static function cut(string $text): string
+    {
+        return mb_strlen($text) > DocumentReader::MAX_CHARS
+            ? mb_substr($text, 0, DocumentReader::MAX_CHARS)."\n\n(The document goes on: only its beginning is shown.)"
+            : $text;
+    }
+
+    /** Bytes a file adds to the request (a video or a scan: its pictures; a long PDF: its text). */
     private function weight(AssistantAttachment $file): int
     {
+        $disk = Storage::disk(self::DISK);
+        if ($file->kind === AttachmentKind::Pdf && isset($file->meta['pages'])) {
+            $parts = ($file->meta['frames'] ?? []) !== [] ? array_column($file->meta['frames'], 'path') : [$file->meta['text'] ?? null];
+
+            return array_sum(array_map(fn ($p) => is_string($p) && $disk->exists($p) ? min($disk->size($p), DocumentReader::MAX_CHARS * 4) : 0, $parts));
+        }
         if ($file->kind !== AttachmentKind::Video) {
             return $file->size;
         }
-        $disk = Storage::disk(self::DISK);
 
         return array_sum(array_map(fn (array $f) => $disk->exists($f['path']) ? $disk->size($f['path']) : 0, $file->meta['frames'] ?? []));
     }
@@ -464,6 +648,13 @@ class Attachments
             $details = ', '.($meta['duration'] ?? '?').' s'
                 .($file->width && $file->height ? ", {$file->width}×{$file->height}" : '')
                 .(($meta['audio'] ?? false) ? ', with sound' : ', no sound');
+        }
+
+        if ($file->kind === AttachmentKind::Pdf && isset($file->meta['pages'])) {
+            $details = ", {$file->meta['pages']} pages, ".(($file->meta['frames'] ?? []) !== [] ? 'a scan: pictures of its first pages' : 'read as text');
+        }
+        if (isset($file->meta['converted_from'])) {
+            $details = ', converted from '.strtoupper($file->meta['converted_from']);
         }
 
         return "[file #{$file->id}: {$file->name}, {$file->kind->value}{$details}".($shown ? '' : ', sent earlier, no longer shown').']';

@@ -3,6 +3,7 @@
 namespace App\Agents\Team;
 
 use App\Agents\Agent;
+use App\Assistant\Attachments;
 
 /**
  * The business's documents: reads whatever file the owner sends and says
@@ -35,7 +36,7 @@ class DocumentKeeper extends Agent
 
     public function description(): string
     {
-        return 'Կարդում է ձեր ուղարկած ցանկացած փաստաթուղթ (Word, PDF, ODT, RTF, PowerPoint, Excel) և կարճ ասում՝ ինչի մասին է, որոնք են հիմնական կետերը, ժամկետներն ու ռիսկերը։ Լրացնում է ձեր նմուշները բիզնեսի տվյալներով՝ մեկ աշխատակցի համար կամ միանգամից բոլոր պատվերների համար, պահպանելով նմուշի տեսքը։ Գրում է նոր պայմանագրեր, ակտեր, դիմումներ և նամակներ Word ֆայլով։';
+        return 'Կարդում է ձեր ուղարկած ցանկացած փաստաթուղթ (Word՝ DOC և DOCX, PDF՝ նաև սկանավորված, ODT, RTF, PowerPoint, Excel) և կարճ ասում՝ ինչի մասին է, որոնք են հիմնական կետերը, ժամկետներն ու ռիսկերը։ Լրացնում է ձեր նմուշները բիզնեսի տվյալներով՝ մեկ աշխատակցի համար կամ միանգամից բոլոր պատվերների համար, պահպանելով նմուշի տեսքը։ Գրում է նոր պայմանագրեր, ակտեր, դիմումներ և նամակներ Word ֆայլով։';
     }
 
     public function skills(): array
@@ -51,7 +52,7 @@ class DocumentKeeper extends Agent
 
     public function limitation(): ?string
     {
-        return 'Աննան իրավաբան չէ. կարևոր պայմանագրերը թող ստուգի իրավաբանը։ Հին .doc ֆայլերը պահեք որպես DOCX կամ PDF։';
+        return 'Աննան իրավաբան չէ. կարևոր պայմանագրերը թող ստուգի իրավաբանը։ Սկանավորված երկար PDF-ից նա տեսնում է առաջին '.Attachments::PDF_PICTURES.' էջը։';
     }
 
     public function tools(): array

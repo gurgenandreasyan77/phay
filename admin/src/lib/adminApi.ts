@@ -582,6 +582,8 @@ export type AssistantAttachmentDto = {
   duration?: number | null;
   /** A ZIP's (or a print file's) number of documents. */
   documents?: number | null;
+  /** A long PDF's pages (read as text, or a scan as pictures of its first pages). */
+  pages?: number | null;
 };
 
 /** A video an AI agent cuts from the owner's clips; asked about at /api/admin/assistant/videos/{id} until it is ready. */

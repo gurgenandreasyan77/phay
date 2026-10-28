@@ -73,7 +73,7 @@ services:
       - phay
 
   # Chromium that renders the AI agents' designs (HTML) to PNG and ffmpeg that
-  # cuts their videos: media/server.js, media/video.js. Reached only by the backend on this network, nothing published.
+  # cuts their videos, opens old office files and long PDFs: media/server.js, video.js, documents.js. Reached only by the backend on this network, nothing published.
   media:
     build:
       context: ./media

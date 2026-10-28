@@ -1,6 +1,8 @@
 // Phay media: renders the AI agents' designs (a full HTML page with inline
 // CSS) to PNG for the API (App\Media\HttpRenderer), and cuts the owner's
-// clips into videos with ffmpeg (video.js, App\Media\HttpVideoCutter).
+// clips into videos with ffmpeg (video.js, App\Media\HttpVideoCutter), and
+// opens old office files and PDFs for the agents (documents.js,
+// App\Media\HttpDocumentConverter).
 // Only the API calls it, on the compose network, with MEDIA_TOKEN; no port
 // is published.
 //
@@ -13,6 +15,7 @@ import fs from "node:fs";
 import http from "node:http";
 import puppeteer from "puppeteer-core";
 import { HttpError, probe, saveFile, startVideo, videoFile, videoStatus } from "./video.js";
+import { convert, pdf } from "./documents.js";
 
 const PORT = Number(process.env.PORT || 3100);
 const TOKEN = process.env.MEDIA_TOKEN || "";
@@ -153,6 +156,18 @@ async function handle(request, response) {
 
   if (route === "POST /probe") {
     return send(response, 200, await probe((await json(request)).file));
+  }
+
+  if (route === "POST /convert") {
+    const input = await json(request);
+    const { format, content } = await convert(input.file, input.from);
+    response.writeHead(200, { "Content-Type": "application/octet-stream", "Content-Length": content.length, "X-Format": format });
+    return response.end(content);
+  }
+
+  if (route === "POST /pdf") {
+    const input = await json(request);
+    return send(response, 200, await pdf(input.file, input.images));
   }
 
   if (route === "POST /video") {

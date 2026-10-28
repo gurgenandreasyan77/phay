@@ -72,10 +72,10 @@ class AssistantAttachment extends Model
         return $this->origin === self::DOCUMENT;
     }
 
-    /** The file and the frames kept with it (a video's), for removal. */
+    /** The file and what is kept with it (a video's frames, a long PDF's text and pages), for removal. */
     public function paths(): array
     {
-        return [$this->path, ...array_column($this->meta['frames'] ?? [], 'path')];
+        return array_values(array_filter([$this->path, $this->meta['text'] ?? null, ...array_column($this->meta['frames'] ?? [], 'path')]));
     }
 
     /** @return array<string, mixed> */
@@ -94,6 +94,8 @@ class AssistantAttachment extends Model
             'format' => $this->format,
             // A video's length in seconds.
             'duration' => $this->meta['duration'] ?? null,
+            // A long PDF's pages.
+            'pages' => $this->meta['pages'] ?? null,
             // A ZIP's (or a print file's) number of documents.
             'documents' => $this->meta['documents'] ?? null,
         ];
