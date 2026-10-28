@@ -127,10 +127,11 @@ class AgentTermsTest extends TestCase
             ->json('data');
         [$content, $analyst] = $quote['lines'];
         $this->assertSame('content', $content['agent']);
-        // A month, then 4.5 days by the day (5 × 2900 / 30 = 483.33 → 490).
-        $this->assertSame(2900 + 490, $content['amount']);
-        // A month and 12 hours (one day: 96.67 → 100).
-        $this->assertSame(2900 + 100, $analyst['amount']);
+        // Nov 9 → Dec 13 by calendar days: a month, then 4 days (4 × 2900 / 30 = 386.67 → 390).
+        $this->assertSame(2900 + 390, $content['amount']);
+        $this->assertSame(34, $content['days']);
+        // Nov 13 → Dec 13: a month; the hours to the end of Nov 13 cost nothing.
+        $this->assertSame(2900, $analyst['amount']);
         $this->assertSame($content['to'], $analyst['to']);
         $this->assertSame('2026-12-13T19:59:59+00:00', $content['to']);
         $this->assertSame($content['amount'] + $analyst['amount'], $quote['total']);

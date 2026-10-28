@@ -668,15 +668,77 @@ export type AgentDto = {
   suggestions: string[];
   /** It asks for the brand profile before its first piece of work. */
   needsBrand: boolean;
-  /** On the business's team. */
+  /** Works now: on the business's team and within its own term. */
   active: boolean;
+  /** On the team, even if its term ended (it waits to be paid for). */
+  onTeam?: boolean;
   activatedAt: string | null;
   /** AMD a month. */
   price: number;
-  /** Its price is inside the business's plan. */
+  /** Its price is inside the business's plan (or the subscription is unlimited): it never ends. */
   included: boolean;
+  /** Its own term: trial, paid until, ended. */
+  term?: AgentTermDto;
   /** What it was told to remember about the business. */
   notes: string | null;
+};
+
+export type AgentTermStatus = "off" | "trial" | "active" | "expired" | "included";
+
+/** Where one AI agent's own term stands: each agent has its trial and its paid months. */
+export type AgentTermDto = {
+  status: AgentTermStatus;
+  /** When it ends; null: never (included) or never had a term. */
+  endsAt: string | null;
+  daysLeft: number | null;
+  /** The days its ring counts down from: the trial's, a month, or more when paid ahead. */
+  span: number;
+  /** Ends within the warning days (3 by default). */
+  ending: boolean;
+  /** Its free trial (7 days) can still be started: given once per agent. */
+  trialAvailable: boolean;
+  /** How long a trial lasts (7). */
+  trialDays: number;
+  trialEndsAt: string | null;
+  paidUntil: string | null;
+  price: number;
+};
+
+/** One agent of a payment: its end moves from `from` to `to`. */
+export type AgentPaymentLineDto = { agent: string; label?: string; price?: number; from: string; to: string; days: number; amount: number };
+
+/** What paying for some agents would cost: months each, or all to one common day. */
+export type AgentQuoteDto = { until: string | null; months: number; lines: AgentPaymentLineDto[]; total: number };
+
+/** Months of agents paid for: asked by the owner (requested) until the super admin records the money (paid). */
+export type AgentPaymentDto = {
+  id: number;
+  status: "requested" | "paid";
+  amount: number;
+  until: string | null;
+  months: number;
+  lines: AgentPaymentLineDto[];
+  note: string | null;
+  requestedBy: string | null;
+  recordedBy: string | null;
+  paidAt: string | null;
+  createdAt: string | null;
+};
+
+export type AgentBillingAgentDto = AgentTermDto & {
+  key: string;
+  persona: { hy: string; ru: string; en: string };
+  role: { hy: string; ru: string; en: string };
+  label: string;
+};
+
+/** Every AI agent on its own term, the open request to pay for some and the recorded payments. */
+export type AgentBillingDto = {
+  agents: AgentBillingAgentDto[];
+  request: AgentPaymentDto | null;
+  payments: AgentPaymentDto[];
+  /** The business's own subscription's end: a common day the owner may pick. */
+  subscriptionEndsAt: string | null;
 };
 
 export type BrandColorDto = { hex: string; name: string | null };
@@ -942,8 +1004,8 @@ export type SubscriptionDto = {
   daysLeft: number | null;
   ending: boolean;
   warnDays: number;
-  /** AMD a month: the plan plus the modules on that it doesn't include. */
-  pricing: { plan: number; modules: SubscriptionModulePriceDto[]; total: number };
+  /** AMD a month: the plan plus the modules on that it doesn't include; `agents`: the agents on the team, each paid on its own term. */
+  pricing: { plan: number; modules: SubscriptionModulePriceDto[]; total: number; agents?: number };
 };
 
 export type SubscriptionPaymentDto = {
@@ -980,6 +1042,7 @@ export type BusinessSubscriptionDto = {
   /** This subscription month's AI assistant requests. */
   assistant: AssistantUsageDto;
   payments: SubscriptionPaymentDto[];
+  agentBilling?: AgentBillingDto;
   plans: { id: number; name: string; description: string | null; price: number; assistantRequests: number | null; includedModules: string[] }[];
 };
 
@@ -996,6 +1059,7 @@ export type TenantSubscriptionDetailDto = {
   subscription: SubscriptionDto;
   payments: SubscriptionPaymentDto[];
   assistant: AssistantUsageDto & { bonuses: AssistantBonusDto[] };
+  agentBilling?: AgentBillingDto;
   plans: { id: number; name: string; price: number; isActive: boolean; assistantRequests: number | null }[];
 };
 

@@ -60,10 +60,12 @@ export function subscriptionLine(subscription: Pick<SubscriptionDto, "status" | 
   return `${lead} ${formatDay(endsAt)} (${daysLeftLabel(daysLeft)})`;
 }
 
-/** The monthly price split: the plan, then each module on that is paid for. */
+/** The monthly price split: the plan, then each module on that is paid for; the AI agents (paid apart) below. */
 export function PriceBreakdown({ subscription }: { subscription: SubscriptionDto }) {
-  const paid = subscription.pricing.modules.filter((m) => m.active && !m.included);
+  // AI agents are paid for on their own terms: shown apart, not in the month's total.
+  const paid = subscription.pricing.modules.filter((m) => m.active && !m.included && m.kind !== "agent");
   const included = subscription.pricing.modules.filter((m) => m.active && m.included);
+  const agents = subscription.pricing.agents ?? 0;
 
   return (
     <dl className="space-y-2 text-sm">
@@ -87,6 +89,12 @@ export function PriceBreakdown({ subscription }: { subscription: SubscriptionDto
         <dt className="font-medium text-ink">Ընդամենը ամսական</dt>
         <dd className="text-base font-semibold text-ink">{amd(subscription.pricing.total)}</dd>
       </div>
+      {agents > 0 ? (
+        <div className="flex justify-between gap-4 text-xs">
+          <dt className="text-ink-muted">AI աշխատակիցներ՝ յուրաքանչյուրն իր ժամկետով</dt>
+          <dd className="text-ink-muted">{amd(agents)}/ամիս</dd>
+        </div>
+      ) : null}
     </dl>
   );
 }

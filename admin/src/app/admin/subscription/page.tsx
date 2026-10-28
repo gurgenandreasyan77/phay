@@ -3,9 +3,8 @@ import { getSubscription } from "@/lib/adminApi";
 import { can, isPlatformStaff } from "@/lib/roles";
 import type { CSSProperties } from "react";
 import { Badge, Card, EmptyCard, EmptyRow, PageHeader, SectionCard, TableWrap, Td, Th, Thead, Tr } from "@/ui";
-import Link from "next/link";
 import { PriceBreakdown, StatusBadge, amd, formatDay, subscriptionLine } from "../_components/subscription/shared";
-import { AgentAvatar } from "../_components/agents/AgentAvatar";
+import { AgentTeamBilling } from "../_components/agents/AgentTeamBilling";
 import { DaysRing } from "./DaysRing";
 import { ModuleCard } from "./ModuleCard";
 import { PremiumTeaser } from "./PremiumTeaser";
@@ -17,12 +16,15 @@ export const dynamic = "force-dynamic";
 /**
  * The business's subscription: where it stands, what it pays a month (its
  * plan plus the modules it has on), what premium will add, the modules it
- * can turn on and its payments. Open even after the
+ * can turn on, its AI agents each on its own term (trial, paid months, one
+ * common billing day) and its payments. Open even after the
  * subscription ended: the owner asks to renew from here, in the chat.
  */
-export default async function SubscriptionPage() {
+export default async function SubscriptionPage({ searchParams }: { searchParams: Promise<{ agent?: string }> }) {
   const admin = await requireAdmin({ allowLocked: true });
   const data = await getSubscription();
+  // From an agent's card on the team page: open paying for it.
+  const agentParam = (await searchParams).agent ?? null;
 
   if (!data) {
     return (
@@ -41,8 +43,6 @@ export default async function SubscriptionPage() {
   const upgrades = plans.filter((plan) => plan.id !== subscription.plan?.id && plan.price > currentPrice);
   // Modules a business can have: on already, priced by the platform, or inside a plan.
   const modules = subscription.pricing.modules.filter((m) => m.kind !== "agent" && (m.active || m.price > 0 || m.included));
-  // AI agents are billed like modules but shown as the team they are.
-  const agents = subscription.pricing.modules.filter((m) => m.kind === "agent");
 
   return (
     <div className="space-y-8">
@@ -118,68 +118,7 @@ export default async function SubscriptionPage() {
         </div>
       ) : null}
 
-      {agents.length > 0 ? (
-        <div id="agents" className="scroll-mt-20">
-          <SectionCard
-            title="AI աշխատակիցներ"
-            description="Վիրտուալ թիմ, որը սովորում է ձեր բիզնեսը. նրանց գինը կավելանա ամսական վճարին, եթե ներառված չեն փաթեթում։"
-            actions={
-              <Link href="/admin/employees?tab=agents" className="text-sm font-medium text-primary hover:underline">
-                Ծանոթանալ թիմին
-              </Link>
-            }
-          >
-            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {agents.map((agent) => {
-                const key = agent.key.replace(/^agent:/, "");
-                return (
-                  <li key={agent.key} className="flex items-center gap-3 rounded-lg border border-border p-3">
-                    <AgentAvatar agentKey={key} size={52} active={agent.active} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-ink">{agent.label.replace(/^AI · /, "")}</p>
-                      <p className="text-xs text-ink-muted">
-                        {agent.included ? "Ներառված է փաթեթում" : `${amd(agent.price)} / ամիս`}
-                      </p>
-                    </div>
-                    {agent.active ? (
-                      <Badge tone="success">Թիմում է</Badge>
-                    ) : canAsk ? (
-                      <RequestButton
-                        body={{ kind: "agent", agent: key }}
-                        label="Ավելացնել"
-                        confirm={{
-                          title: `Ավելացնե՞լ «${agent.label.replace(/^AI · /, "")}» AI աշխատակցին ձեր թիմին`,
-                          description: agent.included
-                            ? "Հայտը կուղարկվի Phay-ի թիմին։ Այս աշխատակիցը ներառված է ձեր փաթեթում, ամսական վճարը չի փոխվի։"
-                            : "Հայտը կուղարկվի Phay-ի թիմին։ Միացնելուց հետո նրա գինը կավելանա ամսական վճարին։",
-                          details: agent.included
-                            ? [
-                                {
-                                  label: "Ամսական վճար",
-                                  value: amd(subscription.pricing.total),
-                                },
-                              ]
-                            : [
-                                {
-                                  label: "Գինը",
-                                  value: `+ ${amd(agent.price)}/ամիս`,
-                                },
-                                {
-                                  label: "Նոր ամսական վճարը",
-                                  value: amd(subscription.pricing.total + agent.price),
-                                },
-                              ],
-                          confirmLabel: "Ուղարկել հայտը",
-                        }}
-                      />
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          </SectionCard>
-        </div>
-      ) : null}
+      {data.agentBilling ? <AgentTeamBilling billing={data.agentBilling} canAsk={canAsk} openAgent={agentParam} /> : null}
 
       {plans.length > 1 ? (
         <SectionCard title="Փաթեթներ">

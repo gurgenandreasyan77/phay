@@ -70,7 +70,7 @@ class AgentTerms
      * status off (not on the team), trial, active (paid), expired or
      * included; until when, the days left and the days the ring counts from.
      *
-     * @return array{status: string, endsAt: string|null, daysLeft: int|null, span: int, ending: bool, trialAvailable: bool, trialEndsAt: string|null, paidUntil: string|null, price: int}
+     * @return array{status: string, endsAt: string|null, daysLeft: int|null, span: int, ending: bool, trialAvailable: bool, trialDays: int, trialEndsAt: string|null, paidUntil: string|null, price: int}
      */
     public function term(Subscription $subscription, Agent $agent, ?TenantAgent $row, int $price): array
     {
@@ -97,6 +97,7 @@ class AgentTerms
             'ending' => $running && $left !== null && $left <= $this->warnDays(),
             // The trial is given once: never on the team before.
             'trialAvailable' => ! $included && $row?->trial_ends_at === null && $row?->paid_until === null,
+            'trialDays' => $this->trialDays(),
             'trialEndsAt' => $row?->trial_ends_at?->toIso8601String(),
             'paidUntil' => $row?->paid_until?->toIso8601String(),
             'price' => $price,
@@ -210,6 +211,10 @@ class AgentTerms
 
             $to = ($until ?? $from)->copy()->addMonthsNoOverflow($months);
             $price = $this->price($agent, $prices);
+            // Priced by the business's calendar days: moving an end later the same day costs nothing.
+            $zone = $tenant->timezone ?: config('app.timezone');
+            $firstDay = $from->copy()->setTimezone($zone)->startOfDay();
+            $lastDay = $to->copy()->setTimezone($zone)->startOfDay();
 
             $lines[] = [
                 'agent' => $agent->key(),
@@ -217,8 +222,8 @@ class AgentTerms
                 'price' => $price,
                 'from' => $from->toIso8601String(),
                 'to' => $to->toIso8601String(),
-                'days' => (int) ceil($from->diffInSeconds($to) / 86400),
-                'amount' => self::amount($price, $from, $to),
+                'days' => (int) $firstDay->diffInDays($lastDay),
+                'amount' => self::amount($price, $firstDay, $lastDay),
             ];
         }
 
