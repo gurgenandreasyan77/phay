@@ -12,12 +12,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
   // Added to the iPhone home screen it opens full screen, named Phay.
   appleWebApp: { capable: true, title: "Phay", statusBarStyle: "default" },
-  // The home-screen icon on iPhone and iPad: the colour Lagoon mark on white (iOS rounds it itself); ?v= makes phones fetch it anew.
+  // The home-screen icon on iPhone and iPad: the colour Lagoon mark on white (iOS rounds it itself).
+  // New file names, not just ?v=, because Safari keeps touch icons per URL past clearing its data;
+  // app/icon.svg|png and favicon.ico are the same mark, so whichever icon iOS picks is the logo.
   icons: {
     apple: [
-      { url: "/apple-touch-icon.png?v=3", sizes: "180x180", type: "image/png" },
-      { url: "/icons/apple-touch-icon-167.png?v=3", sizes: "167x167", type: "image/png" },
-      { url: "/icons/apple-touch-icon-152.png?v=3", sizes: "152x152", type: "image/png" },
+      { url: "/icons/phay-apple-180.png?v=4", sizes: "180x180", type: "image/png" },
+      { url: "/icons/phay-apple-167.png?v=4", sizes: "167x167", type: "image/png" },
+      { url: "/icons/phay-apple-152.png?v=4", sizes: "152x152", type: "image/png" },
     ],
   },
   formatDetection: { telephone: false },

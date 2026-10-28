@@ -21,16 +21,16 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#ffffff",
     categories: ["business", "productivity"],
     icons: [
-      { src: "/icons/phay-192.png?v=3", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icons/phay-512.png?v=3", sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: "/icons/phay-maskable-192.png?v=3", sizes: "192x192", type: "image/png", purpose: "maskable" },
-      { src: "/icons/phay-maskable-512.png?v=3", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/icons/phay-192.png?v=4", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/icons/phay-512.png?v=4", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/icons/phay-maskable-192.png?v=4", sizes: "192x192", type: "image/png", purpose: "maskable" },
+      { src: "/icons/phay-maskable-512.png?v=4", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
     shortcuts: [
-      { name: "Վահանակ", url: "/admin", icons: [{ src: "/icons/phay-192.png?v=3", sizes: "192x192" }] },
-      { name: "Պատվերներ", url: "/admin/orders", icons: [{ src: "/icons/phay-192.png?v=3", sizes: "192x192" }] },
-      { name: "AI օգնական", url: "/admin/assistant", icons: [{ src: "/icons/phay-192.png?v=3", sizes: "192x192" }] },
-      { name: "Գրել Phay-ին", url: "/admin/support", icons: [{ src: "/icons/phay-192.png?v=3", sizes: "192x192" }] },
+      { name: "Վահանակ", url: "/admin", icons: [{ src: "/icons/phay-192.png?v=4", sizes: "192x192" }] },
+      { name: "Պատվերներ", url: "/admin/orders", icons: [{ src: "/icons/phay-192.png?v=4", sizes: "192x192" }] },
+      { name: "AI օգնական", url: "/admin/assistant", icons: [{ src: "/icons/phay-192.png?v=4", sizes: "192x192" }] },
+      { name: "Գրել Phay-ին", url: "/admin/support", icons: [{ src: "/icons/phay-192.png?v=4", sizes: "192x192" }] },
     ],
   };
 }
